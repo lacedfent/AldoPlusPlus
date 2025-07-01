@@ -93,14 +93,14 @@ public class InvMove extends Module {
             reset();
         }
 
-        KeyBinding.setKeyBindState(mc.gameSettings.keyBindForward.getKeyCode(), isBindDown(mc.gameSettings.keyBindForward));
-        KeyBinding.setKeyBindState(mc.gameSettings.keyBindBack.getKeyCode(), isBindDown(mc.gameSettings.keyBindBack));
-        KeyBinding.setKeyBindState(mc.gameSettings.keyBindRight.getKeyCode(), isBindDown(mc.gameSettings.keyBindRight));
-        KeyBinding.setKeyBindState(mc.gameSettings.keyBindLeft.getKeyCode(), isBindDown(mc.gameSettings.keyBindLeft));
+        KeyBinding.setKeyBindState(mc.gameSettings.keyBindForward.getKeyCode(), Utils.isBindDown(mc.gameSettings.keyBindForward));
+        KeyBinding.setKeyBindState(mc.gameSettings.keyBindBack.getKeyCode(), Utils.isBindDown(mc.gameSettings.keyBindBack));
+        KeyBinding.setKeyBindState(mc.gameSettings.keyBindRight.getKeyCode(), Utils.isBindDown(mc.gameSettings.keyBindRight));
+        KeyBinding.setKeyBindState(mc.gameSettings.keyBindLeft.getKeyCode(), Utils.isBindDown(mc.gameSettings.keyBindLeft));
         KeyBinding.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), Utils.jumpDown());
-        KeyBinding.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), isBindDown(mc.gameSettings.keyBindSprint));
+        KeyBinding.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), Utils.isBindDown(mc.gameSettings.keyBindSprint));
         boolean foodLvlMet = (float)mc.thePlayer.getFoodStats().getFoodLevel() > 6.0F || mc.thePlayer.capabilities.allowFlying; // from mc
-        if (((isBindDown(mc.gameSettings.keyBindSprint) || ModuleManager.sprint.isEnabled()) && mc.thePlayer.movementInput.moveForward >= 0.8F && foodLvlMet && !mc.thePlayer.isSprinting()) && allowSprinting.isToggled()) {
+        if (((Utils.isBindDown(mc.gameSettings.keyBindSprint) || ModuleManager.sprint.isEnabled()) && mc.thePlayer.movementInput.moveForward >= 0.8F && foodLvlMet && !mc.thePlayer.isSprinting()) && allowSprinting.isToggled()) {
             mc.thePlayer.setSprinting(true);
         }
         if (!allowSprinting.isToggled()) {
@@ -191,14 +191,5 @@ public class InvMove extends Module {
             }
         }
         blinkedPackets.clear();
-    }
-
-    private boolean isBindDown(KeyBinding keyBinding) {
-        try {
-            return Keyboard.isKeyDown(keyBinding.getKeyCode());
-        }
-        catch (IndexOutOfBoundsException e) {
-            return Mouse.isButtonDown(100 + keyBinding.getKeyCode());
-        }
     }
 }

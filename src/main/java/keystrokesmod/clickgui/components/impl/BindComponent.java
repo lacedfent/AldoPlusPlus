@@ -14,20 +14,20 @@ import org.lwjgl.opengl.GL11;
 public class BindComponent extends Component {
     public boolean isBinding;
     public ModuleComponent moduleComponent;
-    public int o;
-    public int x;
-    private int y;
+    public float o;
+    public float x;
+    private float y;
     public KeySetting keySetting;
-    public int xOffset;
+    public float xOffset;
 
-    public BindComponent(ModuleComponent moduleComponent, int o) {
+    public BindComponent(ModuleComponent moduleComponent, float o) {
         this.moduleComponent = moduleComponent;
         this.x = moduleComponent.categoryComponent.getX() + moduleComponent.categoryComponent.getWidth();
         this.y = moduleComponent.categoryComponent.getY() + moduleComponent.yPos;
         this.o = o;
     }
 
-    public BindComponent(ModuleComponent moduleComponent, KeySetting keySetting, int o) {
+    public BindComponent(ModuleComponent moduleComponent, KeySetting keySetting, float o) {
         this.moduleComponent = moduleComponent;
         this.x = moduleComponent.categoryComponent.getX() + moduleComponent.categoryComponent.getWidth();
         this.y = moduleComponent.categoryComponent.getY() + moduleComponent.yPos;
@@ -35,7 +35,7 @@ public class BindComponent extends Component {
         this.o = o;
     }
 
-    public void updateHeight(int n) {
+    public void updateHeight(float n) {
         this.o = n;
     }
 
@@ -57,14 +57,14 @@ public class BindComponent extends Component {
     }
 
     public boolean onClick(int x, int y, int button) {
-        if (this.overSetting(x, y) && this.moduleComponent.isOpened && this.moduleComponent.mod.canBeEnabled() && this.visible && (this.keySetting == null || this.keySetting.visible)) {
+        if (this.overSetting(x, y) && this.moduleComponent.isOpened && this.moduleComponent.mod.canBeEnabled() && this.moduleComponent.isVisible(this)) {
             if (button == 0) {
                 this.isBinding = !this.isBinding;
             }
             else if (button == 1 && this.moduleComponent.mod.moduleCategory() != Module.category.profiles && this.keySetting == null) {
                 this.moduleComponent.mod.setHidden(!this.moduleComponent.mod.isHidden());
                 if (Raven.currentProfile != null) {
-                    ((ProfileModule) Raven.currentProfile.getModule()).saved = false;
+                    Raven.currentProfile.getModule().saved = false;
                 }
             }
             else if (button > 1) {
@@ -76,7 +76,7 @@ public class BindComponent extends Component {
                         this.moduleComponent.mod.setBind(button + 1000);
                     }
                     if (Raven.currentProfile != null) {
-                        ((ProfileModule) Raven.currentProfile.getModule()).saved = false;
+                        Raven.currentProfile.getModule().saved = false;
                     }
                     this.isBinding = false;
                 }
@@ -94,7 +94,7 @@ public class BindComponent extends Component {
                 this.moduleComponent.mod.setBind(scroll > 0 ? 1069 : 1070); // might cause issues if your mouse has more than 69 buttons for some reason???
             }
             if (Raven.currentProfile != null) {
-                ((ProfileModule) Raven.currentProfile.getModule()).saved = false;
+                Raven.currentProfile.getModule().saved = false;
             }
             this.isBinding = false;
         }
@@ -115,12 +115,12 @@ public class BindComponent extends Component {
                     }
                 }
                 if (Raven.currentProfile != null) {
-                    ((ProfileModule) Raven.currentProfile.getModule()).saved = false;
+                    Raven.currentProfile.getModule().saved = false;
                 }
             }
             else {
                 if (Raven.currentProfile != null) {
-                    ((ProfileModule) Raven.currentProfile.getModule()).saved = false;
+                    Raven.currentProfile.getModule().saved = false;
                 }
                 if (this.keySetting != null) {
                     this.keySetting.setKey(keybind);

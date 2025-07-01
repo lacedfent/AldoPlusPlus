@@ -28,6 +28,7 @@
     "client.MixinPlayerControllerMP",
     "world.MixinBlock",
     "render.MixinRenderPlayer",
+    "client.MixinGameSettings",
 
     "accessor.IAccessorEntityPlayerSP",
     "accessor.IAccessorEntityArrow",
@@ -43,6 +44,7 @@
     "accessor.IAccessorGuiScreen",
     "accessor.IAccessorS14PacketEntity",
     "accessor.IAccessorRenderManager",
-    "accessor.IAccessorNetworkManager"
+    "accessor.IAccessorNetworkManager",
+    "accessor.IAccessorEntity"
   ]
 }

@@ -25,10 +25,10 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class Blink extends Module {
     private ButtonSetting initialPosition;
-    private ConcurrentLinkedQueue<Packet> blinkedPackets = new ConcurrentLinkedQueue<>();
+    private ConcurrentLinkedQueue<Packet<?>> blinkedPackets = new ConcurrentLinkedQueue<>();
 
     private Vec3 pos;
-    private int color = new Color(0, 255, 0).getRGB();
+    private int color = new Color(0, 255, 0, 120).getRGB();
     private int blinkTicks;
 
     public Blink() {

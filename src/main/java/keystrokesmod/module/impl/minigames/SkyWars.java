@@ -37,11 +37,15 @@ public class SkyWars extends Module {
     private Map<Vec3, Long> timeWarpPositions = new LinkedHashMap<>(); // position when thrown, time when thrown
     public List<Integer> spawnedMobs = new ArrayList<>(); // entity id
 
-    private final int strengthColor = new Color(255, 0, 0).getRGB();
-    private final int timeWarpColor = new Color(210, 0, 255, 64).getRGB();
+    private final int STRENGTH_COLOR = new Color(255, 0, 0).getRGB();
+    private final int TIME_WARP_COLOR = new Color(210, 0, 255, 64).getRGB();
 
-    private String[] killMessages = new String[] {" by ", " to ", " with ", " of ", " from ", " knight ", " for "};
+    private String[] KILL_MESSAGES = new String[] {" by ", " to ", " with ", " of ", " from ", " knight ", " for "};
     private boolean thrownPearl;
+
+    /**
+     * A global variable used to determine if the current skywars game you are in is a teams mode or not
+     */
     public static boolean isSkyWarsTeams = false;
 
     public SkyWars() {
@@ -53,7 +57,7 @@ public class SkyWars extends Module {
 
     @Override
     public void onDisable() {
-        clear();
+        this.clear();
     }
 
     @SubscribeEvent
@@ -96,7 +100,7 @@ public class SkyWars extends Module {
             if (getCustomMode() == 2) { // lab, then no
                 return;
             }
-            if (stripped.endsWith(".") && Arrays.stream(killMessages).anyMatch(stripped::contains)) {
+            if (stripped.endsWith(".") && Arrays.stream(KILL_MESSAGES).anyMatch(stripped::contains)) {
                 String[] parts = stripped.split(" ");
                 for (String part : parts) {
                     if (!part.endsWith(".")) {
@@ -125,7 +129,7 @@ public class SkyWars extends Module {
                 if (AntiBot.isBot(entityPlayer)) {
                     continue;
                 }
-                RenderUtils.renderEntity(entityPlayer, 2, 0, 0, strengthColor, false);
+                RenderUtils.renderEntity(entityPlayer, 2, 0, 0, STRENGTH_COLOR, false);
             }
         }
         if (renderTimeWarp.isToggled()) {
@@ -141,7 +145,7 @@ public class SkyWars extends Module {
                     iterator.remove();
                 }
                 else {
-                    RenderUtils.drawPlayerBoundingBox(position, timeWarpColor);
+                    RenderUtils.drawPlayerBoundingBox(position, TIME_WARP_COLOR);
                 }
             }
         }

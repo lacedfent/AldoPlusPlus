@@ -53,10 +53,6 @@ public class PacketsHandler {
             C07.sentCurrentTick.set(true);
         }
         else if (packet instanceof C0APacketAnimation) {
-            if (C07.sentCurrentTick.get()) {
-                e.setCanceled(true);
-                return;
-            }
             C0A.sentCurrentTick.set(true);
         }
         else if (packet instanceof C09PacketHeldItemChange && handleSlots) {

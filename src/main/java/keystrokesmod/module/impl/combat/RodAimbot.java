@@ -102,7 +102,7 @@ public class RodAimbot extends Module {
                 if (AntiBot.isBot(entityPlayer)) {
                     continue;
                 }
-                if (ignoreTeammates.isToggled() && Utils.isTeamMate(entityPlayer)) {
+                if (ignoreTeammates.isToggled() && Utils.isTeammate(entityPlayer)) {
                     continue;
                 }
                 return entityPlayer;

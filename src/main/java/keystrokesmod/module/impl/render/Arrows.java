@@ -73,7 +73,7 @@ public class Arrows extends Module {
         }
         int color = -1;
 
-        if (Utils.isTeamMate(en) && hideTeammates.isToggled()) {
+        if (Utils.isTeammate(en) && hideTeammates.isToggled()) {
             return;
         }
         if (renderFriends.isToggled() && Utils.isFriended(en)) {

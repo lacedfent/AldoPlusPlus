@@ -166,7 +166,7 @@ public class Nametags extends Module {
             if (showHitsToKill.isToggled()) {
                 name = name + " " + Utils.getHitsToKillStr(en, mc.thePlayer.getCurrentEquippedItem());
             }
-            if (showDistance.isToggled()) {
+            if (showDistance.isToggled() && en != mc.thePlayer) {
                 int distance = Math.round(mc.thePlayer.getDistanceToEntity(en));
                 String color = "§";
                 if (distance < 8) {

@@ -3,15 +3,18 @@ package keystrokesmod.utility;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.gson.JsonObject;
+import keystrokesmod.helper.MouseHelper;
 import keystrokesmod.mixin.impl.accessor.IAccessorGuiIngame;
 import keystrokesmod.mixin.impl.accessor.IAccessorItemFood;
 import keystrokesmod.mixin.impl.accessor.IAccessorMinecraft;
+import keystrokesmod.mixin.impl.accessor.IAccessorPlayerControllerMP;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.ModuleManager;
 import keystrokesmod.module.impl.client.Settings;
 import keystrokesmod.module.impl.combat.AutoClicker;
 import keystrokesmod.module.impl.minigames.DuelsStats;
 import keystrokesmod.module.impl.player.Freecam;
+import keystrokesmod.module.impl.world.AntiBot;
 import keystrokesmod.module.setting.impl.SliderSetting;
 import net.minecraft.block.*;
 import net.minecraft.client.Minecraft;
@@ -20,6 +23,7 @@ import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.inventory.GuiInventory;
 import net.minecraft.client.network.NetworkPlayerInfo;
 import net.minecraft.client.renderer.ActiveRenderInfo;
+import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.enchantment.Enchantment;
 import net.minecraft.enchantment.EnchantmentHelper;
 import net.minecraft.entity.Entity;
@@ -147,6 +151,96 @@ public class Utils {
         return new Vec3(finalCameraX, finalCameraY, finalCameraZ);
     }
 
+    public static void printInfo(EntityLivingBase ent) {
+        if (ent == null) {
+            return;
+        }
+        Utils.sendMessage("&7&m-------------------------");
+        Utils.sendMessage("&eattacking: &r" + ent.getName());
+        Utils.sendMessage("&7type: &b" + ent.getClass().getSimpleName());
+        Utils.sendMessage("&7bot: &r" + (ModuleManager.antiBot.isEnabled() ? AntiBot.isBot(ent) : "&cantibot disabled"));
+        boolean isPlayer = ent instanceof EntityPlayer;
+        Utils.sendMessage("&7player: &r" + isPlayer);
+        Utils.sendMessage("&7dist eye: &d" + round(getDistanceToEye(ent), 2));
+        Utils.sendMessage("&7min dist: &d" + round(Math.sqrt(raycastDistanceSq(ent, 12.0, false)), 2));
+        IChatComponent displayName = ent.getDisplayName();
+        boolean hasDisplayName = displayName != null;
+        if (isPlayer) {
+            EntityPlayer p = (EntityPlayer)ent;
+            UUID uuid = p.getUniqueID();
+            Utils.sendMessage("&7uuid: &d" + uuid.toString() + " &b" + uuid.variant() + " " + uuid.version());
+            NetworkPlayerInfo clientPlayer = mc.getNetHandler().getPlayerInfo(p.getUniqueID());
+            Utils.sendMessage("&7ping: &d" + ((clientPlayer == null) ? "&cnot found" : clientPlayer.getResponseTime()));
+            Utils.sendMessage("&7teammate: &r" + isTeammate(p));
+            Utils.sendMessage("&7tablist: &r" + isInTabList(p));
+            if (p.getTeam() != null) {
+                ScorePlayerTeam scoreTeam = (ScorePlayerTeam)p.getTeam();
+                Utils.sendMessage("&7team name: &r" + scoreTeam.getTeamName());
+                Utils.sendMessage("&7team prefix: &r" + scoreTeam.getColorPrefix());
+                Utils.sendMessage("&7team suffix: &r" + scoreTeam.getColorSuffix());
+            }
+        }
+        Utils.sendMessage("&7display unformatted: &r" + (hasDisplayName ? displayName.getUnformattedText() : "&cnull"));
+        Utils.sendMessage("&7insertion: &r" + (hasDisplayName ? displayName.getChatStyle().getInsertion() : "&cnull"));
+        Utils.sendMessage("&7health: &r" + ent.getHealth());
+        Utils.sendMessage("&7ht: &d" + ent.hurtTime + " &7mht: &d" + ent.maxHurtTime);
+        Utils.sendMessage("&7ticks existed: &r" + ent.ticksExisted);
+        Utils.sendMessage("&7invisible: &r" + ent.isInvisible());
+        Utils.sendMessage("&7dead: &r" + ent.isDead);
+    }
+
+    public static double raycastDistanceSq(Entity en, double max_reach, boolean calc_rot) {
+        Vec3 eyeVec = mc.thePlayer.getPositionEyes(1.0f);
+        float yaw;
+        float pitch;
+        if (calc_rot) {
+            float[] rot = RotationUtils.getRotations(en);
+            yaw = rot[0];
+            pitch = rot[1];
+        }
+        else {
+            yaw = mc.thePlayer.rotationYaw;
+            pitch = mc.thePlayer.rotationPitch;
+        }
+        float ff = MathHelper.cos(-yaw * 0.017453292f - 3.1415927f);
+        float ff2 = MathHelper.sin(-yaw * 0.017453292f - 3.1415927f);
+        float ff3 = -MathHelper.cos(-pitch * 0.017453292f);
+        float ff4 = MathHelper.sin(-pitch * 0.017453292f);
+        Vec3 lookVec = new Vec3((double)(ff2 * ff3), (double)ff4, (double)(ff * ff3));
+        double lookVecX = lookVec.xCoord * max_reach;
+        double lookVecY = lookVec.yCoord * max_reach;
+        double lookVecZ = lookVec.zCoord * max_reach;
+        Vec3 sumVec = eyeVec.addVector(lookVecX, lookVecY, lookVecZ);
+        List list = mc.theWorld.getEntitiesWithinAABBExcludingEntity(mc.getRenderViewEntity(), mc.getRenderViewEntity().getEntityBoundingBox().addCoord(lookVecX, lookVecY, lookVecZ).expand(1.0, 1.0, 1.0));
+        for (int i = 0; i < list.size(); ++i) {
+            Entity entity = (Entity)list.get(i);
+            if (entity == en) {
+                if (entity.canBeCollidedWith()) {
+                    float cbs = entity.getCollisionBorderSize();
+                    AxisAlignedBB axis = entity.getEntityBoundingBox().expand((double)cbs, (double)cbs, (double)cbs);
+                    MovingObjectPosition mop = axis.calculateIntercept(eyeVec, sumVec);
+                    if (mop != null) {
+                        return eyeVec.squareDistanceTo(mop.hitVec);
+                    }
+                }
+            }
+        }
+        return -1.0;
+    }
+
+    public static double getDistanceToEye(Entity en) {
+        return mc.thePlayer.getPositionEyes(1.0f).distanceTo(en.getPositionEyes(1.0f));
+    }
+
+    public static boolean isInTabList(EntityPlayer p) {
+        for (NetworkPlayerInfo playerInfo : mc.getNetHandler().getPlayerInfoMap()) {
+            if (playerInfo.getGameProfile().equals(p.getGameProfile())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public static String getServerName() {
         return DuelsStats.nick.isEmpty() ? mc.thePlayer.getName() : DuelsStats.nick;
     }
@@ -271,13 +365,20 @@ public class Utils {
         return false;
     }
 
+    public static boolean holdingFireball() {
+        if (mc.thePlayer.getHeldItem() == null) {
+            return false;
+        }
+        return mc.thePlayer.getHeldItem().getItem() instanceof ItemFireball;
+    }
+
     public static boolean canSeeVec(Vec3 vecPlayer, Vec3 vecTarget) {
         MovingObjectPosition mop = mc.theWorld.rayTraceBlocks(vecPlayer, vecTarget, false, false, false);
         return mop == null || mop.typeOfHit != MovingObjectPosition.MovingObjectType.BLOCK;
     }
 
     public static List<NetworkPlayerInfo> getTablist(boolean removeSelf) {
-        final ArrayList<NetworkPlayerInfo> list = new ArrayList<>(mc.getNetHandler().getPlayerInfoMap());
+        ArrayList<NetworkPlayerInfo> list = new ArrayList<>(mc.getNetHandler().getPlayerInfoMap());
         removeDuplicates(list);
         if (removeSelf) {
             list.remove(mc.getNetHandler().getPlayerInfo(mc.thePlayer.getUniqueID()));
@@ -402,6 +503,13 @@ public class Utils {
         }
     }
 
+    public static void sendMessageStr(String txt) {
+        if (nullCheck()) {
+            String m = formatColor("&7[&dR&7]&r " + txt);
+            mc.thePlayer.addChatMessage(new ChatComponentText(m));
+        }
+    }
+
     public static void sendMessage(Object object) {
         String toString = String.valueOf(object);
         sendMessage(toString);
@@ -429,16 +537,25 @@ public class Utils {
         }
     }
 
-    public static float getCompleteHealth(EntityLivingBase entity) {
+    public static float getTotalHealth(EntityLivingBase entity) {
         return entity.getHealth() + entity.getAbsorptionAmount();
     }
 
     public static String getHealthStr(EntityLivingBase entity, boolean accountDead) {
-        float completeHealth = getCompleteHealth(entity);
+        float completeHealth = getTotalHealth(entity);
         if (accountDead && entity.isDead) {
             completeHealth = 0;
         }
         return getColorForHealth(entity.getHealth() / entity.getMaxHealth(), completeHealth);
+    }
+
+    public static boolean isBindDown(KeyBinding keyBinding) {
+        try {
+            return Keyboard.isKeyDown(keyBinding.getKeyCode());
+        }
+        catch (IndexOutOfBoundsException e) {
+            return Mouse.isButtonDown(100 + keyBinding.getKeyCode());
+        }
     }
 
     public static int getTool(Block block) {
@@ -597,7 +714,7 @@ public class Utils {
         totalEPF = 0.04 * Math.min(Math.ceil(Math.min(totalEPF, 25.0) * 0.75), 20.0);
         final double armorReduction = armorProtPercentage + totalEPF * (1.0 - armorProtPercentage);
         final double damage = heldItemDamageLevel * (1.0 - armorReduction);
-        final double hitsToKill = getCompleteHealth(target) / damage;
+        final double hitsToKill = getTotalHealth(target) / damage;
         return round(hitsToKill, 1);
     }
 
@@ -655,7 +772,7 @@ public class Utils {
         return darkenedColor;
     }
 
-    public static boolean isTeamMate(Entity entity) {
+    public static boolean isTeammate(Entity entity) {
         try {
             Entity teamMate = entity;
             if (mc.thePlayer.isOnSameTeam((EntityLivingBase) entity) || mc.thePlayer.getDisplayName().getUnformattedText().startsWith(teamMate.getDisplayName().getUnformattedText().substring(0, 2)) || getNetworkDisplayName().startsWith(teamMate.getDisplayName().getUnformattedText().substring(0, 2))) {
@@ -813,13 +930,13 @@ public class Utils {
         return mc.thePlayer.moveForward != 0.0F || mc.thePlayer.moveStrafing != 0.0F;
     }
 
-    public static void aim(Entity en, float ps, boolean pc) {
+    public static void aim(Entity en, float offset, boolean sendPacket) {
         if (en != null) {
             float[] t = getRotationsOld(en);
             if (t != null) {
                 float y = t[0];
-                float p = t[1] + 4.0F + ps;
-                if (pc) {
+                float p = t[1] + 4.0F + offset;
+                if (sendPacket) {
                     mc.getNetHandler().addToSendQueue(new C05PacketPlayerLook(y, p, mc.thePlayer.onGround));
                 }
                 else {
@@ -853,8 +970,8 @@ public class Utils {
         }
     }
 
-    public static double n(Entity en) {
-        return ((double) (mc.thePlayer.rotationYaw - getYaw(en)) % 360.0D + 540.0D) % 360.0D - 180.0D;
+    public static double aimDifference(Entity en, boolean useServerYaw) {
+        return ((double) ((useServerYaw ? RotationUtils.serverRotations[0] : mc.thePlayer.rotationYaw) - getYaw(en)) % 360.0D + 540.0D) % 360.0D - 180.0D;
     }
 
     public static float getYaw(Entity ent) {
@@ -864,10 +981,53 @@ public class Utils {
         return (float) (yaw * -1.0D);
     }
 
-    public static void ss(double s, boolean m) {
-        if (!m || isMoving()) {
-            mc.thePlayer.motionX = -Math.sin(gd()) * s;
-            mc.thePlayer.motionZ = Math.cos(gd()) * s;
+    public static void switchSlot(final int slot, final boolean instant) {
+        mc.thePlayer.inventory.currentItem = slot;
+        if (instant) {
+            ((IAccessorPlayerControllerMP) mc.playerController).syncCurrentPlayItem();
+        }
+    }
+
+    public static MovingObjectPosition getTarget(final double reach) {
+        return getTarget(reach, mc.thePlayer.rotationYaw, mc.thePlayer.rotationPitch);
+    }
+
+    public static MovingObjectPosition getTarget(final double reach, final float yaw, final float pitch) {
+        Vec3 eyeVec = mc.thePlayer.getPositionEyes(1.0f);
+        float y = -yaw * 0.017453292f;
+        float p = -pitch * 0.017453292f;
+        float f = MathHelper.cos(y - 3.1415927f);
+        float f2 = MathHelper.sin(y - 3.1415927f);
+        float f3 = -MathHelper.cos(p);
+        float f4 = MathHelper.sin(p);
+        Vec3 lookVec = new Vec3(f2 * f3, f4, f * f3);
+        Vec3 sumVec = eyeVec.addVector(lookVec.xCoord * reach, lookVec.yCoord * reach, lookVec.zCoord * reach);
+        return mc.theWorld.rayTraceBlocks(eyeVec, sumVec, false, false, false);
+    }
+
+    public static boolean isPossibleToReach(BlockPos pos, double reach) {
+        final float[] rot = RotationUtils.getRotations(pos);
+        final Vec3 eyeVec = mc.thePlayer.getPositionEyes(1.0f);
+        final float y = -rot[0] * 0.017453292f;
+        final float p = -rot[1] * 0.017453292f;
+        final float f = MathHelper.cos(y - 3.1415927f);
+        final float f2 = MathHelper.sin(y - 3.1415927f);
+        final float f3 = -MathHelper.cos(p);
+        final float f4 = MathHelper.sin(p);
+        final Vec3 lookVec = new Vec3(f2 * f3, f4, f * f3);
+        final Vec3 sumVec = eyeVec.addVector(lookVec.xCoord * reach, lookVec.yCoord * reach, lookVec.zCoord * reach);
+        final AxisAlignedBB axis = BlockUtils.getBlock(pos).getCollisionBoundingBox(mc.theWorld, pos, BlockUtils.getBlockState(pos));
+        if (axis == null) {
+            return false;
+        }
+        final MovingObjectPosition mop = axis.calculateIntercept(eyeVec, sumVec);
+        return mop != null;
+    }
+
+    public static void setSpeed(double val, boolean checkMoving) {
+        if (!checkMoving || isMoving()) {
+            mc.thePlayer.motionX = -Math.sin(gd()) * val;
+            mc.thePlayer.motionZ = Math.cos(gd()) * val;
         }
     }
 
@@ -1091,13 +1251,8 @@ public class Utils {
             return Mouse.isButtonDown(0);
         }
         else {
-            return CPSCalculator.f() > 1 && System.currentTimeMillis() - CPSCalculator.LL < 300L;
+            return MouseHelper.f() > 1 && System.currentTimeMillis() - MouseHelper.LL < 300L;
         }
-    }
-
-    public static boolean isEdgeOfBlock(final double posX, final double posY, final double posZ) {
-        BlockPos pos = new BlockPos(posX, posY - ((posY % 1.0 == 0.0) ? 1 : 0), posZ);
-        return mc.theWorld.isAirBlock(pos);
     }
 
     public static boolean isEdgeOfBlock() {
@@ -1173,21 +1328,21 @@ public class Utils {
         return Color.getHSBColor((float) (time % (15000L / speed)) / (15000.0F / (float) speed), 1.0F, 1.0F).getRGB();
     }
 
-    public static double round(double n, int d) {
-        if (d == 0) {
-            return (double) Math.round(n);
+    public static double round(double val, int decimalPlaces) {
+        if (decimalPlaces == 0) {
+            return (double) Math.round(val);
         }
         else {
-            double p = Math.pow(10.0D, (double) d);
-            return (double) Math.round(n * p) / p;
+            double p = Math.pow(10.0D, decimalPlaces);
+            return (double) Math.round(val * p) / p;
         }
     }
 
-    public static String stripColor(final String s) {
-        if (s.isEmpty()) {
-            return s;
+    public static String stripColor(String string) {
+        if (string.isEmpty()) {
+            return string;
         }
-        final char[] array = StringUtils.stripControlCodes(s).toCharArray();
+        final char[] array = StringUtils.stripControlCodes(string).toCharArray();
         final StringBuilder sb = new StringBuilder();
         for (final char c : array) {
             if (c < '\u007f' && c > '\u0014') {
@@ -1208,7 +1363,7 @@ public class Utils {
         }
     }
 
-    public static List<String> gsl() {
+    public static List<String> getScoreBoardOld() {
         List<String> lines = new ArrayList();
         if (mc.theWorld == null) {
             return lines;
@@ -1253,12 +1408,11 @@ public class Utils {
         }
     }
 
-    public static void rsa() {
-        EntityPlayerSP p = mc.thePlayer;
-        int armSwingEnd = p.isPotionActive(Potion.digSpeed) ? 6 - (1 + p.getActivePotionEffect(Potion.digSpeed).getAmplifier()) : (p.isPotionActive(Potion.digSlowdown) ? 6 + (1 + p.getActivePotionEffect(Potion.digSlowdown).getAmplifier()) * 2 : 6);
-        if (!p.isSwingInProgress || p.swingProgressInt >= armSwingEnd / 2 || p.swingProgressInt < 0) {
-            p.swingProgressInt = -1;
-            p.isSwingInProgress = true;
+    public static void setSwinging() {
+        int armSwingEnd = mc.thePlayer.isPotionActive(Potion.digSpeed) ? 6 - (1 + mc.thePlayer.getActivePotionEffect(Potion.digSpeed).getAmplifier()) : (mc.thePlayer.isPotionActive(Potion.digSlowdown) ? 6 + (1 + mc.thePlayer.getActivePotionEffect(Potion.digSlowdown).getAmplifier()) * 2 : 6);
+        if (!mc.thePlayer.isSwingInProgress || mc.thePlayer.swingProgressInt >= armSwingEnd / 2 || mc.thePlayer.swingProgressInt < 0) {
+            mc.thePlayer.swingProgressInt = -1;
+            mc.thePlayer.isSwingInProgress = true;
         }
 
     }
@@ -1309,12 +1463,38 @@ public class Utils {
         return baseDamage + sharp_level * 1.25 + (fire_level * 4 - 1);
     }
 
+    public static float getDirection() {
+        return getCustomDirection(mc.thePlayer.rotationYaw, mc.thePlayer.movementInput.moveForward, mc.thePlayer.movementInput.moveStrafe);
+    }
+
+    public static boolean isUserMoving() {
+        return mc.thePlayer.movementInput.moveForward != 0.0f || mc.thePlayer.movementInput.moveStrafe != 0.0f;
+    }
+
+    public static float getCustomDirection(float yaw, final float moveForward, final float moveStrafe) {
+        float forward = 1.0f;
+        if (moveForward < 0.0f) {
+            yaw += 180.0f;
+            forward = -0.5f;
+        }
+        else if (moveForward > 0.0f) {
+            forward = 0.5f;
+        }
+        if (moveStrafe > 0.0f) {
+            yaw -= 90.0f * forward;
+        }
+        else if (moveStrafe < 0.0f) {
+            yaw += 90.0f * forward;
+        }
+        return yaw * 0.017453292f;
+    }
+
     public static boolean canBePlaced(ItemBlock itemBlock) {
         Block block = itemBlock.getBlock();
         if (block == null) {
             return false;
         }
-        if (BlockUtils.isInteractable(block) || block instanceof BlockWeb || block instanceof BlockSapling || block instanceof BlockDaylightDetector || block instanceof BlockBeacon || block instanceof BlockBanner || block instanceof BlockEndPortalFrame || block instanceof BlockEndPortal || block instanceof BlockLever || block instanceof BlockButton || block instanceof BlockSkull || block instanceof BlockLiquid || block instanceof BlockCactus || block instanceof BlockDoublePlant || block instanceof BlockLilyPad || block instanceof BlockCarpet || block instanceof BlockTripWire || block instanceof BlockTripWireHook || block instanceof BlockTallGrass || block instanceof BlockFlower || block instanceof BlockFlowerPot || block instanceof BlockSign || block instanceof BlockLadder || block instanceof BlockTorch || block instanceof BlockRedstoneTorch || block instanceof BlockStairs || block instanceof BlockSlab || block instanceof BlockFence || block instanceof BlockPane || block instanceof BlockStainedGlassPane || block instanceof BlockGravel || block instanceof BlockClay || block instanceof BlockSand || block instanceof BlockSoulSand || block instanceof BlockRailBase) {
+        if (BlockUtils.isInteractable(block) || block instanceof BlockSnow || block instanceof BlockWeb || block instanceof BlockSapling || block instanceof BlockDaylightDetector || block instanceof BlockBeacon || block instanceof BlockBanner || block instanceof BlockEndPortalFrame || block instanceof BlockEndPortal || block instanceof BlockLever || block instanceof BlockButton || block instanceof BlockSkull || block instanceof BlockLiquid || block instanceof BlockCactus || block instanceof BlockDoublePlant || block instanceof BlockLilyPad || block instanceof BlockCarpet || block instanceof BlockTripWire || block instanceof BlockTripWireHook || block instanceof BlockTallGrass || block instanceof BlockFlower || block instanceof BlockFlowerPot || block instanceof BlockSign || block instanceof BlockLadder || block instanceof BlockTorch || block instanceof BlockRedstoneTorch || block instanceof BlockStairs || block instanceof BlockSlab || block instanceof BlockFence || block instanceof BlockPane || block instanceof BlockStainedGlassPane || block instanceof BlockGravel || block instanceof BlockClay || block instanceof BlockSand || block instanceof BlockSoulSand || block instanceof BlockRailBase) {
             return false;
         }
         return true;

@@ -7,6 +7,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.enchantment.Enchantment;
 import net.minecraft.enchantment.EnchantmentHelper;
 import net.minecraft.init.Blocks;
+import net.minecraft.item.EnumDyeColor;
 import net.minecraft.item.ItemStack;
 import net.minecraft.potion.Potion;
 import net.minecraft.util.BlockPos;
@@ -22,6 +23,23 @@ public class BlockUtils {
 
     public static boolean notFull(Block block) {
         return block instanceof BlockFenceGate || block instanceof BlockLadder || block instanceof BlockFlowerPot || block instanceof BlockBasePressurePlate || isFluid(block) || block instanceof BlockFence || block instanceof BlockAnvil || block instanceof BlockEnchantmentTable || block instanceof BlockChest;
+    }
+
+    public static boolean isNormalBlock(final Block block) {
+        return block == Blocks.glass || (block.isFullBlock() && block != Blocks.gravel && block != Blocks.sand && block != Blocks.soul_sand && block != Blocks.tnt && block != Blocks.crafting_table && block != Blocks.furnace && block != Blocks.dispenser && block != Blocks.dropper && block != Blocks.noteblock && block != Blocks.command_block);
+    }
+
+
+    public static BlockPos pos(final double x, final double y, final double z) {
+        return new BlockPos(x, y, z);
+    }
+
+    public static boolean isBlockPosEqual(final BlockPos pos1, final BlockPos pos2) {
+        return pos1 == pos2 || (pos1.getX() == pos2.getX() && pos1.getY() == pos2.getY() && pos1.getZ() == pos2.getZ());
+    }
+
+    public static BlockPos offsetPos(MovingObjectPosition mop) {
+        return mop.getBlockPos().offset(mop.sideHit);
     }
 
     public static boolean isFluid(Block block) {
@@ -40,13 +58,6 @@ public class BlockUtils {
             return isInteractable(BlockUtils.getBlock(mv.getBlockPos()));
         }
         return false;
-    }
-
-    public static Vec3 getHitVec(Vec3 hitVec, BlockPos blockPos) {
-        float x = (float)(hitVec.xCoord - blockPos.getX());
-        float y = (float)(hitVec.yCoord - blockPos.getY());
-        float z = (float)(hitVec.zCoord - blockPos.getZ());
-        return new Vec3(x, y, z);
     }
 
     public static float getBlockHardness(final Block block, final ItemStack itemStack, boolean ignoreSlow, boolean ignoreGround) {
@@ -122,5 +133,47 @@ public class BlockUtils {
             return true;
         }
         return getBlock(blockPos).isReplaceable(mc.theWorld, blockPos);
+    }
+
+    public static boolean canSeeVecBlock(final BlockPos pos, final Vec3 vecPlayer, final Vec3 vecBlockPoint) {
+        final MovingObjectPosition mop = mc.theWorld.rayTraceBlocks(vecPlayer, vecBlockPoint, false, false, false);
+        if (mop == null) {
+            return true;
+        }
+        if (mop.typeOfHit == MovingObjectPosition.MovingObjectType.BLOCK) {
+            final BlockPos mopPos = mop.getBlockPos();
+            if (mopPos.getX() == pos.getX() && mopPos.getY() == pos.getY() && mopPos.getZ() == pos.getZ()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static boolean canBlockBeSeen(final BlockPos pos) {
+        final Vec3 vecPlayer = new Vec3(mc.thePlayer.posX, mc.thePlayer.posY + mc.thePlayer.getEyeHeight(), mc.thePlayer.posZ);
+        for (double offsetY = 0.0; offsetY <= 0.5; offsetY += 0.5) {
+            final double y = pos.getY() + offsetY;
+            Vec3 vecBlockPoint = new Vec3(pos.getX() + 1, y, pos.getZ() + 0.5);
+            if (canSeeVecBlock(pos, vecPlayer, vecBlockPoint)) {
+                return true;
+            }
+            vecBlockPoint = new Vec3(pos.getX(), y, pos.getZ() + 0.5);
+            if (canSeeVecBlock(pos, vecPlayer, vecBlockPoint)) {
+                return true;
+            }
+            vecBlockPoint = new Vec3(pos.getX() + 0.5, y, (double)(pos.getZ() + 1));
+            if (canSeeVecBlock(pos, vecPlayer, vecBlockPoint)) {
+                return true;
+            }
+            vecBlockPoint = new Vec3(pos.getX() + 0.5, y, (double)pos.getZ());
+            if (canSeeVecBlock(pos, vecPlayer, vecBlockPoint)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static EnumDyeColor getWoolColor(final IBlockState state) {
+        return (EnumDyeColor)state.getProperties().get(BlockColored.COLOR);
     }
 }

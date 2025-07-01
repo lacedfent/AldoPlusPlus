@@ -18,6 +18,7 @@ import java.util.Map;
 
 public class MobESP extends Module {
     private ButtonSetting healthBar;
+    private ButtonSetting shaded;
     private ButtonSetting blaze, creeper, enderman, ghast, silverfish, skeleton, slime, spider, zombie, zombiePigman;
 
     private final Map<Class<? extends EntityLivingBase>, MobSetting> mobRenders = new HashMap<>();
@@ -25,6 +26,7 @@ public class MobESP extends Module {
     public MobESP() {
         super("MobESP", category.render);
         this.registerSetting(healthBar = new ButtonSetting("Health bar", false));
+        this.registerSetting(shaded = new ButtonSetting("Shaded", false));
         this.registerSetting(blaze = new ButtonSetting("Blaze §6Orange", true));
         this.registerSetting(creeper = new ButtonSetting("Creeper §aGreen", true));
         this.registerSetting(enderman = new ButtonSetting("Enderman §7Black", true));
@@ -50,7 +52,9 @@ public class MobESP extends Module {
     }
 
     private void renderMob(EntityLivingBase entity, double height, int rgb, float partialTicks) {
-        RenderUtils.renderEntity(entity, 2, 0.0, 0.0, rgb, false);
+        if (shaded.isToggled()) {
+            RenderUtils.renderEntity(entity, 2, 0.0, 0.0, rgb, false);
+        }
         if (healthBar.isToggled()) {
             drawHealthBar(entity, height, partialTicks);
         }

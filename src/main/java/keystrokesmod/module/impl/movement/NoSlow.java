@@ -9,11 +9,16 @@ import keystrokesmod.module.setting.impl.DescriptionSetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
 import keystrokesmod.utility.BlockUtils;
 import keystrokesmod.utility.Utils;
+import net.minecraft.init.Items;
 import net.minecraft.item.*;
-import net.minecraft.network.play.client.C08PacketPlayerBlockPlacement;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
+import net.minecraft.nbt.NBTTagString;
+import net.minecraft.network.play.client.*;
 import net.minecraft.util.BlockPos;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import org.lwjgl.input.Mouse;
+
 
 public class NoSlow extends Module {
     public static SliderSetting mode;
@@ -22,6 +27,7 @@ public class NoSlow extends Module {
     public static ButtonSetting disablePotions;
     public static ButtonSetting swordOnly;
     public static ButtonSetting vanillaSword;
+    public ButtonSetting preventStepping;
 
     private String[] modes = new String[] { "Vanilla", "Pre", "Post", "Alpha", "Float" };
 
@@ -29,6 +35,7 @@ public class NoSlow extends Module {
     private boolean canFloat;
     private boolean reSendConsume;
     public boolean noSlowing;
+    private boolean setJump;
 
     public NoSlow() {
         super("NoSlow", category.movement, 0);
@@ -39,12 +46,20 @@ public class NoSlow extends Module {
         this.registerSetting(disablePotions = new ButtonSetting("Disable potions", false));
         this.registerSetting(swordOnly = new ButtonSetting("Sword only", false));
         this.registerSetting(vanillaSword = new ButtonSetting("Vanilla sword", false));
+        this.registerSetting(preventStepping = new ButtonSetting("Prevent stepping", false));
     }
 
     @Override
     public void onDisable() {
         resetFloat();
         noSlowing = false;
+    }
+
+    @SubscribeEvent
+    public void onStepHeightEvent(StepHeightEvent e) {
+        if (e.entity == mc.thePlayer && this.canFloat && preventStepping.isToggled()) {
+            e.stepHeight = 0.f;
+        }
     }
 
     public void onUpdate() {
@@ -76,7 +91,7 @@ public class NoSlow extends Module {
             case 4:
                 if (reSendConsume) {
                     if (mc.thePlayer.onGround) {
-                        mc.thePlayer.jump();
+                        setJump = true;
                         break;
                     }
                     if (!mc.thePlayer.onGround) {
@@ -136,9 +151,7 @@ public class NoSlow extends Module {
                 canFloat = true;
             }
             else {
-                if (mc.thePlayer.onGround) {
-                    mc.thePlayer.jump();
-                }
+                setJump = true;
                 reSendConsume = true;
                 canFloat = false;
                 e.setCanceled(true);
@@ -147,9 +160,10 @@ public class NoSlow extends Module {
     }
 
     @SubscribeEvent
-    public void onJump(JumpEvent e) {
-        if (reSendConsume) {
-            e.setSprint(false);
+    public void onPostPlayerInput(PostPlayerInputEvent e) {
+        if (setJump) {
+            mc.thePlayer.movementInput.jump = true;
+            setJump = false;
         }
     }
 
@@ -180,11 +194,12 @@ public class NoSlow extends Module {
     private void resetFloat() {
         reSendConsume = false;
         canFloat = false;
+        setJump = false;
     }
 
     private boolean holdingUsable(ItemStack itemStack) {
         Item heldItem = itemStack.getItem();
-        if (heldItem instanceof ItemFood || (heldItem instanceof ItemBow && Utils.hasArrows(itemStack)) || (heldItem instanceof ItemPotion && !ItemPotion.isSplash(mc.thePlayer.getHeldItem().getItemDamage())) || (heldItem instanceof ItemSword && !vanillaSword.isToggled())) {
+        if (heldItem instanceof ItemFood || heldItem instanceof ItemBucketMilk || (heldItem instanceof ItemBow && Utils.hasArrows(itemStack)) || (heldItem instanceof ItemPotion && !ItemPotion.isSplash(mc.thePlayer.getHeldItem().getItemDamage())) || (heldItem instanceof ItemSword && !vanillaSword.isToggled())) {
             return true;
         }
         return false;

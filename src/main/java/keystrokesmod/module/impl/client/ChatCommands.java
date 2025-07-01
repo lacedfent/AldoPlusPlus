@@ -5,7 +5,9 @@ import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.DescriptionSetting;
 
 public class ChatCommands extends Module {
+
     public ButtonSetting lowercase;
+
     public ChatCommands() {
         super("Chat Commands", category.client);
         this.registerSetting(new DescriptionSetting("Use §o§e.help§r for help."));
@@ -15,4 +17,5 @@ public class ChatCommands extends Module {
     public boolean lowercase() {
         return this.lowercase != null && this.lowercase.isToggled();
     }
+
 }

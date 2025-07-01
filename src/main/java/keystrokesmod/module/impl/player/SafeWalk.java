@@ -16,11 +16,11 @@ import org.lwjgl.input.Keyboard;
 public class SafeWalk extends Module {
     private SliderSetting sneakDelay;
     private SliderSetting motion;
-    private ButtonSetting sneak;
+    public ButtonSetting sneak;
     public static ButtonSetting blocksOnly, pitchCheck, disableOnForward;
 
     private int unsneakDelayTicks = 0;
-    private boolean isSneaking;
+    public boolean isSneaking;
 
     public SafeWalk() {
         super("SafeWalk", Module.category.player, 0);
@@ -98,11 +98,14 @@ public class SafeWalk extends Module {
             return;
         }
 
-        if (!sneakState && Keyboard.isKeyDown(mc.gameSettings.keyBindSneak.getKeyCode())) {
+        if (!sneakState && Utils.isBindDown(mc.gameSettings.keyBindSneak)) {
             return;
         }
 
         KeyBinding.setKeyBindState(mc.gameSettings.keyBindSneak.getKeyCode(), sneakState);
+        if (sneakState) {
+            KeyBinding.onTick(mc.gameSettings.keyBindSneak.getKeyCode());
+        }
         this.isSneaking = sneakState;
     }
 

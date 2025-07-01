@@ -10,7 +10,7 @@ import net.minecraftforge.fml.common.gameevent.TickEvent;
 import org.apache.commons.lang3.RandomUtils;
 
 public class Fly extends Module {
-    private SliderSetting mode;
+    public SliderSetting mode;
     public static SliderSetting horizontalSpeed;
     private SliderSetting verticalSpeed;
     private ButtonSetting showBPS;

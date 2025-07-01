@@ -6,6 +6,7 @@ import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.DescriptionSetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
 import keystrokesmod.utility.Utils;
+import net.minecraft.network.Packet;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
 import java.util.List;
@@ -14,8 +15,12 @@ public class LatencyAlerts extends Module {
     private SliderSetting interval;
     private SliderSetting highLatency;
     private ButtonSetting ignoreLimbo;
-    private long lastPacket;
-    private long lastAlert;
+
+    private long lastPacketTime = 0L;
+    private long lastAlert = 0L;
+
+    private Packet<?> lastPacket = null;
+
     public LatencyAlerts() {
         super("Latency Alerts", category.other);
         this.registerSetting(new DescriptionSetting("Detects packet loss."));
@@ -27,29 +32,32 @@ public class LatencyAlerts extends Module {
 
     @SubscribeEvent
     public void onPacketReceive(ReceivePacketEvent e) {
-        lastPacket = System.currentTimeMillis();
+        this.lastPacketTime = System.currentTimeMillis();
+        this.lastPacket = e.getPacket();
     }
 
     public void onUpdate() {
-        if (mc.isSingleplayer() || (ignoreLimbo.isToggled() && inLimbo())) {
-            lastPacket = System.currentTimeMillis();
-            lastAlert = System.currentTimeMillis();
+        if (mc.isSingleplayer() || (this.ignoreLimbo.isToggled() && inLimbo())) {
+            this.lastPacketTime = System.currentTimeMillis();
+            this.lastAlert = System.currentTimeMillis();
             return;
         }
         long currentMs = System.currentTimeMillis();
-        if (currentMs - lastPacket >= highLatency.getInput() * 1000 && currentMs - lastAlert >= interval.getInput() * 1000) {
-            Utils.sendMessage("&7Packet loss detected: " + "§c" + Math.abs(System.currentTimeMillis() - lastPacket) + "&7ms");
-            lastAlert = System.currentTimeMillis();
+        if (currentMs - this.lastPacketTime >= this.highLatency.getInput() * 1000 && currentMs - this.lastAlert >= this.interval.getInput() * 1000) {
+            String msSinceLastPacket = String.valueOf(Math.abs(System.currentTimeMillis() - this.lastPacketTime));
+            Utils.sendMessage("&7Packet loss detected: &c" + msSinceLastPacket + "&7ms");
+            this.lastAlert = System.currentTimeMillis();
         }
     }
 
     public void onDisable() {
-        lastPacket = 0;
-        lastAlert = 0;
+        this.lastPacketTime = 0;
+        this.lastAlert = 0;
+        this.lastPacket = null;
     }
 
     public void onEnable() {
-        lastPacket = System.currentTimeMillis();
+        this.lastPacketTime = System.currentTimeMillis();
     }
 
     public boolean inLimbo() {
@@ -61,4 +69,5 @@ public class LatencyAlerts extends Module {
         }
         return false;
     }
+
 }

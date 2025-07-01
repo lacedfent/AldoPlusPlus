@@ -246,7 +246,8 @@ public class RenderUtils {
                     net.minecraft.client.gui.Gui.drawRect(21, 0, 25, 74, color);
                     net.minecraft.client.gui.Gui.drawRect(-21, 0, 24, 4, color);
                     net.minecraft.client.gui.Gui.drawRect(-21, 71, 25, 74, color);
-                } else {
+                }
+                else {
                     int st = Utils.getChroma(2L, 0L);
                     int en = Utils.getChroma(2L, 1000L);
                     dGR(-21, 0, -25, 74, st, en);
@@ -261,17 +262,17 @@ public class RenderUtils {
                 int i;
                 if (type == 4) {
                     EntityLivingBase en = (EntityLivingBase) e;
-                    double r = en.getHealth() / en.getMaxHealth();
-                    int b = (int) (74.0D * r);
-                    int hc = r < 0.3D ? Color.red.getRGB() : (r < 0.5D ? Color.orange.getRGB() : (r < 0.7D ? Color.yellow.getRGB() : Color.green.getRGB()));
+                    double health = en.getHealth() / en.getMaxHealth();
+                    int barHeight = (int) (74.0D * health);
+                    int healthColor = health < 0.3D ? Color.red.getRGB() : (health < 0.5D ? Color.orange.getRGB() : (health < 0.7D ? Color.yellow.getRGB() : Color.green.getRGB()));
                     GL11.glTranslated(x, y - 0.2D, z);
                     GL11.glRotated(-mc.getRenderManager().playerViewY, 0.0D, 1.0D, 0.0D);
                     GlStateManager.disableDepth();
                     GL11.glScalef(0.03F + d, 0.03F + d, 0.03F + d);
                     i = (int) (21 + shift * 2);
                     net.minecraft.client.gui.Gui.drawRect(i, -1, i + 4, 75, Color.black.getRGB());
-                    net.minecraft.client.gui.Gui.drawRect(i + 1, b, i + 3, 74, Color.darkGray.getRGB());
-                    net.minecraft.client.gui.Gui.drawRect(i + 1, 0, i + 3, b, hc);
+                    net.minecraft.client.gui.Gui.drawRect(i + 1, barHeight, i + 3, 74, Color.darkGray.getRGB());
+                    net.minecraft.client.gui.Gui.drawRect(i + 1, 0, i + 3, barHeight, healthColor);
                     GlStateManager.enableDepth();
                 }
                 else if (type == 6) {

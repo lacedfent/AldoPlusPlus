@@ -92,7 +92,6 @@ public class FakeLag extends Module {
                 }
                 for (Packet packet2 : entry2.getValue()) {
                     PacketUtils.sendPacketNoEvent(packet2);
-                    mc.getNetHandler();
                 }
                 it.remove();
             }

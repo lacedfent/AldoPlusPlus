@@ -223,7 +223,7 @@ public class Module {
             this.enable();
         }
         if (Raven.currentProfile != null) {
-            ((ProfileModule) Raven.currentProfile.getModule()).saved = false;
+            Raven.currentProfile.getModule().saved = false;
         }
     }
 

@@ -1,6 +1,6 @@
 package keystrokesmod.module.impl.player;
 
-import keystrokesmod.event.PreMotionEvent;
+import keystrokesmod.event.ClientRotationEvent;
 import keystrokesmod.event.PreUpdateEvent;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.ModuleManager;
@@ -27,8 +27,11 @@ public class AntiFireball extends Module {
     private ButtonSetting blocksRotate;
     private ButtonSetting projectileRotate;
     public ButtonSetting silentSwing;
+
     public EntityFireball fireball;
+
     private HashSet<Entity> fireballs = new HashSet<>();
+
     public boolean attack;
 
     public AntiFireball() {
@@ -43,7 +46,7 @@ public class AntiFireball extends Module {
     }
 
     @SubscribeEvent(priority = EventPriority.LOW)
-    public void onPreMotion(PreMotionEvent e) {
+    public void onClientRotation(ClientRotationEvent e) {
         if (!condition() || stopAttack()) {
             return;
         }
@@ -58,7 +61,7 @@ public class AntiFireball extends Module {
             if (ModuleManager.scaffold != null && ModuleManager.scaffold.stopRotation()) {
                 return;
             }
-            float[] rotations = RotationUtils.getRotations(fireball, e.getYaw(), e.getPitch());
+            float[] rotations = RotationUtils.getRotations(fireball, RotationUtils.prevRenderYaw, RotationUtils.prevRenderPitch);
             e.setYaw(rotations[0]);
             e.setPitch(rotations[1]);
         }

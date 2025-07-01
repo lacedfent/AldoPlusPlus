@@ -6,6 +6,10 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import keystrokesmod.event.PostProfileLoadEvent;
 import keystrokesmod.event.PostSetSliderEvent;
+import keystrokesmod.helper.DebugHelper;
+import keystrokesmod.helper.MouseHelper;
+import keystrokesmod.helper.RotationHelper;
+import keystrokesmod.helper.PingHelper;
 import keystrokesmod.keystroke.KeySrokeRenderer;
 import keystrokesmod.keystroke.KeyStrokeConfigGui;
 import keystrokesmod.keystroke.keystrokeCommand;
@@ -14,8 +18,8 @@ import keystrokesmod.clickgui.ClickGui;
 import keystrokesmod.module.ModuleManager;
 import keystrokesmod.script.ScriptDefaults;
 import keystrokesmod.script.ScriptManager;
-import keystrokesmod.script.classes.Entity;
-import keystrokesmod.script.classes.NetworkPlayer;
+import keystrokesmod.script.model.Entity;
+import keystrokesmod.script.model.NetworkPlayer;
 import keystrokesmod.utility.*;
 import keystrokesmod.utility.command.CommandManager;
 import keystrokesmod.utility.profile.Profile;
@@ -58,14 +62,14 @@ public class Raven {
         Runtime.getRuntime().addShutdownHook(new Thread(cachedExecutor::shutdown));
         ClientCommandHandler.instance.registerCommand(new keystrokeCommand());
         MinecraftForge.EVENT_BUS.register(this);
-        MinecraftForge.EVENT_BUS.register(new Debugger());
-        MinecraftForge.EVENT_BUS.register(new CPSCalculator());
-        MinecraftForge.EVENT_BUS.register(new MovementFix(this.mc));
+        MinecraftForge.EVENT_BUS.register(new DebugHelper());
+        MinecraftForge.EVENT_BUS.register(new MouseHelper());
+        MinecraftForge.EVENT_BUS.register(RotationHelper.get());
         MinecraftForge.EVENT_BUS.register(new KeySrokeRenderer());
-        MinecraftForge.EVENT_BUS.register(new Ping());
+        MinecraftForge.EVENT_BUS.register(new PingHelper());
         MinecraftForge.EVENT_BUS.register(packetsHandler = new PacketsHandler());
-        MinecraftForge.EVENT_BUS.register(new ModHelper(this.mc));
-        Reflection.getFields();
+        MinecraftForge.EVENT_BUS.register(new ModuleUtils(this.mc));
+        ReflectionUtils.setupFields();
         moduleManager.register();
         scriptManager = new ScriptManager();
         keySrokeRenderer = new KeySrokeRenderer();
@@ -75,7 +79,7 @@ public class Raven {
         scriptManager.loadScripts();
         profileManager.loadProfiles();
         profileManager.loadProfile("default");
-        Reflection.setKeyBindings();
+        ReflectionUtils.setKeyBindings();
         MinecraftForge.EVENT_BUS.register(ModuleManager.scaffold);
         MinecraftForge.EVENT_BUS.register(ModuleManager.tower);
         commandManager = new CommandManager();
@@ -88,13 +92,13 @@ public class Raven {
                 if (mc.thePlayer.ticksExisted % 6000 == 0) { // reset cache every 5 minutes
                     Entity.clearCache();
                     NetworkPlayer.clearCache();
-                    if (Debugger.BACKGROUND) {
+                    if (DebugHelper.BACKGROUND) {
                         Utils.sendMessage("&aticks % 6000 == 0 &7reached, clearing script caches. (&dEntity&7, &dNetworkPlayer&7)");
                     }
                 }
-                if (Reflection.sendMessage) {
+                if (ReflectionUtils.ERROR) {
                     Utils.sendMessage("&cThere was an error, relaunch the game.");
-                    Reflection.sendMessage = false;
+                    ReflectionUtils.ERROR = false;
                 }
                 for (Module module : getModuleManager().getModules()) {
                     if (mc.currentScreen == null && module.canBeEnabled()) {
@@ -148,7 +152,7 @@ public class Raven {
             }
             Entity.clearCache();
             NetworkPlayer.clearCache();
-            if (Debugger.BACKGROUND) {
+            if (DebugHelper.BACKGROUND) {
                 Utils.sendMessage("&enew world&7, clearing script caches. (&dEntity&7, &dNetworkPlayer&7)");
             }
         }

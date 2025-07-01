@@ -46,6 +46,8 @@ public class BedWars extends Module {
 
     private BlockPos spawnPos;
     private boolean check;
+    private boolean waitForRespawn;
+    private long respawnMessageTime;
 
     public static boolean outsideSpawn = true;
 
@@ -106,13 +108,14 @@ public class BedWars extends Module {
     }
 
     @SubscribeEvent
-    public void onEntityJoinWorld(EntityJoinWorldEvent e) {
+    public void onWorldJoin(EntityJoinWorldEvent e) {
         if (e.entity == mc.thePlayer) {
             armoredPlayer.clear();
             lastHeldMap.clear();
             obsidianPos.clear();
             entitySpawnQueue.clear();
             spawnedMobs.clear();
+            waitForRespawn = false;
         }
         else {
             if (e.entity != null && e.entity instanceof EntityIronGolem) {
@@ -235,6 +238,15 @@ public class BedWars extends Module {
         String strippedMessage = Utils.stripColor(c.message.getUnformattedText());
         if (strippedMessage.startsWith(" ") && strippedMessage.contains("Protect your bed and destroy the enemy beds.")) {
             check = true;
+            waitForRespawn = false;
+        }
+        else if (strippedMessage.equals("You will respawn because you still have a bed!")) {
+            waitForRespawn = true;
+            respawnMessageTime = System.currentTimeMillis();
+        }
+        else if (strippedMessage.equals("You have respawned!") && waitForRespawn && Utils.timeBetween(System.currentTimeMillis(), respawnMessageTime) <= 12000) {
+            check = true;
+            waitForRespawn = false;
         }
     }
 

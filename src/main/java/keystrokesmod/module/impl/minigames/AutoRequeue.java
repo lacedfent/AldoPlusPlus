@@ -12,6 +12,7 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
 public class AutoRequeue extends Module {
     private SliderSetting delay;
+
     private String receivedMessage = "";
     private long receiveTime = 0;
 

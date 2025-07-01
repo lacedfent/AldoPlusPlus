@@ -162,7 +162,7 @@ public class MurderMystery extends Module {
                 return false;
             }
 
-            Iterator var2 = Utils.gsl().iterator();
+            Iterator var2 = Utils.getScoreBoardOld().iterator();
 
             while (var2.hasNext()) {
                 String l = (String) var2.next();

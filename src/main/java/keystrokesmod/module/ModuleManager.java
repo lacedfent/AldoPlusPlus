@@ -50,7 +50,7 @@ public class ModuleManager {
     public static Fly fly;
     public static WTap wTap;
     public static Velocity velocity;
-    public static Potions potions;
+    public static AntiDebuff antiDebuff;
     public static TargetHUD targetHUD;
     public static NoFall noFall;
     public static PlayerESP playerESP;
@@ -104,10 +104,12 @@ public class ModuleManager {
         this.addModule(new SpeedBuilders());
         this.addModule(new Teleport());
         this.addModule(fly = new Fly());
+        this.addModule(new Dolphin());
+        this.addModule(new WoolWars());
         this.addModule(invmove = new InvMove());
         this.addModule(new TPAura());
         this.addModule(new Trajectories());
-        this.addModule(potions = new Potions());
+        this.addModule(antiDebuff = new AntiDebuff());
         this.addModule(autoSwap = new AutoSwap());
         this.addModule(keepSprint = new KeepSprint());
         this.addModule(bedAura = new BedAura());
@@ -169,11 +171,7 @@ public class ModuleManager {
         this.addModule(new Gui());
         this.addModule(new Shaders());
         antiBot.enable();
-        Collections.sort(this.modules, Comparator.comparing(Module::getName));
-    }
-
-    public boolean isVelocityEnabled() {
-        return velocity.isEnabled() || antiKnockback.isEnabled();
+        modules.sort(Comparator.comparing(Module::getName));
     }
 
     public void addModule(Module m) {
@@ -184,16 +182,16 @@ public class ModuleManager {
         return modules;
     }
 
-    public List<Module> inCategory(Module.category categ) {
-        ArrayList<Module> categML = new ArrayList<>();
+    public List<Module> inCategory(Module.category category) {
+        ArrayList<Module> categoryModules = new ArrayList<>();
 
         for (Module mod : this.getModules()) {
-            if (mod.moduleCategory().equals(categ)) {
-                categML.add(mod);
+            if (mod.moduleCategory().equals(category)) {
+                categoryModules.add(mod);
             }
         }
 
-        return categML;
+        return categoryModules;
     }
 
     public Module getModule(String moduleName) {
@@ -216,7 +214,7 @@ public class ModuleManager {
 
     public static void sort() {
         if (HUD.alphabeticalSort.isToggled()) {
-            Collections.sort(organizedModules, Comparator.comparing(Module::getNameInHud));
+            organizedModules.sort(Comparator.comparing(Module::getNameInHud));
         }
         else {
             organizedModules.sort((o1, o2) -> Utils.mc.fontRendererObj.getStringWidth(o2.getNameInHud() + ((HUD.showInfo.isToggled() && !o2.getInfo().isEmpty()) ? " " + o2.getInfo() : "")) - Utils.mc.fontRendererObj.getStringWidth(o1.getNameInHud() + (HUD.showInfo.isToggled() && !o1.getInfo().isEmpty() ? " " + o1.getInfo() : "")));

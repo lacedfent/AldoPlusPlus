@@ -1,9 +1,7 @@
 package keystrokesmod.utility.profile;
 
-import keystrokesmod.module.Module;
-
 public class Profile {
-    private Module module;
+    private ProfileModule module;
     private int bind = 0;
     private String profileName;
 
@@ -14,7 +12,7 @@ public class Profile {
         this.module.ignoreOnSave = true;
     }
 
-    public Module getModule() {
+    public ProfileModule getModule() {
         return module;
     }
 

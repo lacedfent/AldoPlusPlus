@@ -15,4 +15,20 @@ public class CollisionEvent extends Event {
         this.block = block;
         this.boundingBox = boundingBox;
     }
+
+    public BlockPos getBlockPos() {
+        return blockPos;
+    }
+
+    public Block getBlock() {
+        return block;
+    }
+
+    public AxisAlignedBB getBoundingBox() {
+        return boundingBox;
+    }
+
+    public void setBoundingBox(AxisAlignedBB boundingBox) {
+        this.boundingBox = boundingBox;
+    }
 }

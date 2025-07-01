@@ -4,7 +4,6 @@ import keystrokesmod.mixin.impl.accessor.IAccessorMinecraft;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
-import keystrokesmod.utility.Reflection;
 import keystrokesmod.utility.RotationUtils;
 import keystrokesmod.utility.Utils;
 import net.minecraft.client.gui.GuiChat;
@@ -161,7 +160,7 @@ public class AntiAFK extends Module {
 
     private void d() {
         if (randomizePitch.isToggled()) {
-            mc.thePlayer.rotationPitch = RotationUtils.clampTo90((float)(mc.thePlayer.rotationPitch + this.a()));
+            mc.thePlayer.rotationPitch = RotationUtils.clampPitch((float)(mc.thePlayer.rotationPitch + this.a()));
         }
     }
 

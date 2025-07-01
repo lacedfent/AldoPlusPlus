@@ -4,13 +4,15 @@ import keystrokesmod.module.Module;
 import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.DescriptionSetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
-import keystrokesmod.utility.CPSCalculator;
+import keystrokesmod.helper.MouseHelper;
 import keystrokesmod.utility.Utils;
+
 import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.client.event.MouseEvent;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+
 import org.lwjgl.input.Mouse;
 
 import java.awt.*;
@@ -18,7 +20,9 @@ import java.awt.*;
 public class ClickAssist extends Module {
     private SliderSetting chanceLeft, chanceRight;
     private ButtonSetting rightClick, blocksOnly, weaponOnly, onlyWhileTargeting, aboveCPS, leftClick, disableInCreative;
+
     private Robot bot;
+
     private boolean ignNL = false;
     private boolean ignNR = false;
 
@@ -40,7 +44,8 @@ public class ClickAssist extends Module {
     public void onEnable() {
         try {
             this.bot = new Robot();
-        } catch (AWTException var2) {
+        }
+        catch (AWTException var2) {
             this.disable();
         }
 
@@ -71,11 +76,9 @@ public class ClickAssist extends Module {
                         if (weaponOnly.isToggled() && !Utils.holdingWeapon()) {
                             return;
                         }
-
                         if (onlyWhileTargeting.isToggled() && (mc.objectMouseOver == null || mc.objectMouseOver.entityHit == null)) {
                             return;
                         }
-
                         if (chanceLeft.getInput() != 100.0D) {
                             ch = Math.random();
                             if (ch >= chanceLeft.getInput() / 100.0D) {
@@ -105,7 +108,7 @@ public class ClickAssist extends Module {
                             }
                         }
 
-                        if (aboveCPS.isToggled() && CPSCalculator.i() <= 5) {
+                        if (aboveCPS.isToggled() && MouseHelper.i() <= 5) {
                             this.fix(1);
                             return;
                         }
@@ -138,6 +141,5 @@ public class ClickAssist extends Module {
         else if (t == 1 && this.ignNR && !Mouse.isButtonDown(1)) {
             this.bot.mouseRelease(4);
         }
-
     }
 }

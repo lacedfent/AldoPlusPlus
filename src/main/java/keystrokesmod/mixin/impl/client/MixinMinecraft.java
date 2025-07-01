@@ -1,12 +1,10 @@
 package keystrokesmod.mixin.impl.client;
 
+import keystrokesmod.event.*;
+import net.minecraftforge.fml.common.eventhandler.Cancelable;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 import org.objectweb.asm.Opcodes;
-import keystrokesmod.event.GuiUpdateEvent;
-import keystrokesmod.event.PreInputEvent;
-import keystrokesmod.event.PreSlotScrollEvent;
-import keystrokesmod.event.SlotUpdateEvent;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.entity.player.InventoryPlayer;
@@ -23,6 +21,16 @@ public class MixinMinecraft {
     @Inject(method = "runTick", at = @At(value = "INVOKE", target = "Lnet/minecraft/profiler/Profiler;endStartSection(Ljava/lang/String;)V", ordinal = 2))
     private void onRunTick(CallbackInfo ci) {
         MinecraftForge.EVENT_BUS.post(new PreInputEvent());
+    }
+
+    @Inject(method = "runGameLoop", at = @At("HEAD"))
+    public void onRunGameLoop(CallbackInfo ci) {
+        MinecraftForge.EVENT_BUS.post(new RunGameLoopEvent());
+    }
+
+    @Inject(method = "runTick", at = @At("HEAD"))
+    public void onRunTickStart(CallbackInfo ci) {
+        MinecraftForge.EVENT_BUS.post(new GameTickEvent());
     }
 
     @Inject(method = "displayGuiScreen(Lnet/minecraft/client/gui/GuiScreen;)V", at = @At("HEAD"))
@@ -51,7 +59,11 @@ public class MixinMinecraft {
 
     @Redirect(method = "runTick", at = @At(value = "FIELD", target = "Lnet/minecraft/entity/player/InventoryPlayer;currentItem:I", opcode = Opcodes.PUTFIELD))
     private void onSetCurrentItem(InventoryPlayer inventoryPlayer, int slot) {
-        MinecraftForge.EVENT_BUS.post(new SlotUpdateEvent(slot));
+        SlotUpdateEvent e = new SlotUpdateEvent(slot);
+        MinecraftForge.EVENT_BUS.post(e);
+        if (e.isCanceled()) {
+            return;
+        }
         inventoryPlayer.currentItem = slot;
     }
 }

@@ -46,7 +46,11 @@ public class BedAura extends Module {
     private ButtonSetting renderOutline;
     private ButtonSetting sendAnimations;
     private ButtonSetting silentSwing;
+
     private String[] modes = new String[] { "Legit", "Instant", "Swap" };
+
+    private int OUTLINE_COLOR = new Color(226, 65, 65).getRGB();
+    private int DEFAULT_OUTLINE_COLOR = new Color(226, 65, 65).getRGB();
 
     private BlockPos[] bedPos;
     public float breakProgress;
@@ -55,16 +59,18 @@ public class BedAura extends Module {
     public BlockPos currentBlock;
     private long lastCheck = 0;
     public boolean stopAutoblock;
-    private int outlineColor = new Color(226, 65, 65).getRGB();
+
     private BlockPos nearestBlock;
     private Map<BlockPos, Float> breakProgressMap = new HashMap<>();
     public double lastProgress;
     public float vanillaProgress;
-    private int defaultOutlineColor = new Color(226, 65, 65).getRGB();
+
     private boolean aiming;
     private int noAutoBlockTicks;
     private BlockPos previousBlockBroken;
     private BlockPos rotateLastBlock;
+
+    private boolean spoofGround = false;
 
     public BedAura() {
         super("BedAura", category.player, 0);
@@ -138,9 +144,14 @@ public class BedAura extends Module {
                 noAutoBlockTicks = -3;
                 return;
             case -3:
+                noAutoBlockTicks = -4;
+                return;
+            case -4:
                 stopAutoblock = false;
                 noAutoBlockTicks = 0;
                 return;
+            default:
+                break;
         }
         if (breakNearBlock.isToggled() && isCovered(bedPos[0]) && isCovered(bedPos[1])) {
             if (nearestBlock == null) {
@@ -151,6 +162,13 @@ public class BedAura extends Module {
         else {
             nearestBlock = null;
             breakBlock(getBestBlock(bedPos, false) != null ? getBestBlock(bedPos, false) : bedPos[0]);
+        }
+    }
+
+    @SubscribeEvent
+    public void onWorldJoin(EntityJoinWorldEvent e) {
+        if (e.entity == mc.thePlayer) {
+            currentBlock = null;
         }
     }
 
@@ -169,18 +187,12 @@ public class BedAura extends Module {
         }
     }
 
-    @SubscribeEvent
-    public void onWorldJoin(EntityJoinWorldEvent e) {
-        if (e.entity == mc.thePlayer) {
-            currentBlock = null;
-        }
-    }
-
     @SubscribeEvent(priority = EventPriority.LOWEST)
-    public void onPreMotion(PreMotionEvent e) {
+    public void onClientRotation(ClientRotationEvent e) {
         aiming = false;
+        spoofGround = false;
         if ((rotate || breakProgress >= 1 || breakProgress == 0) && (currentBlock != null || rotateLastBlock != null)) {
-            float[] rotations = RotationUtils.getRotations(currentBlock == null ? rotateLastBlock : currentBlock, e.getYaw(), e.getPitch());
+            float[] rotations = RotationUtils.getRotations(currentBlock == null ? rotateLastBlock : currentBlock, RotationUtils.prevRenderYaw, RotationUtils.prevRenderPitch);
             if (currentBlock != null && !RotationUtils.inRange(currentBlock, range.getInput())) {
                 return;
             }
@@ -191,10 +203,18 @@ public class BedAura extends Module {
             }
             rotate = false;
             if (groundSpoof.isToggled() && !mc.thePlayer.isInWater()) {
-                e.setOnGround(true);
+                spoofGround = true;
             }
             aiming = true;
         }
+    }
+
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public void onPreMotion(PreMotionEvent e) {
+        if (spoofGround) {
+            e.setOnGround(true);
+        }
+        spoofGround = false;
     }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
@@ -203,15 +223,15 @@ public class BedAura extends Module {
             return;
         }
         if (ModuleManager.bedESP != null && ModuleManager.bedESP.isEnabled()) {
-            outlineColor = Theme.getGradient((int) ModuleManager.bedESP.theme.getInput(), 0);
+            OUTLINE_COLOR = Theme.getGradient((int) ModuleManager.bedESP.theme.getInput(), 0);
         }
         else if (ModuleManager.hud != null && ModuleManager.hud.isEnabled()) {
-            outlineColor = Theme.getGradient((int) ModuleManager.hud.theme.getInput(), 0);
+            OUTLINE_COLOR = Theme.getGradient((int) ModuleManager.hud.theme.getInput(), 0);
         }
         else {
-            outlineColor = defaultOutlineColor;
+            OUTLINE_COLOR = DEFAULT_OUTLINE_COLOR;
         }
-        RenderUtils.renderBlock(currentBlock, outlineColor, (Arrays.asList(bedPos).contains(currentBlock) ? 0.5625 : 1),true, false);
+        RenderUtils.renderBlock(currentBlock, OUTLINE_COLOR, (Arrays.asList(bedPos).contains(currentBlock) ? 0.5625 : 1),true, false);
     }
 
     private void resetSlot() {
@@ -432,6 +452,7 @@ public class BedAura extends Module {
                 stopBreak(blockPos);
                 previousBlockBroken = currentBlock;
                 reset(false, false);
+                stopAutoblock = true;
                 Iterator<Map.Entry<BlockPos, Float>> iterator = breakProgressMap.entrySet().iterator();
                 while (iterator.hasNext()) {
                     Map.Entry<BlockPos, Float> entry = iterator.next();
@@ -457,7 +478,6 @@ public class BedAura extends Module {
             }
             double progress = vanillaProgress = (float) (BlockUtils.getBlockHardness(block, (mode.getInput() == 2 && Utils.getTool(block) != -1) ? mc.thePlayer.inventory.getStackInSlot(Utils.getTool(block)) : mc.thePlayer.getHeldItem(), false, ignoreSlow.isToggled() || groundSpoof.isToggled()) * breakSpeed.getInput());
             if (lastProgress != 0 && breakProgress >= lastProgress - vanillaProgress) {
-                // tick before we break so here we've gotta stop autoblocking
                 if (mode.getInput() == 2 && ModuleManager.killAura.autoBlockOverride()) {
                     if (Raven.debug) {
                         Utils.sendModuleMessage(this, "&7stopping autoblock &7(&b" + mc.thePlayer.ticksExisted + "&7)");
@@ -465,6 +485,13 @@ public class BedAura extends Module {
                     stopAutoblock = true; // if blocking then return and stop autoblocking
                 }
                 if (breakProgress >= lastProgress) {
+                    if (mode.getInput() == 2) {
+                        if (Raven.debug) {
+                            Utils.sendModuleMessage(this, "&7setting slot &7(&b" + mc.thePlayer.ticksExisted + "&7)");
+                        }
+                        setPacketSlot(Utils.getTool(block));
+
+                    }
                     rotate = true;
                 }
             }

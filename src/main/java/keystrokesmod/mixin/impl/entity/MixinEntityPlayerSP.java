@@ -8,19 +8,17 @@ import keystrokesmod.event.PreUpdateEvent;
 import keystrokesmod.module.ModuleManager;
 import keystrokesmod.module.impl.combat.WTap;
 import keystrokesmod.module.impl.movement.NoSlow;
+import keystrokesmod.utility.ModuleUtils;
 import keystrokesmod.utility.RotationUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.audio.PositionedSoundRecord;
 import net.minecraft.client.entity.AbstractClientPlayer;
 import net.minecraft.client.entity.EntityPlayerSP;
-import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.network.NetHandlerPlayClient;
 import net.minecraft.network.play.client.C03PacketPlayer;
 import net.minecraft.network.play.client.C0BPacketEntityAction;
 import net.minecraft.potion.Potion;
-import net.minecraft.util.BlockPos;
-import net.minecraft.util.MovementInput;
-import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.*;
 import net.minecraft.world.World;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -107,7 +105,9 @@ public abstract class MixinEntityPlayerSP extends AbstractClientPlayer {
 
     @Overwrite
     public void onUpdateWalkingPlayer() {
+        PreMotionEvent.setRotations = false;
         PreMotionEvent.setRenderYaw(false);
+        RotationUtils.setFakeRotations = false;
         PreMotionEvent preMotionEvent = new PreMotionEvent(
                 this.posX,
                 this.getEntityBoundingBox().minY,
@@ -152,6 +152,13 @@ public abstract class MixinEntityPlayerSP extends AbstractClientPlayer {
 
             RotationUtils.renderPitch = preMotionEvent.getPitch();
             RotationUtils.renderYaw = preMotionEvent.getYaw();
+
+            if (RotationUtils.setFakeRotations) {
+                RotationUtils.renderPitch = RotationUtils.fakeRotations[1];
+                RotationUtils.renderYaw = RotationUtils.fakeRotations[0];
+                RotationUtils.setRenderYaw(RotationUtils.renderYaw);
+            }
+            RotationUtils.setFakeRotations = false;
 
             double d0 = preMotionEvent.getPosX() - this.lastReportedPosX;
             double d1 = preMotionEvent.getPosY() - this.lastReportedPosY;
@@ -208,7 +215,7 @@ public abstract class MixinEntityPlayerSP extends AbstractClientPlayer {
         this.prevTimeInPortal = this.timeInPortal;
         if (this.inPortal) {
             if (this.mc.currentScreen != null && !this.mc.currentScreen.doesGuiPauseGame()) {
-                this.mc.displayGuiScreen((GuiScreen) null);
+                this.mc.displayGuiScreen(null);
             }
 
             if (this.timeInPortal == 0.0F) {
@@ -221,12 +228,16 @@ public abstract class MixinEntityPlayerSP extends AbstractClientPlayer {
             }
 
             this.inPortal = false;
-        } else if (this.isPotionActive(Potion.confusion) && this.getActivePotionEffect(Potion.confusion).getDuration() > 60) {
-            this.timeInPortal += 0.006666667F;
-            if (this.timeInPortal > 1.0F) {
-                this.timeInPortal = 1.0F;
+        }
+        else if (this.isPotionActive(Potion.confusion) && this.getActivePotionEffect(Potion.confusion).getDuration() > 60) {
+            if (ModuleManager.antiDebuff == null || !ModuleManager.antiDebuff.canRemoveNausea(Potion.confusion)) {
+                this.timeInPortal += 0.006666667F;
+                if (this.timeInPortal > 1.0F) {
+                    this.timeInPortal = 1.0F;
+                }
             }
-        } else {
+        }
+        else {
             if (this.timeInPortal > 0.0F) {
                 this.timeInPortal -= 0.05F;
             }
@@ -246,7 +257,7 @@ public abstract class MixinEntityPlayerSP extends AbstractClientPlayer {
         boolean flag2 = this.movementInput.moveForward >= f;
         this.movementInput.updatePlayerMoveState();
         boolean stopSprint = ModuleManager.noSlow == null || !ModuleManager.noSlow.isEnabled() || NoSlow.slowed.getInput() == 80;
-        if ((this.isUsingItem() || mc.thePlayer.isBlocking()) && !this.isRiding()) {
+        if ((this.isUsingItem() || (ModuleManager.killAura != null && ModuleManager.killAura.isEnabled() && ModuleManager.killAura.blockingClient)) && !this.isRiding()) {
             MovementInput var10000 = this.movementInput;
             float slowed = NoSlow.getSlowed();
             var10000.moveStrafe *= slowed;
@@ -270,11 +281,11 @@ public abstract class MixinEntityPlayerSP extends AbstractClientPlayer {
             }
         }
 
-        if ((!this.isSprinting() && this.movementInput.moveForward >= f && flag3 && (!this.isUsingItem() || !stopSprint) && !this.isPotionActive(Potion.blindness) && this.mc.gameSettings.keyBindSprint.isKeyDown())) {
+        if (!this.isSprinting() && this.mc.gameSettings.keyBindSprint.isKeyDown() && (this.movementInput.moveForward != 0 || this.movementInput.moveStrafe != 0)  && (ModuleManager.scaffold.sprint() || this.movementInput.moveForward >= f && flag3) && (!(this.isUsingItem() || mc.thePlayer.isBlocking()) || !stopSprint) && !this.isPotionActive(Potion.blindness)) {
             this.setSprinting(true);
         }
 
-        if (this.isSprinting() && ((this.movementInput.moveForward < f || this.isCollidedHorizontally || !flag3) || ModuleManager.sprint.disableBackwards() || (ModuleManager.scaffold != null && ModuleManager.scaffold.isEnabled() && !ModuleManager.scaffold.sprint()) || (ModuleManager.wTap.isEnabled() && WTap.stopSprint))) {
+        if (this.isSprinting() && (!ModuleManager.scaffold.sprint() && (this.movementInput.moveForward < f || !flag3)) || this.isCollidedHorizontally || ModuleManager.sprint.disableBackwards() || ModuleUtils.setSlow || (this.movementInput.moveForward == 0 && this.movementInput.moveStrafe == 0) || this.mc.gameSettings.keyBindSneak.isKeyDown() || (ModuleManager.scaffold != null && ModuleManager.scaffold.isEnabled && (!ModuleManager.scaffold.sprint() || ModuleManager.tower.canTower())) || (ModuleManager.wTap.isEnabled() && WTap.stopSprint)) {
             this.setSprinting(false);
             WTap.stopSprint = false;
         }
@@ -337,6 +348,5 @@ public abstract class MixinEntityPlayerSP extends AbstractClientPlayer {
             this.capabilities.isFlying = false;
             this.sendPlayerAbilities();
         }
-
     }
 }

@@ -1,6 +1,7 @@
 package keystrokesmod.utility;
 
 import keystrokesmod.Raven;
+import keystrokesmod.helper.PingHelper;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.ModuleManager;
 import keystrokesmod.module.impl.client.Settings;
@@ -181,7 +182,7 @@ public class Commands {
                         BHop.speedSetting.setValueRawWithEvent(value);
                         break;
                     case "speed":
-                        Speed.speed.setValueRawWithEvent(value);
+                        Speed.multiplier.setValueRawWithEvent(value);
                         break;
                     default:
                         print(invSyn, 1);
@@ -233,7 +234,7 @@ public class Commands {
                 print(args[2], 0);
             }
             else if (cm.startsWith("ping")) {
-                Ping.checkPing(false);
+                PingHelper.checkPing(false);
             }
             else if (cm.startsWith("sprint")) {
                 if (!hasArgs || args.length != 2) {
@@ -501,6 +502,6 @@ public class Commands {
     }
 
     public static void onDisable() {
-        Ping.reset(false);
+        PingHelper.reset(false);
     }
 }

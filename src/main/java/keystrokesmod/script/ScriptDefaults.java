@@ -4,17 +4,18 @@ import keystrokesmod.Raven;
 import keystrokesmod.clickgui.ClickGui;
 import keystrokesmod.clickgui.components.impl.CategoryComponent;
 import keystrokesmod.clickgui.components.impl.ModuleComponent;
+import keystrokesmod.helper.RotationHelper;
 import keystrokesmod.mixin.impl.accessor.*;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.ModuleManager;
 import keystrokesmod.module.impl.combat.KillAura;
 import keystrokesmod.module.setting.Setting;
 import keystrokesmod.module.setting.impl.*;
-import keystrokesmod.script.classes.*;
-import keystrokesmod.script.classes.Vec3;
-import keystrokesmod.script.packets.clientbound.SPacket;
-import keystrokesmod.script.packets.serverbound.CPacket;
-import keystrokesmod.script.packets.serverbound.PacketHandler;
+import keystrokesmod.script.model.*;
+import keystrokesmod.script.model.Vec3;
+import keystrokesmod.script.packet.clientbound.SPacket;
+import keystrokesmod.script.packet.serverbound.CPacket;
+import keystrokesmod.script.packet.serverbound.PacketHandler;
 import keystrokesmod.utility.*;
 import keystrokesmod.utility.shader.BlurUtils;
 import keystrokesmod.utility.shader.RoundedUtils;
@@ -33,7 +34,10 @@ import net.minecraft.creativetab.CreativeTabs;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.init.Blocks;
 import net.minecraft.inventory.ContainerChest;
+import net.minecraft.inventory.ContainerWorkbench;
 import net.minecraft.inventory.IInventory;
+import net.minecraft.inventory.InventoryCrafting;
+import net.minecraft.item.ItemBlock;
 import net.minecraft.network.Packet;
 import net.minecraft.realms.RealmsBridge;
 import net.minecraft.scoreboard.Team;
@@ -116,13 +120,13 @@ public class ScriptDefaults {
             Utils.sendRawMessage(string);
         }
 
+        public static void print(Message component) {
+            mc.thePlayer.addChatMessage(component.component);
+        }
+
         public static void print(Object object) {
             String s = String.valueOf(object);
             Utils.sendRawMessage(s);
-        }
-
-        public static void print(Message component) {
-            mc.thePlayer.addChatMessage(component.component);
         }
 
         public static boolean isDiagonal() {
@@ -138,7 +142,12 @@ public class ScriptDefaults {
         }
 
         public static void processPacket(SPacket packet) {
-            packet.packet.processPacket(((IAccessorNetworkManager) (((IAccessorMinecraft) mc).getMyNetworkManager())).getPacketListener());
+            packet.packet.processPacket((((IAccessorNetworkManager) (mc.getNetHandler().getNetworkManager())).getPacketListener()));
+        }
+
+        public static void multiplyMotion(double factor) {
+            mc.thePlayer.motionZ *= factor;
+            mc.thePlayer.motionX *= factor;
         }
 
         public static void processPacketNoEvent(SPacket packet) {
@@ -190,6 +199,10 @@ public class ScriptDefaults {
             mc.thePlayer.renderArmPitch = pitch;
         }
 
+        public static float getEquippedProgress() {
+            return ((IAccessorItemRenderer) mc.getItemRenderer()).getEquippedProgress();
+        }
+
         public static void disconnect() {
             boolean isLocal = mc.isIntegratedServerRunning();
             boolean isRealms = mc.isConnectedToRealms();
@@ -211,6 +224,7 @@ public class ScriptDefaults {
         }
 
         public static void setRenderArmYaw(float yaw) {
+            mc.thePlayer.prevRenderArmYaw = yaw;
             mc.thePlayer.renderArmYaw = yaw;
         }
 
@@ -340,28 +354,6 @@ public class ScriptDefaults {
             catch (Exception e) {
                 e.printStackTrace();
             }
-        }
-
-        public static String getTabHeader() {
-            if (mc == null || mc.ingameGUI == null || mc.ingameGUI.getTabList() == null) {
-                return "";
-            }
-            IChatComponent header = ((IAccessorGuiPlayerTabOverlay) mc.ingameGUI.getTabList()).getHeader();
-            if (header != null) {
-                return header.getUnformattedText();
-            }
-            return "";
-        }
-
-        public static String getTabFooter() {
-            if (mc == null || mc.ingameGUI == null || mc.ingameGUI.getTabList() == null) {
-                return "";
-            }
-            IChatComponent footer = ((IAccessorGuiPlayerTabOverlay) mc.ingameGUI.getTabList()).getFooter();
-            if (footer != null) {
-                return footer.getUnformattedText();
-            }
-            return "";
         }
 
         public static float getForward() {
@@ -513,8 +505,19 @@ public class ScriptDefaults {
             return null;
         }
 
+        public static boolean canPlaceBlock(ItemStack stack, Vec3 pos, String side) {
+            if (stack == null || stack.itemStack == null || stack.itemStack.getItem() == null || !stack.isBlock) {
+                return false;
+            }
+            return ((ItemBlock) stack.itemStack.getItem()).canPlaceBlockOnSide(mc.theWorld, Vec3.getBlockPos(pos), Utils.getEnum(EnumFacing.class, side), mc.thePlayer, stack.itemStack);
+        }
+
         public static boolean placeBlock(Vec3 targetPos, String side, Vec3 hitVec) {
             return mc.playerController.onPlayerRightClick(mc.thePlayer, mc.theWorld, mc.thePlayer.getHeldItem(), Vec3.getBlockPos(targetPos), Utils.getEnum(EnumFacing.class, side), Vec3.getVec3(hitVec));
+        }
+
+        public static void enableMovementFix() {
+            RotationHelper.get().forceMovementFix = true;
         }
 
         public static float[] getRotationsToBlock(Vec3 position) {
@@ -606,6 +609,28 @@ public class ScriptDefaults {
                 return null;
             }
             return sidebarLines;
+        }
+
+        public static String getTabHeader() {
+            if (mc == null || mc.ingameGUI == null || mc.ingameGUI.getTabList() == null) {
+                return "";
+            }
+            IChatComponent header = ((IAccessorGuiPlayerTabOverlay) mc.ingameGUI.getTabList()).getHeader();
+            if (header != null) {
+                return header.getUnformattedText();
+            }
+            return "";
+        }
+
+        public static String getTabFooter() {
+            if (mc == null || mc.ingameGUI == null || mc.ingameGUI.getTabList() == null) {
+                return "";
+            }
+            IChatComponent footer = ((IAccessorGuiPlayerTabOverlay) mc.ingameGUI.getTabList()).getFooter();
+            if (footer != null) {
+                return footer.getUnformattedText();
+            }
+            return "";
         }
 
         public static Map<String, List<String>> getTeams() {
@@ -933,6 +958,10 @@ public class ScriptDefaults {
             }
         }
 
+        public static void resetColor() {
+            GlStateManager.resetColor();
+        }
+
         public static void end() {
             GL11.glEnd();
         }
@@ -1016,7 +1045,7 @@ public class ScriptDefaults {
     public static class config {
         private static String CONFIG_DIR = mc.mcDataDir + File.separator + "keystrokes" + File.separator + "script_config.txt";
         private static String SEPARATOR = ":";
-        private static String SEPARATOR_FULL = config.SEPARATOR + " ";
+        private static String SEPARATOR_FULL = SEPARATOR + " ";
 
         private static void ensureConfigFileExists() throws IOException {
             final Path configPath = Paths.get(config.CONFIG_DIR);
@@ -1030,7 +1059,7 @@ public class ScriptDefaults {
             if (key == null || key.isEmpty()) {
                 return false;
             }
-            key = key.replace(config.SEPARATOR, "");
+            key = key.replace(SEPARATOR, "");
             final String entry = key + config.SEPARATOR_FULL + value;
             try {
                 ensureConfigFileExists();
@@ -1146,8 +1175,8 @@ public class ScriptDefaults {
         }
 
         public static void item(ItemStack item, float x, float y, float scale) {
-            mc.entityRenderer.setupOverlayRendering();
             GlStateManager.pushMatrix();
+            mc.entityRenderer.setupOverlayRendering();
             if (scale != 1.0f) {
                 GlStateManager.scale(scale, scale, scale);
             }
@@ -1409,7 +1438,6 @@ public class ScriptDefaults {
     }
 
     public static class inventory {
-
         public static int getSlot() {
             return mc.thePlayer.inventory.currentItem;
         }
@@ -1461,7 +1489,7 @@ public class ScriptDefaults {
             }
             else if (mc.currentScreen != null) {
                 try {
-                    return ((IInventory) Reflection.containerInventoryPlayer.get(mc.currentScreen.getClass()).get(mc.currentScreen)).getDisplayName().getUnformattedText();
+                    return ((IInventory) ReflectionUtils.containerInventoryPlayer.get(mc.currentScreen.getClass()).get(mc.currentScreen)).getDisplayName().getUnformattedText();
                 } catch (Exception e) {
                 }
             }
@@ -1501,6 +1529,28 @@ public class ScriptDefaults {
             return null;
         }
 
+        public static ItemStack getStackInCraftingSlot(int slot) {
+            if (mc.thePlayer.openContainer instanceof ContainerWorkbench) {
+                InventoryCrafting craftMatrix = ((ContainerWorkbench) mc.thePlayer.openContainer).craftMatrix;
+                if (craftMatrix.getStackInSlot(slot) == null) {
+                    return null;
+                }
+                return new ItemStack(craftMatrix.getStackInSlot(slot), (byte) 0);
+            }
+            return null;
+        }
+
+        public static ItemStack getCraftResult() {
+            if (mc.thePlayer.openContainer instanceof ContainerWorkbench) {
+                IInventory craftResult = ((ContainerWorkbench) mc.thePlayer.openContainer).craftResult;
+                if (craftResult.getStackInSlot(0) == null) {
+                    return null;
+                }
+                return new ItemStack(craftResult.getStackInSlot(0), (byte) 0);
+            }
+            return null;
+        }
+
         public static void open() {
             KeyBinding inventoryKey = mc.gameSettings.keyBindInventory;
             int originalKeyCode = inventoryKey.getKeyCode();
@@ -1527,12 +1577,12 @@ public class ScriptDefaults {
         }
 
         public static boolean isPressed(final String key) {
-            KeyBinding keyBind = Reflection.keybinds.get(key);
+            KeyBinding keyBind = ReflectionUtils.keybinds.get(key);
             return keyBind != null && keyBind.isKeyDown();
         }
 
         public static void setPressed(final String key, final boolean pressed) {
-            KeyBinding keyBind = Reflection.keybinds.get(key);
+            KeyBinding keyBind = ReflectionUtils.keybinds.get(key);
             if (keyBind != null) {
                 KeyBinding.setKeyBindState(keyBind.getKeyCode(), pressed);
                 if (pressed) {
@@ -1542,7 +1592,7 @@ public class ScriptDefaults {
         }
 
         public static int getKeyCode(final String key) {
-            final KeyBinding keyBind = Reflection.keybinds.get(key);
+            final KeyBinding keyBind = ReflectionUtils.keybinds.get(key);
             if (keyBind != null) {
                 return keyBind.getKeyCode();
             }
