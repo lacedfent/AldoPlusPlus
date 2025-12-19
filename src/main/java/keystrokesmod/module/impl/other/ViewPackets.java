@@ -23,6 +23,7 @@ public class ViewPackets extends Module {
     private ButtonSetting compactC03;
     private ButtonSetting ignoreC0F;
     private ButtonSetting received;
+
     private Packet packet;
     public static long tick;
 
@@ -43,18 +44,18 @@ public class ViewPackets extends Module {
         tick = 0;
     }
 
-    private static String formatBoolean(final boolean b) {
+    private static String formatBoolean(boolean b) {
         return b ? "&atrue" : "&cfalse";
     }
 
-    private void sendMessage(final Packet packet, final boolean b) {
+    private void sendMessage(Packet packet, boolean b) {
         if (!Utils.nullCheck()) {
             return;
         }
-        final String s = b ? ("&a" + packet.getClass().getSimpleName()) : applyInfo(packet);
-        final String string = ((compactC03.isToggled() && packet instanceof C03PacketPlayer) ? "&6" : "&d") + packet.getClass().getSimpleName();
-        final ChatComponentText chatComponentText = new ChatComponentText(Utils.formatColor("&7[&dR&7]&r &7" + (b ? "Received" : "Sent") + " packet (t:&b" + tick + "&7): "));
-        final ChatStyle chatStyle = new ChatStyle();
+        String s = b ? ("&a" + packet.getClass().getSimpleName()) : applyInfo(packet);
+        String string = ((compactC03.isToggled() && packet instanceof C03PacketPlayer) ? "&6" : "&d") + packet.getClass().getSimpleName();
+        ChatComponentText chatComponentText = new ChatComponentText(Utils.formatColor("&7[&dR&7]&r &7" + (b ? "Received" : "Sent") + " packet (t:&b" + tick + "&7): "));
+        ChatStyle chatStyle = new ChatStyle();
         chatStyle.setChatHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ChatComponentText(Utils.formatColor(s))));
         chatComponentText.appendSibling(new ChatComponentText(Utils.formatColor(string)).setChatStyle(chatStyle));
         mc.thePlayer.addChatMessage(chatComponentText);
@@ -117,12 +118,12 @@ public class ViewPackets extends Module {
         sendMessage(e.getPacket(), true);
     }
 
-    private String applyInfo(final Packet packet) {
+    private String applyInfo(Packet packet) {
         String s = "&a" + packet.getClass().getSimpleName();
         if (packet instanceof C07PacketPlayerDigging) {
-            final C07PacketPlayerDigging c07PacketPlayerDigging = (C07PacketPlayerDigging)packet;
-            final String string = s + "\n&7Status: &b" + c07PacketPlayerDigging.getStatus().name() + "\n&7Facing: &b" + c07PacketPlayerDigging.getFacing().name();
-            final BlockPos getPosition = c07PacketPlayerDigging.getPosition();
+            C07PacketPlayerDigging c07PacketPlayerDigging = (C07PacketPlayerDigging)packet;
+            String string = s + "\n&7Status: &b" + c07PacketPlayerDigging.getStatus().name() + "\n&7Facing: &b" + c07PacketPlayerDigging.getFacing().name();
+            BlockPos getPosition = c07PacketPlayerDigging.getPosition();
             s = string + "\n&7Position: &b" + getPosition.getX() + "&7, &b" + getPosition.getY() + "&7, &b" + getPosition.getZ();
         }
         else if (packet instanceof C09PacketHeldItemChange) {
@@ -132,17 +133,17 @@ public class ViewPackets extends Module {
             s = s + "\n&7Action: &b" + ((C0BPacketEntityAction)packet).getAction().name() + "\n&7Aux data: &b" + ((C0BPacketEntityAction)packet).getAuxData();
         }
         else if (packet instanceof C08PacketPlayerBlockPlacement) {
-            final C08PacketPlayerBlockPlacement c08PacketPlayerBlockPlacement = (C08PacketPlayerBlockPlacement)packet;
-            final String string2 = s + "\n&7Item: &b" + ((c08PacketPlayerBlockPlacement.getStack() == null) ? "null" : c08PacketPlayerBlockPlacement.getStack().getItem().getRegistryName().replace("minecraft:", "")) + "\n&7Direction: &b" + c08PacketPlayerBlockPlacement.getPlacedBlockDirection();
-            final BlockPos getPosition = c08PacketPlayerBlockPlacement.getPosition();
+            C08PacketPlayerBlockPlacement c08PacketPlayerBlockPlacement = (C08PacketPlayerBlockPlacement)packet;
+            String string2 = s + "\n&7Item: &b" + ((c08PacketPlayerBlockPlacement.getStack() == null) ? "null" : c08PacketPlayerBlockPlacement.getStack().getItem().getRegistryName().replace("minecraft:", "")) + "\n&7Direction: &b" + c08PacketPlayerBlockPlacement.getPlacedBlockDirection();
+            BlockPos getPosition = c08PacketPlayerBlockPlacement.getPosition();
             s = string2 + "\n&7Position: &b" + getPosition.getX() + "&7, &b" + getPosition.getY() + "&7, &b" + getPosition.getZ() + "\n&7Offset: &b" + round((double)c08PacketPlayerBlockPlacement.getPlacedBlockOffsetX()) + "&7, &b" + round((double)c08PacketPlayerBlockPlacement.getPlacedBlockOffsetY()) + "&7, &b" + round(c08PacketPlayerBlockPlacement.getPlacedBlockOffsetZ());
         }
         else if (packet instanceof C02PacketUseEntity) {
-            final C02PacketUseEntity c02PacketUseEntity = (C02PacketUseEntity)packet;
-            final String string3 = s + "\n&7Action: &b" + c02PacketUseEntity.getAction().name();
-            final Entity getEntityFromWorld = c02PacketUseEntity.getEntityFromWorld(mc.theWorld);
-            final String string4 = string3 + "\n&7Target: &b" + ((getEntityFromWorld == null) ? "null" : getEntityFromWorld.getName());
-            final Vec3 getHitVec = c02PacketUseEntity.getHitVec();
+            C02PacketUseEntity c02PacketUseEntity = (C02PacketUseEntity)packet;
+            String string3 = s + "\n&7Action: &b" + c02PacketUseEntity.getAction().name();
+            Entity getEntityFromWorld = c02PacketUseEntity.getEntityFromWorld(mc.theWorld);
+            String string4 = string3 + "\n&7Target: &b" + ((getEntityFromWorld == null) ? "null" : getEntityFromWorld.getName());
+            Vec3 getHitVec = c02PacketUseEntity.getHitVec();
             if (getHitVec == null) {
                 s = string4 + "\n&7Hit vec: &bnull";
             }
@@ -169,20 +170,20 @@ public class ViewPackets extends Module {
             s = s + "\n&7Slot: &b" + ((C10PacketCreativeInventoryAction)packet).getSlotId() + "\n&7Item: &b" + ((((C10PacketCreativeInventoryAction)packet).getStack() == null) ? "null" : ((C10PacketCreativeInventoryAction)packet).getStack().getItem().getRegistryName().replace("minecraft:", ""));
         }
         else if (packet instanceof C0EPacketClickWindow) {
-            final C0EPacketClickWindow c0EPacketClickWindow = (C0EPacketClickWindow)packet;
+            C0EPacketClickWindow c0EPacketClickWindow = (C0EPacketClickWindow)packet;
             s = s + "\n&7Window: &b" + c0EPacketClickWindow.getWindowId() + "\n&7Slot: &b" + c0EPacketClickWindow.getSlotId() + "\n&7Button: &b" + c0EPacketClickWindow.getUsedButton() + "\n&7Action: &b" + c0EPacketClickWindow.getActionNumber() + "\n&7Mode: &b" + c0EPacketClickWindow.getMode() + "\n&7Item: &b" + ((c0EPacketClickWindow.getClickedItem() == null) ? "null" : c0EPacketClickWindow.getClickedItem().getItem().getRegistryName().replace("minecraft:", ""));
         }
         else if (packet instanceof C0FPacketConfirmTransaction) {
             s = s + "\n&7Window: &b" + ((C0FPacketConfirmTransaction)packet).getWindowId() + "\n&7Uid: &b" + ((C0FPacketConfirmTransaction)packet).getUid();
         }
         else if (packet instanceof C03PacketPlayer) {
-            final C03PacketPlayer c03PacketPlayer = (C03PacketPlayer)packet;
+            C03PacketPlayer c03PacketPlayer = (C03PacketPlayer)packet;
             s = s + "\n&7Position: &b" + round(c03PacketPlayer.getPositionX()) + "&7, &b" + round(c03PacketPlayer.getPositionY()) + "&7, &b" + round(c03PacketPlayer.getPositionZ()) + "\n&7Rotations: &b" + round((double)c03PacketPlayer.getYaw()) + "&7, &b" + round((double)c03PacketPlayer.getPitch()) + "\n&7Ground: " + formatBoolean(c03PacketPlayer.isOnGround()) + "\n&7Moving: " + formatBoolean(c03PacketPlayer.isMoving()) + "\n&7Rotating: " + formatBoolean(c03PacketPlayer.getRotating());
         }
         return s + "\n&7Client tick: &e" + tick;
     }
 
-    private static double round(final double n) {
+    private static double round(double n) {
         return Utils.round(n, 3);
     }
 

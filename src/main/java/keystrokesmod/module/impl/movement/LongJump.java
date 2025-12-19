@@ -90,6 +90,7 @@ public class LongJump extends Module {
         this.registerSetting(temporaryFlightKey = new KeySetting("Vertical key", Keyboard.KEY_SPACE));
     }
 
+    @Override
     public void guiUpdate() {
         this.onlyWithVelocity.setVisible(manual.isToggled(), this);
         this.disableKey.setVisible(manual.isToggled(), this);

@@ -8,13 +8,13 @@ import net.minecraftforge.fml.common.gameevent.TickEvent.RenderTickEvent;
 import java.awt.*;
 import java.io.IOException;
 
-public class KeySrokeRenderer {
+public class KeyStrokeRenderer {
     private static final int[] a = new int[]{16777215, 16711680, 65280, 255, 16776960, 11141290};
     private Minecraft mc = Minecraft.getMinecraft();
     private KeyStrokeKeyRenderer[] b = new KeyStrokeKeyRenderer[4];
     private KeyStrokeMouse[] c = new KeyStrokeMouse[2];
 
-    public KeySrokeRenderer() {
+    public KeyStrokeRenderer() {
         this.b[0] = new KeyStrokeKeyRenderer(this.mc.gameSettings.keyBindForward, 26, 2);
         this.b[1] = new KeyStrokeKeyRenderer(this.mc.gameSettings.keyBindBack, 26, 26);
         this.b[2] = new KeyStrokeKeyRenderer(this.mc.gameSettings.keyBindLeft, 2, 26);

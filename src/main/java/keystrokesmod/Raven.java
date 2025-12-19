@@ -10,9 +10,9 @@ import keystrokesmod.helper.DebugHelper;
 import keystrokesmod.helper.MouseHelper;
 import keystrokesmod.helper.RotationHelper;
 import keystrokesmod.helper.PingHelper;
-import keystrokesmod.keystroke.KeySrokeRenderer;
+import keystrokesmod.keystroke.KeyStrokeRenderer;
 import keystrokesmod.keystroke.KeyStrokeConfigGui;
-import keystrokesmod.keystroke.keystrokeCommand;
+import keystrokesmod.keystroke.KeyStrokeCommand;
 import keystrokesmod.module.Module;
 import keystrokesmod.clickgui.ClickGui;
 import keystrokesmod.module.ModuleManager;
@@ -37,12 +37,17 @@ import net.minecraftforge.fml.common.gameevent.TickEvent.Phase;
 
 @Mod(modid = "keystrokes", name = "KeystrokesMod", version = "KMV5", acceptedMinecraftVersions = "[1.8.9]")
 public class Raven {
-    public static boolean debug = false;
+    public static boolean DEBUG = false;
+
     public static Minecraft mc = Minecraft.getMinecraft();
-    private static KeySrokeRenderer keySrokeRenderer;
+
+    private static KeyStrokeRenderer keyStrokeRenderer;
+
     private static boolean isKeyStrokeConfigGuiToggled;
+
     private static final ScheduledExecutorService scheduledExecutor = Executors.newScheduledThreadPool(2);
     private static final ExecutorService cachedExecutor = Executors.newCachedThreadPool();
+
     public static ModuleManager moduleManager;
     public static ClickGui clickGui;
     public static ProfileManager profileManager;
@@ -50,6 +55,7 @@ public class Raven {
     public static CommandManager commandManager;
     public static Profile currentProfile;
     public static PacketsHandler packetsHandler;
+
     private static boolean firstLoad;
 
     public Raven() {
@@ -60,19 +66,22 @@ public class Raven {
     public void init(FMLInitializationEvent e) {
         Runtime.getRuntime().addShutdownHook(new Thread(scheduledExecutor::shutdown));
         Runtime.getRuntime().addShutdownHook(new Thread(cachedExecutor::shutdown));
-        ClientCommandHandler.instance.registerCommand(new keystrokeCommand());
+
+        ClientCommandHandler.instance.registerCommand(new KeyStrokeCommand());
+
         MinecraftForge.EVENT_BUS.register(this);
         MinecraftForge.EVENT_BUS.register(new DebugHelper());
         MinecraftForge.EVENT_BUS.register(new MouseHelper());
         MinecraftForge.EVENT_BUS.register(RotationHelper.get());
-        MinecraftForge.EVENT_BUS.register(new KeySrokeRenderer());
+        MinecraftForge.EVENT_BUS.register(new KeyStrokeRenderer());
         MinecraftForge.EVENT_BUS.register(new PingHelper());
         MinecraftForge.EVENT_BUS.register(packetsHandler = new PacketsHandler());
-        MinecraftForge.EVENT_BUS.register(new ModuleUtils(this.mc));
+        MinecraftForge.EVENT_BUS.register(new ModuleUtils(mc));
+
         ReflectionUtils.setupFields();
         moduleManager.register();
         scriptManager = new ScriptManager();
-        keySrokeRenderer = new KeySrokeRenderer();
+        keyStrokeRenderer = new KeyStrokeRenderer();
         clickGui = new ClickGui();
         profileManager = new ProfileManager();
         ScriptDefaults.reloadModules();
@@ -80,8 +89,10 @@ public class Raven {
         profileManager.loadProfiles();
         profileManager.loadProfile("default");
         ReflectionUtils.setKeyBindings();
+
         MinecraftForge.EVENT_BUS.register(ModuleManager.scaffold);
         MinecraftForge.EVENT_BUS.register(ModuleManager.tower);
+
         commandManager = new CommandManager();
     }
 
@@ -100,6 +111,9 @@ public class Raven {
                     Utils.sendMessage("&cThere was an error, relaunch the game.");
                     ReflectionUtils.ERROR = false;
                 }
+
+                MouseHelper.updateWheelCache();
+
                 for (Module module : getModuleManager().getModules()) {
                     if (mc.currentScreen == null && module.canBeEnabled()) {
                         module.onKeyBind();
@@ -117,6 +131,11 @@ public class Raven {
                         module.onKeyBind();
                     }
                 }
+                else if (mc.currentScreen instanceof ClickGui) {
+                    if (mc.thePlayer.getHealth() <= 0.0f) {
+                        mc.displayGuiScreen(null);
+                    }
+                }
             }
 
             if (isKeyStrokeConfigGuiToggled) {
@@ -125,6 +144,7 @@ public class Raven {
             }
         }
         else {
+            MouseHelper.clearWheelCache();
             if (mc.currentScreen == null && Utils.nullCheck()) {
                 for (Profile profile : Raven.profileManager.profiles) {
                     profile.getModule().onKeyBind();
@@ -170,8 +190,8 @@ public class Raven {
         return cachedExecutor;
     }
 
-    public static KeySrokeRenderer getKeyStrokeRenderer() {
-        return keySrokeRenderer;
+    public static KeyStrokeRenderer getKeyStrokeRenderer() {
+        return keyStrokeRenderer;
     }
 
     public static void toggleKeyStrokeConfigGui() {

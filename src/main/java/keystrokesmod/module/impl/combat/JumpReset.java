@@ -57,7 +57,7 @@ public class JumpReset extends Module {
             if (!ignoreNext && !mc.thePlayer.isBurning() && onGround && aimingAt && forward && mouseDown && Utils.randomizeDouble(0, 100) < chance.getInput() && !hasBadEffect()) {
                 KeyBinding.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), setJump = true);
                 KeyBinding.onTick(mc.gameSettings.keyBindJump.getKeyCode());
-                if (Raven.debug) {
+                if (Raven.DEBUG) {
                     Utils.sendModuleMessage(this, "&7jumping enabled");
                 }
             }
@@ -72,7 +72,7 @@ public class JumpReset extends Module {
     public void onPostMotion(PostMotionEvent e) {
         if (setJump && !Utils.jumpDown()) {
             KeyBinding.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), setJump = false);
-            if (Raven.debug) {
+            if (Raven.DEBUG) {
                 Utils.sendModuleMessage(this, "&7jumping disabled");
             }
         }
@@ -89,9 +89,11 @@ public class JumpReset extends Module {
     }
 
     private boolean hasBadEffect() {
-        for (PotionEffect potionEffect : mc.thePlayer.getActivePotionEffects()) {
-            int id = potionEffect.getPotionID();
-            return id == Potion.jump.getId() || id == Potion.poison.getId() || id == Potion.wither.getId();
+        PotionEffect jump = mc.thePlayer.getActivePotionEffect(Potion.jump);
+        PotionEffect poison = mc.thePlayer.getActivePotionEffect(Potion.poison);
+        PotionEffect wither = mc.thePlayer.getActivePotionEffect(Potion.wither);
+        if (jump != null || poison != null || wither != null) {
+            return true;
         }
         return false;
     }

@@ -35,7 +35,7 @@ public class AntiBot extends Module {
 
     @SubscribeEvent
     public void c(final EntityJoinWorldEvent e) {
-        if ((e.entity instanceof EntityPlayer || Raven.debug) && e.entity != mc.thePlayer) {
+        if ((e.entity instanceof EntityPlayer || Raven.DEBUG) && e.entity != mc.thePlayer) {
             if (delay.getInput() != -1 && e.entity instanceof EntityPlayer) {
                 entities.put((EntityPlayer) e.entity, System.currentTimeMillis());
             }

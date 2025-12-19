@@ -9,10 +9,12 @@ import net.minecraftforge.fml.common.eventhandler.Event;
 public class AttackEvent extends Event {
     public Entity target;
     public EntityPlayer attacker;
+    public boolean swing;
 
-    public AttackEvent(Entity target, EntityPlayer attacker) {
+    public AttackEvent(Entity target, EntityPlayer attacker, boolean swing) {
         this.target = target;
         this.attacker = attacker;
+        this.swing = swing;
     }
 
 }

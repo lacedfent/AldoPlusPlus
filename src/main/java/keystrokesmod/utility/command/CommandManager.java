@@ -9,7 +9,10 @@ import java.util.List;
 
 public class CommandManager {
     private List<Command> commands = new ArrayList<>();
+
     public String[] latestAutoComplete = new String[]{};
+
+    public Track trackCommand;
 
     public CommandManager() {
         registerCommand(new Help());
@@ -20,6 +23,7 @@ public class CommandManager {
         registerCommand(new Debug());
         registerCommand(new Friend());
         registerCommand(new Enemy());
+        registerCommand(trackCommand = new Track());
         registerCommand(new Profiles());
     }
 

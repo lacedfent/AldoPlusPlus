@@ -10,13 +10,13 @@ public class VClip extends Module {
     private ButtonSetting sendMessage;
 
     public VClip() {
-        super("VClip", Module.category.movement, 0);
+        super("VClip", category.movement, 0);
         this.registerSetting(distance = new SliderSetting("Distance", 3.0, -20.0, 20.0, 0.5));
         this.registerSetting(sendMessage = new ButtonSetting("Send message", true));
     }
 
     public void onEnable() {
-        final double distance = this.distance.getInput();
+        double distance = this.distance.getInput();
         if (this.distance.getInput() != 0.0D) {
             mc.thePlayer.setPosition(mc.thePlayer.posX, mc.thePlayer.posY + distance, mc.thePlayer.posZ);
             if (sendMessage.isToggled()) {

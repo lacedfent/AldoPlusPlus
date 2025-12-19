@@ -41,6 +41,7 @@ public class SkyWars extends Module {
     private final int TIME_WARP_COLOR = new Color(210, 0, 255, 64).getRGB();
 
     private String[] KILL_MESSAGES = new String[] {" by ", " to ", " with ", " of ", " from ", " knight ", " for "};
+
     private boolean thrownPearl;
 
     /**
@@ -226,7 +227,7 @@ public class SkyWars extends Module {
 
     public int getCustomMode() {
         List<String> sidebar = Utils.getSidebarLines();
-        if (sidebar == null || sidebar.isEmpty()) {
+        if (sidebar.isEmpty()) {
             return -1;
         }
         for (String line : sidebar) {
@@ -234,7 +235,7 @@ public class SkyWars extends Module {
             if (line.startsWith("Teams left: ")) {
                 return 1;
             }
-            else if (line.startsWith("Lab: ")) {
+            else if (line.startsWith("Lab: ") || line.startsWith("Mode: Mini")) {
                 return 2;
             }
         }

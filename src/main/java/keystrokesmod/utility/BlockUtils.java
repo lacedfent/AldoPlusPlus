@@ -47,7 +47,7 @@ public class BlockUtils {
     }
 
     public static boolean isInteractable(Block block) {
-        return block instanceof BlockFurnace || block instanceof BlockTrapDoor || block instanceof BlockDoor || block instanceof BlockContainer || block instanceof BlockJukebox || block instanceof BlockFenceGate || block instanceof BlockChest || block instanceof BlockEnderChest || block instanceof BlockEnchantmentTable || block instanceof BlockBrewingStand || block instanceof BlockBed || block instanceof BlockDropper || block instanceof BlockDispenser || block instanceof BlockHopper || block instanceof BlockAnvil || block instanceof BlockNote || block instanceof BlockWorkbench;
+        return block instanceof BlockTrapDoor || block instanceof BlockDoor || block instanceof BlockContainer || block instanceof BlockJukebox || block instanceof BlockFenceGate || block instanceof BlockChest || block instanceof BlockEnderChest || block instanceof BlockEnchantmentTable || block instanceof BlockBrewingStand || block instanceof BlockBed || block instanceof BlockDropper || block instanceof BlockDispenser || block instanceof BlockHopper || block instanceof BlockAnvil || block instanceof BlockNote || block instanceof BlockWorkbench;
     }
 
     public static boolean isInteractable(MovingObjectPosition mv) {
@@ -118,6 +118,10 @@ public class BlockUtils {
 
     public static Block getBlock(double x, double y, double z) {
         return getBlockState(new BlockPos(x, y, z)).getBlock();
+    }
+
+    public static Block getBlock(Vec3 position) {
+        return getBlockState(new BlockPos(position.xCoord, position.yCoord, position.zCoord)).getBlock();
     }
 
     public static IBlockState getBlockState(BlockPos blockPos) {

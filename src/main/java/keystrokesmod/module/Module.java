@@ -1,6 +1,7 @@
 package keystrokesmod.module;
 
 import keystrokesmod.Raven;
+import keystrokesmod.helper.MouseHelper;
 import keystrokesmod.module.impl.combat.AntiKnockback;
 import keystrokesmod.module.setting.Setting;
 import keystrokesmod.module.setting.impl.ButtonSetting;
@@ -87,11 +88,11 @@ public class Module {
     public void onKeyBind() {
         if (this.keycode != 0) {
             try {
-                if (!this.isToggled && (this.keycode >= 1000 ? ((this.keycode == 1069 || this.keycode == 1070) ? isScrollDown(this.keycode) : Mouse.isButtonDown(this.keycode - 1000)) : Keyboard.isKeyDown(this.keycode))) {
+                if (!this.isToggled && (this.keycode >= 1000 ? ((this.keycode == 1069 || this.keycode == 1070) ? MouseHelper.isScrollDown(this.keycode) : Mouse.isButtonDown(this.keycode - 1000)) : Keyboard.isKeyDown(this.keycode))) {
                     this.toggle();
                     this.isToggled = true;
                 }
-                else if ((this.keycode >= 1000 ? ((this.keycode == 1069 || this.keycode == 1070) ? !isScrollDown(this.keycode) : !Mouse.isButtonDown(this.keycode - 1000)) : !Keyboard.isKeyDown(this.keycode))) {
+                else if ((this.keycode >= 1000 ? ((this.keycode == 1069 || this.keycode == 1070) ? !MouseHelper.isScrollDown(this.keycode) : !Mouse.isButtonDown(this.keycode - 1000)) : !Keyboard.isKeyDown(this.keycode))) {
                     this.isToggled = false;
                 }
             }
@@ -101,16 +102,6 @@ public class Module {
                 this.keycode = 0;
             }
         }
-    }
-
-    public static boolean isScrollDown(int key) {
-        if (key == 1069) {
-            return Mouse.getDWheel() > 0;
-        }
-        else if (key == 1070) {
-            return Mouse.getDWheel() < 0;
-        }
-        return false;
     }
 
     public boolean canBeEnabled() {

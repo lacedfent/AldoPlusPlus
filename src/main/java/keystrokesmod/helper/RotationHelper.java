@@ -148,4 +148,12 @@ public class RotationHelper {
         this.serverPitch = pitch;
         this.setRotations = true;
     }
+
+    public Float getServerYaw() {
+        return serverYaw;
+    }
+
+    public Float getServerPitch() {
+        return serverPitch;
+    }
 }

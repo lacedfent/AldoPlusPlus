@@ -25,8 +25,8 @@ public class GroupComponent extends Component {
     public void render() {
         GL11.glPushMatrix();
         GL11.glScaled(0.5D, 0.5D, 0.5D);
-        float strX = (float) ((this.component.categoryComponent.getX() + 4) * 2) + 1;
-        float strY = (float) ((this.component.categoryComponent.getY() + this.o + 4) * 2);
+        float strX = ((this.component.categoryComponent.getX() + 4) * 2) + 1;
+        float strY = (this.component.categoryComponent.getY() + this.o + 4) * 2;
         if (this.opened) {
             drawString("[", strX, strY);
 
@@ -45,7 +45,8 @@ public class GroupComponent extends Component {
             drawString(">", 0, 0);
             GL11.glPopMatrix();
             drawString("]  " + this.setting.getName(), strX + firstBracketWidth + arrowWidth, strY);
-        } else {
+        }
+        else {
             drawString("[>]  " + this.setting.getName(), strX, strY);
         }
         GL11.glPopMatrix();
@@ -61,7 +62,7 @@ public class GroupComponent extends Component {
     }
 
     public boolean onClick(int x, int y, int b) {
-        if (this.i(x, y) && b == 1 && this.component.isOpened) {
+        if (this.overGroup(x, y) && b == 1 && this.component.isOpened) {
             this.opened = !this.opened;
             for (CategoryComponent categoryComponent : Raven.clickGui.categories) {
                 if (categoryComponent.category == this.component.mod.moduleCategory()) {
@@ -77,7 +78,7 @@ public class GroupComponent extends Component {
         return false;
     }
 
-    public boolean i(int x, int y) {
+    public boolean overGroup(int x, int y) {
         return x > this.x && x < this.x + this.component.categoryComponent.getWidth() && y > this.y && y < this.y + 11;
     }
 

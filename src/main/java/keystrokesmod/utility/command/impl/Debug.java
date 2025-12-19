@@ -12,8 +12,8 @@ public class Debug extends Command {
     @Override
     public void onExecute(String[] args) {
         if (args.length <= 1) {
-            Raven.debug = !Raven.debug;
-            chatWithPrefix("&7Debug " + (Raven.debug ? "&aenabled" : "&cdisabled") + "&7.");
+            Raven.DEBUG = !Raven.DEBUG;
+            chatWithPrefix("&7Debug " + (Raven.DEBUG ? "&aenabled" : "&cdisabled") + "&7.");
         }
         else if (args.length == 2) {
             if (args[1].equals("mixin")) {

@@ -13,6 +13,7 @@ public class Help extends Command {
         chat(" &b.ign/name &7Copy your username.");
         chat(" &b.ping &7Estimate your ping.");
         chat(" &b.friend/enemy [name/clear] &7Adds as enemy/friend.");
+        chat(" &b.track [name/clear] &7Renders esp on targets.");
         chatWithPrefix("&7Chat commands - &dModules");
         chat(" &b.cname [name] &7Set name hider name.");
         chat(" &b.binds (key) &7List module binds.");

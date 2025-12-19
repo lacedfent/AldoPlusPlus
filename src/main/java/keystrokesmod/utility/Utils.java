@@ -542,11 +542,11 @@ public class Utils {
     }
 
     public static String getHealthStr(EntityLivingBase entity, boolean accountDead) {
-        float completeHealth = getTotalHealth(entity);
+        float totalHealth = getTotalHealth(entity);
         if (accountDead && entity.isDead) {
-            completeHealth = 0;
+            totalHealth = 0;
         }
-        return getColorForHealth(entity.getHealth() / entity.getMaxHealth(), completeHealth);
+        return getColorForHealth(entity.getHealth() / entity.getMaxHealth(), totalHealth);
     }
 
     public static boolean isBindDown(KeyBinding keyBinding) {
@@ -559,19 +559,19 @@ public class Utils {
     }
 
     public static int getTool(Block block) {
-        float n = 1.0f;
-        int n2 = -1;
+        float bestEfficiency = 1.0f;
+        int bestSlot = -1;
         for (int i = 0; i < InventoryPlayer.getHotbarSize(); ++i) {
             final ItemStack getStackInSlot = mc.thePlayer.inventory.getStackInSlot(i);
             if (getStackInSlot != null) {
-                final float a = getEfficiency(getStackInSlot, block);
-                if (a > n) {
-                    n = a;
-                    n2 = i;
+                float efficiency = getEfficiency(getStackInSlot, block);
+                if (efficiency > bestEfficiency) {
+                    bestEfficiency = efficiency;
+                    bestSlot = i;
                 }
             }
         }
-        return n2;
+        return bestSlot;
     }
 
     public static boolean onLadder(Entity entity) {
@@ -602,9 +602,16 @@ public class Utils {
         return !enemies.isEmpty() && enemies.contains(name.toLowerCase());
     }
 
-    public static String getColorForHealth(double n, double n2) {
-        double health = round(n2, 1);
-        return ((n < 0.3) ? "§c" : ((n < 0.5) ? "§6" : ((n < 0.7) ? "§e" : "§a"))) + asWholeNum(health);
+    public static String getColorForHealth(double percent, double totalHealth) {
+        if (Settings.showHealthAsHearts.isToggled()) {
+            totalHealth /= 2.0;
+        }
+        double health = round(totalHealth, 1);
+        String healthStr = ((percent < 0.3) ? "§c" : ((percent < 0.5) ? "§6" : ((percent < 0.7) ? "§e" : "§a"))) + asWholeNum(health);
+        if (Settings.showHeartSymbol.isToggled()) {
+            healthStr += "§c\u2764§r";
+        }
+        return healthStr;
     }
 
     public static int getColorForHealth(double health) {
@@ -816,7 +823,7 @@ public class Utils {
 
     public static int getSkyWarsStatus() {
         List<String> sidebar = Utils.getSidebarLines();
-        if (sidebar == null || sidebar.isEmpty()) {
+        if (sidebar.isEmpty()) {
             return -1;
         }
         if (Utils.stripColor(sidebar.get(0)).startsWith("SKYWARS")) {
@@ -1438,7 +1445,15 @@ public class Utils {
             return false;
         }
         Item getItem = entityLivingBase.getHeldItem().getItem();
-        return getItem instanceof ItemSword || (Settings.weaponAxe.isToggled() && getItem instanceof ItemAxe) || (Settings.weaponRod.isToggled() && getItem instanceof ItemFishingRod) || (Settings.weaponStick.isToggled() && getItem == Items.stick);
+        return getItem instanceof ItemSword || (Settings.weaponAxe.isToggled() && getItem instanceof ItemAxe) || (Settings.weaponRod.isToggled() && getItem instanceof ItemFishingRod) || (Settings.weaponStick.isToggled() && getItem == Items.stick) || (Settings.weaponHoe.isToggled() && isHoe(getItem)) || (Settings.weaponShovel.isToggled() && isShovel(getItem));
+    }
+
+    public static boolean isHoe(Item item) {
+        return item == Items.wooden_hoe || item == Items.stone_hoe || item == Items.iron_hoe || item == Items.golden_hoe || item == Items.diamond_hoe;
+    }
+
+    public static boolean isShovel(Item item) {
+        return item == Items.wooden_shovel || item == Items.stone_shovel || item == Items.iron_shovel || item == Items.golden_shovel || item == Items.diamond_shovel;
     }
 
     public static boolean holdingSword() {

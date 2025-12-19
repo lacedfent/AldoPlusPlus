@@ -20,12 +20,15 @@ import net.minecraftforge.fml.common.gameevent.TickEvent;
 import java.io.IOException;
 
 public class Sprint extends Module {
+    public ButtonSetting disableBackwards;
     private ButtonSetting displayText;
     private ButtonSetting rainbow;
-    public ButtonSetting disableBackwards;
+
     public String text = "[Sprint (Toggled)]";
+
     public float posX = 5;
     public float posY = 5;
+
     private float limit;
 
     public Sprint() {
@@ -34,9 +37,9 @@ public class Sprint extends Module {
         this.registerSetting(new ButtonSetting("Edit text position", () -> {
             mc.displayGuiScreen(new EditScreen());
         }));
+        this.registerSetting(disableBackwards = new ButtonSetting("Disable backwards", false));
         this.registerSetting(displayText = new ButtonSetting("Display text", false));
         this.registerSetting(rainbow = new ButtonSetting("Rainbow", false));
-        this.registerSetting(disableBackwards = new ButtonSetting("Disable backwards", false));
         this.closetModule = true;
     }
 

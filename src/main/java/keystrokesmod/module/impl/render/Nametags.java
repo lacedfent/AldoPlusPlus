@@ -34,6 +34,7 @@ public class Nametags extends Module {
     private ButtonSetting showHealth;
     private ButtonSetting showHitsToKill;
     private ButtonSetting showInvis;
+    private ButtonSetting sneakSuffix;
     private ButtonSetting removeTags;
     private ButtonSetting renderSelf;
     private ButtonSetting showArmor;
@@ -59,6 +60,7 @@ public class Nametags extends Module {
         this.registerSetting(showHealth = new ButtonSetting("Show health", true));
         this.registerSetting(showHitsToKill = new ButtonSetting("Show hits to kill", false));
         this.registerSetting(showInvis = new ButtonSetting("Show invis", true));
+        this.registerSetting(sneakSuffix = new ButtonSetting("Sneak suffix", false));
         this.registerSetting(removeTags = new ButtonSetting("Remove tags", false));
         this.registerSetting(new DescriptionSetting("Armor settings"));
         this.registerSetting(showArmor = new ButtonSetting("Show armor", false));
@@ -148,51 +150,47 @@ public class Nametags extends Module {
                 double distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ);
                 newScale = (float) ((scale.getInput() + 4) / distance);
             }
-            String name;
+
+            String baseName;
             if (onlyRenderName.isToggled()) {
-                String formattedName = Utils.getFirstColorCode(en.getDisplayName().getFormattedText());
-                String colorSuffix = "";
-                if (formattedName.length() >= 2 && formattedName.startsWith("§")) {
-                    colorSuffix = formattedName;
-                }
-                name = colorSuffix + en.getName();
+                String formatted = Utils.getFirstColorCode(en.getDisplayName().getFormattedText());
+                String color = (formatted.length() >= 2 && formatted.startsWith("§")) ? formatted : "";
+                baseName = color + en.getName();
             }
             else {
-                name = en.getDisplayName().getFormattedText();
+                baseName = en.getDisplayName().getFormattedText();
             }
-            if (showHealth.isToggled()) {
-                name = name + " " + Utils.getHealthStr(en, false);
+
+            StringBuilder sb = new StringBuilder(64);
+
+            if (ModuleManager.skyWars.isEnabled() && ModuleManager.skyWars.strengthIndicator.isToggled() && !ModuleManager.skyWars.strengthPlayers.isEmpty() && ModuleManager.skyWars.strengthPlayers.get(en) != null) {
+                double start = ModuleManager.skyWars.strengthPlayers.get(en);
+                double passed = (System.currentTimeMillis() - start) / 1000d;
+                double remaining = Math.max(0, Utils.round(strengthDuration - passed, 1));
+                sb.append("§4").append(Utils.asWholeNum(remaining)).append("s§r ");
             }
-            if (showHitsToKill.isToggled()) {
-                name = name + " " + Utils.getHitsToKillStr(en, mc.thePlayer.getCurrentEquippedItem());
-            }
+
             if (showDistance.isToggled() && en != mc.thePlayer) {
                 int distance = Math.round(mc.thePlayer.getDistanceToEntity(en));
-                String color = "§";
-                if (distance < 8) {
-                    color += "c";
-                }
-                else if (distance < 30) {
-                    color += "6";
-                }
-                else if (distance < 60) {
-                    color += "e";
-                }
-                else if (distance < 90) {
-                    color += "a";
-                }
-                else {
-                    color += "2";
-                }
-                name = color + distance + "m§r " + name;
+                char color = distance < 8 ? 'c' : distance < 30 ? '6' : distance < 60 ? 'e' : distance < 90 ? 'a' : '2';
+                sb.append("§7[").append('§').append(color).append(distance).append("m").append("§7]§r ");
             }
-            if (ModuleManager.skyWars.isEnabled() && ModuleManager.skyWars.strengthIndicator.isToggled() && !ModuleManager.skyWars.strengthPlayers.isEmpty() && ModuleManager.skyWars.strengthPlayers.get(en) != null) {
-                double startTime = ModuleManager.skyWars.strengthPlayers.get(en);
-                double timePassed = (System.currentTimeMillis() - startTime) / 1000;
-                double strengthRemaining = Math.max(0, Utils.round(strengthDuration - timePassed, 1));
-                String strengthInfo = "§4" + Utils.asWholeNum(strengthRemaining) + "s§r ";
-                name = strengthInfo + name;
+
+            sb.append(baseName);
+
+            if (sneakSuffix.isToggled() && en.isSneaking()) {
+                sb.append(" §eS§r");
             }
+
+            if (showHealth.isToggled()) {
+                sb.append(' ').append(Utils.getHealthStr(en, false));
+            }
+
+            if (showHitsToKill.isToggled()) {
+                sb.append(' ').append(Utils.getHitsToKillStr(en, mc.thePlayer.getCurrentEquippedItem()));
+            }
+
+            String name = sb.toString();
 
             int strWidth = (mc.fontRendererObj.getStringWidth(name)) / 2;
             int x1 = -strWidth - 1;

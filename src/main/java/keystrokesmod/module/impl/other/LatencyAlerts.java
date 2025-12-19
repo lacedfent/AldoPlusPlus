@@ -6,9 +6,14 @@ import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.DescriptionSetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
 import keystrokesmod.utility.Utils;
+import net.minecraft.event.HoverEvent;
 import net.minecraft.network.Packet;
+import net.minecraft.util.ChatComponentText;
+import net.minecraft.util.ChatStyle;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
 
 public class LatencyAlerts extends Module {
@@ -30,12 +35,20 @@ public class LatencyAlerts extends Module {
         this.closetModule = true;
     }
 
+    @Override
+    public void onDisable() {
+        this.lastPacketTime = 0;
+        this.lastAlert = 0;
+        this.lastPacket = null;
+    }
+
     @SubscribeEvent
     public void onPacketReceive(ReceivePacketEvent e) {
         this.lastPacketTime = System.currentTimeMillis();
         this.lastPacket = e.getPacket();
     }
 
+    @Override
     public void onUpdate() {
         if (mc.isSingleplayer() || (this.ignoreLimbo.isToggled() && inLimbo())) {
             this.lastPacketTime = System.currentTimeMillis();
@@ -45,29 +58,34 @@ public class LatencyAlerts extends Module {
         long currentMs = System.currentTimeMillis();
         if (currentMs - this.lastPacketTime >= this.highLatency.getInput() * 1000 && currentMs - this.lastAlert >= this.interval.getInput() * 1000) {
             String msSinceLastPacket = String.valueOf(Math.abs(System.currentTimeMillis() - this.lastPacketTime));
-            Utils.sendMessage("&7Packet loss detected: &c" + msSinceLastPacket + "&7ms");
+
+            ChatComponentText component = new ChatComponentText(Utils.formatColor("&7[&dR&7]&r &7Packet loss detected: "));
+            ChatStyle style = new ChatStyle();
+
+            String contents = "&7Last packet: &b" + lastPacket.getClass().getSimpleName();
+
+            String timeString = new SimpleDateFormat("h:mm:ss a").format(new Date(this.lastPacketTime));
+            contents += "\n&7Received at: &b" + timeString;
+
+            style.setChatHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ChatComponentText(Utils.formatColor(contents))));
+            component.appendSibling(new ChatComponentText(Utils.formatColor("&c" + msSinceLastPacket)).setChatStyle(style));
+            component.appendSibling(new ChatComponentText(Utils.formatColor("&7ms")));
+            mc.thePlayer.addChatMessage(component);
+
             this.lastAlert = System.currentTimeMillis();
         }
     }
 
-    public void onDisable() {
-        this.lastPacketTime = 0;
-        this.lastAlert = 0;
-        this.lastPacket = null;
-    }
-
+    @Override
     public void onEnable() {
         this.lastPacketTime = System.currentTimeMillis();
     }
 
     public boolean inLimbo() {
         List<String> scoreboard = Utils.getSidebarLines();
-        if (scoreboard == null || scoreboard.isEmpty()) {
-            if (mc.theWorld.provider.getDimensionName().equals("The End")) {
-                return true;
-            }
+        if (scoreboard.isEmpty()) {
+            return mc.theWorld.provider.getDimensionName().equals("The End");
         }
         return false;
     }
-
 }

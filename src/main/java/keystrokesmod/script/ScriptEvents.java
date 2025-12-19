@@ -178,6 +178,11 @@ public class ScriptEvents {
     }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public void onPrePlayerInteract(PrePlayerInteractEvent e) {
+        Raven.scriptManager.invoke("onPrePlayerInteract", module);
+    }
+
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
     public void onWorldJoin(EntityJoinWorldEvent e) {
         if (e.entity == null) {
             return;

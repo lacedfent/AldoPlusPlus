@@ -5,6 +5,7 @@ import keystrokesmod.mixin.impl.accessor.IAccessorEntityRenderer;
 import keystrokesmod.mixin.impl.accessor.IAccessorMinecraft;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.ModuleManager;
+import keystrokesmod.module.impl.client.Settings;
 import keystrokesmod.module.impl.player.Freecam;
 import keystrokesmod.module.impl.world.AntiBot;
 import keystrokesmod.module.setting.impl.ButtonSetting;
@@ -33,24 +34,27 @@ public class PlayerESP extends Module {
     public SliderSetting red;
     public SliderSetting green;
     public SliderSetting blue;
+
     public ButtonSetting teamColor;
     public ButtonSetting rainbow;
+
     public GroupSetting espTypes;
-    private ButtonSetting twoD;
-    private ButtonSetting box;
-    private ButtonSetting healthBar;
+    public ButtonSetting twoD;
+    public ButtonSetting box;
+    public ButtonSetting healthBar;
     public ButtonSetting outline;
-    private ButtonSetting shaded;
-    private ButtonSetting skeleton;
-    private ButtonSetting ring;
+    public ButtonSetting shaded;
+    public ButtonSetting skeleton;
+    public ButtonSetting ring;
+
     public ButtonSetting redOnDamage;
     public ButtonSetting renderSelf;
     public ButtonSetting showInvis;
 
-    private int rgb_c = 0;
+    private int rgbInput = 0;
     private static final float RAD_TO_DEG = 57.29578f;
 
-    private Map<EntityLivingBase, Integer> renderAsTwoD = new HashMap<>(); // entity with its rgb
+    private final Map<EntityLivingBase, Integer> renderAsTwoD = new HashMap<>(); // entity with its rgb
     // none, outline, box, shaded, 2d, ring
 
     public PlayerESP() {
@@ -73,15 +77,16 @@ public class PlayerESP extends Module {
         this.registerSetting(showInvis = new ButtonSetting("Show invis", true));
     }
 
+    @Override
     public void guiUpdate() {
-        this.rgb_c = (new Color((int) red.getInput(), (int) green.getInput(), (int) blue.getInput())).getRGB();
+        this.rgbInput = (new Color((int) red.getInput(), (int) green.getInput(), (int) blue.getInput())).getRGB();
     }
 
     @SubscribeEvent
     public void onRenderPlayerEvent(RenderPlayerEvent.Post e) {
         if (skeleton.isToggled() && e.entityPlayer != null && Utils.nullCheck()) {
             EntityPlayer player = e.entityPlayer;
-            if (player != mc.thePlayer || (renderSelf.isToggled() && mc.gameSettings.thirdPersonView > 0)) {
+            if (player != mc.thePlayer || (renderSelf.isToggled() && (!Settings.hideFirstPersonESP.isToggled() || mc.gameSettings.thirdPersonView > 0))) {
                 if (player.deathTime != 0) {
                     return;
                 }
@@ -91,7 +96,7 @@ public class PlayerESP extends Module {
                 if (mc.thePlayer != player && AntiBot.isBot(player)) {
                     return;
                 }
-                int rgb = rainbow.isToggled() ? Utils.getChroma(2L, 0L) : this.rgb_c;
+                int rgb = rainbow.isToggled() ? Utils.getChroma(2L, 0L) : this.rgbInput;
                 if (teamColor.isToggled()) {
                     rgb = Utils.getColorFromEntity(player);
                 }
@@ -103,24 +108,26 @@ public class PlayerESP extends Module {
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public void onRenderWorld(RenderWorldLastEvent e) {
         this.renderAsTwoD.clear();
-        if (Utils.nullCheck()) {
-            int rgb = rainbow.isToggled() ? Utils.getChroma(2L, 0L) : this.rgb_c;
-            if (Raven.debug) {
-                for (final Entity entity : mc.theWorld.loadedEntityList) {
-                    if (entity instanceof EntityLivingBase && entity != mc.thePlayer) {
-                        if (teamColor.isToggled()) {
-                            rgb = Utils.getColorFromEntity(entity);
-                        }
-                        rgb = Utils.mergeAlpha(rgb, 255);
-                        this.render(entity, rgb);
-                        this.renderAsTwoD.put((EntityLivingBase) entity, rgb);
+        if (!Utils.nullCheck()) {
+            return;
+        }
+        int rgb = rainbow.isToggled() ? Utils.getChroma(2L, 0L) : this.rgbInput;
+        if (Raven.DEBUG) {
+            for (final Entity entity : mc.theWorld.loadedEntityList) {
+                if (entity instanceof EntityLivingBase && entity != mc.thePlayer) {
+                    if (teamColor.isToggled()) {
+                        rgb = Utils.getColorFromEntity(entity);
                     }
+                    rgb = Utils.mergeAlpha(rgb, 255);
+                    this.render(entity, rgb);
+                    this.renderAsTwoD.put((EntityLivingBase) entity, rgb);
                 }
-                return;
             }
+        }
+        else {
             EntityPlayer selfPlayer = (Freecam.freeEntity == null) ? mc.thePlayer : Freecam.freeEntity;
             for (EntityPlayer player : mc.theWorld.playerEntities) {
-                if (player != selfPlayer || (renderSelf.isToggled() && mc.gameSettings.thirdPersonView > 0)) {
+                if (player != selfPlayer || (renderSelf.isToggled() && (!Settings.hideFirstPersonESP.isToggled() || mc.gameSettings.thirdPersonView > 0))) {
                     if (player.deathTime != 0) {
                         continue;
                     }
@@ -151,7 +158,7 @@ public class PlayerESP extends Module {
         }
     }
 
-    private void render(Entity en, int rgb) {
+    public void render(Entity en, int rgb) {
         if (box.isToggled()) {
             RenderUtils.renderEntity(en, 1, 0, 0, rgb, redOnDamage.isToggled());
         }
@@ -325,7 +332,6 @@ public class PlayerESP extends Module {
         float lineWidth = Math.max(1.0f, computedLineWidth);
         GL11.glLineWidth(lineWidth);
 
-
         boolean isSneaking = player.isSneaking();
         float legHeight = isSneaking ? 0.6f : 0.75f;
         double legOffsetZ = isSneaking ? -0.2 : 0.0;
@@ -341,7 +347,8 @@ public class PlayerESP extends Module {
         GL11.glRotatef(-rightLegRotY, 0.0f, 1.0f, 0.0f);
         GL11.glRotatef(-rightLegRotZ, 0.0f, 0.0f, 1.0f);
         drawLine(0.0, 0.0, 0.0, 0.0, -legHeight, 0.0);
-        // Undo the right leg rotations.
+
+        // Undo the right leg rotations
         GL11.glRotatef(rightLegRotZ, 0.0f, 0.0f, 1.0f);
         GL11.glRotatef(rightLegRotY, 0.0f, 1.0f, 0.0f);
         GL11.glRotatef(-rightLegRotX, 1.0f, 0.0f, 0.0f);
@@ -355,7 +362,8 @@ public class PlayerESP extends Module {
         GL11.glRotatef(-leftLegRotY, 0.0f, 1.0f, 0.0f);
         GL11.glRotatef(-leftLegRotZ, 0.0f, 0.0f, 1.0f);
         drawLine(0.0, 0.0, 0.0, 0.0, -legHeight, 0.0);
-        // Undo the left leg rotations.
+
+        // Undo the left leg rotations
         GL11.glRotatef(leftLegRotZ, 0.0f, 0.0f, 1.0f);
         GL11.glRotatef(leftLegRotY, 0.0f, 1.0f, 0.0f);
         GL11.glRotatef(-leftLegRotX, 1.0f, 0.0f, 0.0f);

@@ -2,7 +2,6 @@ package keystrokesmod.mixin.impl.client;
 
 import keystrokesmod.event.PostPlayerInputEvent;
 import keystrokesmod.event.PrePlayerInputEvent;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.settings.GameSettings;
 import net.minecraft.util.MovementInput;
 import net.minecraft.util.MovementInputFromOptions;

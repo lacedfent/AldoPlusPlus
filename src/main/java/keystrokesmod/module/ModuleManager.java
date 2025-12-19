@@ -57,6 +57,7 @@ public class ModuleManager {
     public static Module reduce;
     public static SafeWalk safeWalk;
     public static Module keepSprint;
+    public static Piercing piercing;
     public static AntiKnockback antiKnockback;
     public static ExtendCamera extendCamera;
     public static InvManager invManager;
@@ -97,6 +98,7 @@ public class ModuleManager {
         this.addModule(noRotate = new NoRotate());
         this.addModule(scaffold = new Scaffold());
         this.addModule(new AutoRequeue());
+        this.addModule(piercing = new Piercing());
         this.addModule(new AntiAFK());
         this.addModule(new Boost());
         this.addModule(autoTool = new AutoTool());

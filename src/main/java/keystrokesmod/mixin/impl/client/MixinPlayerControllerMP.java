@@ -6,9 +6,11 @@ import net.minecraft.client.multiplayer.PlayerControllerMP;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.BlockPos;
 import net.minecraft.world.World;
 import net.minecraftforge.common.MinecraftForge;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -24,7 +26,7 @@ public class MixinPlayerControllerMP {
 
     @Inject(method = "attackEntity", at = @At("HEAD"), cancellable = true)
     private void injectAttackEntity(EntityPlayer playerIn, Entity targetEntity, CallbackInfo callbackInfo) {
-        AttackEvent event = new AttackEvent(targetEntity, playerIn);
+        AttackEvent event = new AttackEvent(targetEntity, playerIn, true);
 
         MinecraftForge.EVENT_BUS.post(event);
 
@@ -32,5 +34,4 @@ public class MixinPlayerControllerMP {
             callbackInfo.cancel();
         }
     }
-
 }

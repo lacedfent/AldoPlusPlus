@@ -20,32 +20,38 @@ public class Teleport extends Module {
     private ButtonSetting rightClick;
     private ButtonSetting highlightTarget;
     private ButtonSetting highlightPath;
+    private ButtonSetting instant;
+
     private BlockPos targetPos;
     private ArrayList<Vec3> path = new ArrayList<>();
+
     public Teleport() {
         super("Teleport", category.movement);
         this.registerSetting(rightClick = new ButtonSetting("Right click teleport", true));
         this.registerSetting(highlightTarget = new ButtonSetting("Highlight target", true));
         this.registerSetting(highlightPath = new ButtonSetting("Highlight path", false));
+        this.registerSetting(instant = new ButtonSetting("Instant", false));
     }
 
     public void teleport(BlockPos targetBlock, boolean sendMessage) {
         targetBlock = targetBlock.up(1);
-        ArrayList<Vec3> pathList = this.path = getPath(targetBlock);
         int packetsSent = 0;
-        for (Vec3 pathPos : pathList) {
-            mc.getNetHandler().addToSendQueue(new C03PacketPlayer.C04PacketPlayerPosition(pathPos.xCoord, pathPos.yCoord, pathPos.zCoord, true));
-            if (++packetsSent >= 175) {
-                if (sendMessage) {
-                    Utils.sendMessage("&eToo many packets, ending loop.");
+        if (!instant.isToggled()) {
+            ArrayList<Vec3> pathList = this.path = getPath(targetBlock);
+            for (Vec3 pathPos : pathList) {
+                mc.getNetHandler().addToSendQueue(new C03PacketPlayer.C04PacketPlayerPosition(pathPos.xCoord, pathPos.yCoord, pathPos.zCoord, true));
+                if (++packetsSent >= 175) {
+                    if (sendMessage) {
+                        Utils.sendMessage("&eToo many packets, ending loop.");
+                        break;
+                    }
                     break;
                 }
-                break;
             }
         }
         mc.thePlayer.setPosition(targetBlock.getX(), targetBlock.getY(), targetBlock.getZ());
         if (sendMessage) {
-            Utils.sendMessage("&eTeleported to &d(" + targetBlock.getX() + ", " + targetBlock.getY() + ", " + targetBlock.getZ() + ") &ewith &b" + packetsSent + " &epackets.");
+            Utils.sendMessage("&eTeleported to &d(" + targetBlock.getX() + ", " + targetBlock.getY() + ", " + targetBlock.getZ() + ")" + (!instant.isToggled() ? " &ewith &b" + packetsSent + " &epackets." : "&e."));
         }
     }
 
@@ -55,7 +61,7 @@ public class Teleport extends Module {
             return;
         }
         RenderUtils.renderBlock(targetPos, Color.orange.getRGB(), true, true);
-        if (highlightPath.isToggled()) {
+        if (highlightPath.isToggled() && !instant.isToggled()) {
             int positions = 0;
             for (Vec3 pos : this.path) {
                 if (positions >= 175) {

@@ -18,11 +18,18 @@ import java.util.List;
 
 public class Settings extends Module {
     public static SliderSetting customCapes;
-    public static ButtonSetting weaponAxe;
-    public static ButtonSetting weaponRod;
-    public static ButtonSetting weaponStick;
+    public static ButtonSetting addBracketsToDistance;
+    public static ButtonSetting hideFirstPersonESP;
     public static ButtonSetting middleClickFriends;
     public static ButtonSetting setChatAsInventory;
+    public static ButtonSetting showHealthAsHearts;
+    public static ButtonSetting showHeartSymbol;
+
+    public static ButtonSetting weaponAxe;
+    public static ButtonSetting weaponHoe;
+    public static ButtonSetting weaponRod;
+    public static ButtonSetting weaponShovel;
+    public static ButtonSetting weaponStick;
 
     public static ButtonSetting rotateBody;
     public static ButtonSetting fullBody;
@@ -43,11 +50,18 @@ public class Settings extends Module {
         super("Settings", category.client, 0);
         this.registerSetting(new DescriptionSetting("General"));
         this.registerSetting(customCapes = new SliderSetting("Custom cape", 0, capes));
-        this.registerSetting(weaponAxe = new ButtonSetting("Set axe as weapon", false));
-        this.registerSetting(weaponRod = new ButtonSetting("Set rod as weapon", false));
-        this.registerSetting(weaponStick = new ButtonSetting("Set stick as weapon", false));
+        this.registerSetting(addBracketsToDistance = new ButtonSetting("Add brackets to distance", false));
+        this.registerSetting(hideFirstPersonESP = new ButtonSetting("Hide first person self ESP", true));
         this.registerSetting(middleClickFriends = new ButtonSetting("Middle click friends", false));
         this.registerSetting(setChatAsInventory = new ButtonSetting("Set chat as inventory", false));
+        this.registerSetting(showHealthAsHearts = new ButtonSetting("Show health as hearts", false));
+        this.registerSetting(showHeartSymbol = new ButtonSetting("Show heart symbol", false));
+        this.registerSetting(new DescriptionSetting("Extra weapons"));
+        this.registerSetting(weaponAxe = new ButtonSetting("Axe", false));
+        this.registerSetting(weaponHoe = new ButtonSetting("Hoe", false));
+        this.registerSetting(weaponRod = new ButtonSetting("Rod", false));
+        this.registerSetting(weaponShovel = new ButtonSetting("Shovel", false));
+        this.registerSetting(weaponStick = new ButtonSetting("Stick", true));
         this.registerSetting(new DescriptionSetting("Rotations"));
         this.registerSetting(rotateBody = new ButtonSetting("Rotate body", true));
         this.registerSetting(fullBody = new ButtonSetting("Full body", false));

@@ -1585,9 +1585,13 @@ public class ScriptDefaults {
             KeyBinding keyBind = ReflectionUtils.keybinds.get(key);
             if (keyBind != null) {
                 KeyBinding.setKeyBindState(keyBind.getKeyCode(), pressed);
-                if (pressed) {
-                    KeyBinding.onTick(keyBind.getKeyCode());
-                }
+            }
+        }
+
+        public static void onTick(final String key) {
+            KeyBinding keyBind = ReflectionUtils.keybinds.get(key);
+            if (keyBind != null) {
+                KeyBinding.onTick(keyBind.getKeyCode());
             }
         }
 

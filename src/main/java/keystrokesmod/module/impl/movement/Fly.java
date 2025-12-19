@@ -1,23 +1,30 @@
 package keystrokesmod.module.impl.movement;
 
+import keystrokesmod.event.CollisionEvent;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
 import keystrokesmod.utility.RenderUtils;
 import keystrokesmod.utility.Utils;
+import net.minecraft.util.AxisAlignedBB;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 import org.apache.commons.lang3.RandomUtils;
 
 public class Fly extends Module {
-    public SliderSetting mode;
+    private SliderSetting mode;
     public static SliderSetting horizontalSpeed;
     private SliderSetting verticalSpeed;
     private ButtonSetting showBPS;
     private ButtonSetting stopMotion;
-    private boolean d;
-    private boolean a = false;
-    private String[] modes = new String[]{"Vanilla", "Fast", "Fast 2"};
+    private ButtonSetting keepY;
+
+    private String[] modes = new String[]{"Vanilla", "Fast", "Fast 2", "Walk"};
+
+    private boolean canFly;
+    private int maxY;
+
+    private AxisAlignedBB FULL_ABB = new AxisAlignedBB(0, 0, 0, 1.0D,1.0D,1.0D);
 
     public Fly() {
         super("Fly", category.movement);
@@ -26,13 +33,44 @@ public class Fly extends Module {
         this.registerSetting(verticalSpeed = new SliderSetting("Vertical speed", 2.0, 1.0, 9.0, 0.1));
         this.registerSetting(showBPS = new ButtonSetting("Show BPS", false));
         this.registerSetting(stopMotion = new ButtonSetting("Stop motion", false));
+        this.registerSetting(keepY = new ButtonSetting("Keep-Y", false));
     }
 
+    @Override
+    public void guiUpdate() {
+        this.horizontalSpeed.setVisible(mode.getInput() != 3, this);
+        this.verticalSpeed.setVisible(mode.getInput() != 3, this);
+
+        this.keepY.setVisible(mode.getInput() == 3, this);
+    }
+
+    @Override
+    public String getInfo() {
+        return modes[(int) mode.getInput()];
+    }
+
+    @Override
     public void onEnable() {
-        this.d = mc.thePlayer.capabilities.isFlying;
+        this.canFly = mc.thePlayer.capabilities.isFlying;
+        this.maxY = mc.thePlayer.getPosition().getY();
     }
 
+    @SubscribeEvent
+    public void onCollision(CollisionEvent e) {
+        if (mode.getInput() != 3 || Utils.isBindDown(mc.gameSettings.keyBindSneak)) {
+            this.maxY = mc.thePlayer.getPosition().getY();
+            return;
+        }
+        if (e.blockPos.getY() < (this.keepY.isToggled() ? maxY : mc.thePlayer.posY)) {
+            e.boundingBox = FULL_ABB.offset(e.blockPos.getX(), e.blockPos.getY(), e.blockPos.getZ());
+        }
+    }
+
+    @Override
     public void onUpdate() {
+        if (this.mode.getInput() == 3) {
+            return;
+        }
         switch ((int) mode.getInput()) {
             case 0:
                 mc.thePlayer.motionY = 0.0;
@@ -74,24 +112,20 @@ public class Fly extends Module {
 
     }
 
+    @Override
     public void onDisable() {
         if (mc.thePlayer.capabilities.allowFlying) {
-            mc.thePlayer.capabilities.isFlying = this.d;
+            mc.thePlayer.capabilities.isFlying = this.canFly;
         }
         else {
             mc.thePlayer.capabilities.isFlying = false;
         }
-        this.d = false;
+        this.canFly = false;
         switch ((int) mode.getInput()) {
             case 0:
-            case 1: {
+            case 1:
                 mc.thePlayer.capabilities.setFlySpeed(0.05F);
                 break;
-            }
-            case 2: {
-                a = false;
-                break;
-            }
         }
         if (stopMotion.isToggled()) {
             mc.thePlayer.motionZ = 0;
@@ -111,40 +145,40 @@ public class Fly extends Module {
         RenderUtils.renderBPS(true, false);
     }
 
-    public static void setSpeed(final double n) {
-        if (n == 0.0) {
+    private void setSpeed(double speed) {
+        if (speed == 0.0) {
             mc.thePlayer.motionZ = 0;
             mc.thePlayer.motionX = 0;
             return;
         }
-        double n3 = mc.thePlayer.movementInput.moveForward;
-        double n4 = mc.thePlayer.movementInput.moveStrafe;
-        float rotationYaw = mc.thePlayer.rotationYaw;
-        if (n3 == 0.0 && n4 == 0.0) {
+        double moveForward = mc.thePlayer.movementInput.moveForward;
+        double moveStrafe = mc.thePlayer.movementInput.moveStrafe;
+        float yaw = mc.thePlayer.rotationYaw;
+        if (moveForward == 0.0 && moveStrafe == 0.0) {
             mc.thePlayer.motionZ = 0;
             mc.thePlayer.motionX = 0;
         }
         else {
-            if (n3 != 0.0) {
-                if (n4 > 0.0) {
-                    rotationYaw += ((n3 > 0.0) ? -45 : 45);
+            if (moveForward != 0.0) {
+                if (moveStrafe > 0.0) {
+                    yaw += ((moveForward > 0.0) ? -45 : 45);
                 }
-                else if (n4 < 0.0) {
-                    rotationYaw += ((n3 > 0.0) ? 45 : -45);
+                else if (moveStrafe < 0.0) {
+                    yaw += ((moveForward > 0.0) ? 45 : -45);
                 }
-                n4 = 0.0;
-                if (n3 > 0.0) {
-                    n3 = 1.0;
+                moveStrafe = 0.0;
+                if (moveForward > 0.0) {
+                    moveForward = 1.0;
                 }
-                else if (n3 < 0.0) {
-                    n3 = -1.0;
+                else if (moveForward < 0.0) {
+                    moveForward = -1.0;
                 }
             }
-            final double radians = Math.toRadians(rotationYaw + 90.0f);
-            final double sin = Math.sin(radians);
-            final double cos = Math.cos(radians);
-            mc.thePlayer.motionX = n3 * n * cos + n4 * n * sin;
-            mc.thePlayer.motionZ = n3 * n * sin - n4 * n * cos;
+            double radians = Math.toRadians(yaw + 90.0f);
+            double sin = Math.sin(radians);
+            double cos = Math.cos(radians);
+            mc.thePlayer.motionX = moveForward * speed * cos + moveStrafe * speed * sin;
+            mc.thePlayer.motionZ = moveForward * speed * sin - moveStrafe * speed * cos;
         }
     }
 }

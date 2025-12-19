@@ -400,7 +400,7 @@ public class KillAura extends Module {
         ItemStack stack = mc.thePlayer.inventory.getStackInSlot(slot);
         if (stack != null && stack.getItem() instanceof ItemSword && wasUsing && Utils.lookingAtBlock()) {
             onSwapSlot();
-            if (Raven.debug) {
+            if (Raven.DEBUG) {
                 Utils.sendModuleMessage(this, "&7Scroll swap detected, setting delay to &b" + delayTicks + "&7. (&d" + mc.thePlayer.ticksExisted + "&7)");
             }
         }
@@ -411,7 +411,7 @@ public class KillAura extends Module {
         ItemStack stack = mc.thePlayer.inventory.getStackInSlot(e.slot);
         if (stack != null && stack.getItem() instanceof ItemSword && wasUsing && Utils.lookingAtBlock()) {
             onSwapSlot();
-            if (Raven.debug) {
+            if (Raven.DEBUG) {
                 Utils.sendModuleMessage(this, "&7Swap detected, setting delay to &b" + delayTicks + "&7. (&d" + mc.thePlayer.ticksExisted + "&7)");
             }
         }
@@ -423,11 +423,14 @@ public class KillAura extends Module {
             if (!(e.target instanceof EntityPlayer) || !e.target.getName().equals(mc.thePlayer.getName())) {
                 return;
             }
+            if (Utils.getBedwarsStatus() == 2 && e.entity instanceof EntityPigZombie) {
+                return;
+            }
             hostileMobs.add(e.entity);
         }
         if (e.target == null && hostileMobs.contains(e.entity)) {
             hostileMobs.remove(e.entity);
-            if (Raven.debug) {
+            if (Raven.DEBUG) {
                 Utils.sendModuleMessage(this, "&7mob stopped attack player");
             }
         }

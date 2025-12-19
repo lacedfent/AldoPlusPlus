@@ -404,6 +404,10 @@ public class RenderUtils {
         ts.draw();
     }
 
+    public static void renderBlockModel(IBlockState blockState, BlockPos blockPos, int color) {
+        renderBlockModel(blockState, blockPos.getX(), blockPos.getY(), blockPos.getZ(), color);
+    }
+
     public static void renderBlockModel(IBlockState blockState, double x, double y, double z, int color) {
         Minecraft mc = Minecraft.getMinecraft();
         BlockRendererDispatcher dispatcher = mc.getBlockRendererDispatcher();

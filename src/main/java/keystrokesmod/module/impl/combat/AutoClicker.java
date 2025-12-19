@@ -139,7 +139,6 @@ public class AutoClicker extends Module {
                 if (block != Blocks.air && !(block instanceof BlockLiquid)) {
                     if (!this.isHoldingBlockBreak && (!ModuleManager.killAura.isEnabled() || KillAura.target == null)) {
                         KeyBinding.setKeyBindState(key, true);
-                        KeyBinding.onTick(key);
                         this.isHoldingBlockBreak = true;
                     }
                     return;
@@ -147,6 +146,7 @@ public class AutoClicker extends Module {
                 if (this.isHoldingBlockBreak) {
                     KeyBinding.setKeyBindState(key, false);
                     this.isHoldingBlockBreak = false;
+                    return;
                 }
             }
             else {

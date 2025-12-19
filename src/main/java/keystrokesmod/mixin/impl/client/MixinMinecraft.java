@@ -1,9 +1,6 @@
 package keystrokesmod.mixin.impl.client;
 
 import keystrokesmod.event.*;
-import net.minecraftforge.fml.common.eventhandler.Cancelable;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
 import org.objectweb.asm.Opcodes;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
@@ -15,9 +12,14 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@SideOnly(Side.CLIENT)
 @Mixin(Minecraft.class)
 public class MixinMinecraft {
+
+    @Inject(method = "runTick", at = @At(value = "FIELD", opcode = Opcodes.GETFIELD, target = "Lnet/minecraft/client/settings/GameSettings;chatVisibility:Lnet/minecraft/entity/player/EntityPlayer$EnumChatVisibility;"))
+    private void injectBeforeChatVisibility(CallbackInfo ci) {
+        MinecraftForge.EVENT_BUS.post(new PrePlayerInteractEvent());
+    }
+
     @Inject(method = "runTick", at = @At(value = "INVOKE", target = "Lnet/minecraft/profiler/Profiler;endStartSection(Ljava/lang/String;)V", ordinal = 2))
     private void onRunTick(CallbackInfo ci) {
         MinecraftForge.EVENT_BUS.post(new PreInputEvent());

@@ -59,7 +59,7 @@ public class PacketsHandler {
             C09PacketHeldItemChange slotPacket = (C09PacketHeldItemChange) packet;
             int slotId = slotPacket.getSlotId();
             if (slotId == playerSlot.get() && slotId == serverSlot.get()) {
-                if (Raven.debug) {
+                if (Raven.DEBUG) {
                     Utils.sendMessage("&7bad packet detected (same slot): &b" + slotId);
                 }
                 e.setCanceled(true);

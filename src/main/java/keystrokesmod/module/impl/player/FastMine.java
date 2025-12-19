@@ -1,5 +1,6 @@
 package keystrokesmod.module.impl.player;
 
+import keystrokesmod.event.PreUpdateEvent;
 import keystrokesmod.mixin.impl.accessor.IAccessorPlayerControllerMP;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.setting.impl.ButtonSetting;
@@ -16,22 +17,39 @@ public class FastMine extends Module {
     public SliderSetting multiplier;
     private SliderSetting mode;
     private ButtonSetting creativeDisable;
+    private ButtonSetting decreaseBreakDelay;
+
+    private String[] FASTMINE_MODES = new String[] { "Pre", "Post", "Increment" };
+
     private float lastCurBlockDamageMP;
-    private String[] modes = new String[] { "Pre", "Post", "Increment" };
+    private int lastBreakDelay;
     
     public FastMine() {
         super("FastMine", category.player);
         this.registerSetting(new DescriptionSetting("Vanilla is 5 delay & 1x speed."));
         this.registerSetting(delay = new SliderSetting("Break delay", " tick", 5.0, 0.0, 5.0, 1.0));
         this.registerSetting(multiplier = new SliderSetting("Break speed", "x", 1.0, 1.0, 2.0, 0.02));
-        this.registerSetting(mode = new SliderSetting("Mode", 0, modes));
+        this.registerSetting(mode = new SliderSetting("Mode", 0, FASTMINE_MODES));
         this.registerSetting(creativeDisable = new ButtonSetting("Disable in creative", true));
+        this.registerSetting(decreaseBreakDelay = new ButtonSetting("Decrease break delay", false));
         this.closetModule = true;
     }
 
     @Override
     public String getInfo() {
         return ((int) multiplier.getInput() == multiplier.getInput() ? (int) multiplier.getInput() + "" : multiplier.getInput()) + multiplier.getSuffix();
+    }
+
+    @SubscribeEvent
+    public void onPreUpdate(PreUpdateEvent e) {
+        if (!Utils.nullCheck() || !decreaseBreakDelay.isToggled()) {
+            return;
+        }
+        int delay = ((IAccessorPlayerControllerMP) mc.playerController).getBlockHitDelay();
+        if (delay > 0 && delay == lastBreakDelay) {
+            ((IAccessorPlayerControllerMP) mc.playerController).setBlockHitDelay(--delay);
+        }
+        lastBreakDelay = delay;
     }
 
     @SubscribeEvent

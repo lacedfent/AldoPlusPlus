@@ -4,7 +4,7 @@ import keystrokesmod.Raven;
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.ICommandSender;
 
-public class keystrokeCommand extends CommandBase {
+public class KeyStrokeCommand extends CommandBase {
     public String getCommandName() {
         return "keystrokesmod";
     }

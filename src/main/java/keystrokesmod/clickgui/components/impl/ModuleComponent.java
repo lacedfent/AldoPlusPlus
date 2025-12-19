@@ -11,19 +11,15 @@ import keystrokesmod.utility.Utils;
 import keystrokesmod.utility.profile.Manager;
 import keystrokesmod.utility.profile.ProfileModule;
 import net.minecraft.client.Minecraft;
+import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
 
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.nio.IntBuffer;
 
 public class ModuleComponent extends Component {
-    private int originalHoverAlpha = 120;
-    private final int hoverColor = (new Color(0, 0, 0, originalHoverAlpha)).getRGB();
-    private final int unsavedColor = new Color(114, 188, 250).getRGB();
-    private final int invalidColor = new Color(255, 80, 80).getRGB();
-    private final int enabledColor = new Color(24, 154, 255).getRGB();
-    private final int disabledColor = new Color(192, 192, 192).getRGB();
     public Module mod;
     public CategoryComponent categoryComponent;
     public float yPos;
@@ -34,6 +30,16 @@ public class ModuleComponent extends Component {
     private boolean hoverStarted;
     private Timer smoothTimer;
     private int smoothingY = 16;
+
+    private static final IntBuffer SCISSOR_BOX = BufferUtils.createIntBuffer(16);
+
+    private int originalHoverAlpha = 120;
+
+    private final int HOVER_COLOR = (new Color(0, 0, 0, originalHoverAlpha)).getRGB();
+    private final int UNSAVED_COLOR = new Color(114, 188, 250).getRGB();
+    private final int INVALID_COLOR = new Color(255, 80, 80).getRGB();
+    private final int ENABLED_COLOR = new Color(24, 154, 255).getRGB();
+    private final int DISABLED_COLOR = new Color(192, 192, 192).getRGB();
 
     public ModuleComponent(Module mod, CategoryComponent p, float yPos) {
         this.mod = mod;
@@ -112,14 +118,14 @@ public class ModuleComponent extends Component {
             if (hoverAlpha == 0) {
                 hoverTimer = null;
             }
-            RenderUtils.drawRoundedRectangle(this.categoryComponent.getX(), this.categoryComponent.getY() + yPos, this.categoryComponent.getX() + this.categoryComponent.getWidth(), this.categoryComponent.getY() + 16 + this.yPos, 8, Utils.mergeAlpha(hoverColor, (int) hoverAlpha));
+            RenderUtils.drawRoundedRectangle(this.categoryComponent.getX(), this.categoryComponent.getY() + yPos, this.categoryComponent.getX() + this.categoryComponent.getWidth(), this.categoryComponent.getY() + 16 + this.yPos, 8, Utils.mergeAlpha(HOVER_COLOR, (int) hoverAlpha));
         }
-        int button_rgb = this.mod.isEnabled() ? enabledColor : disabledColor;
+        int button_rgb = this.mod.isEnabled() ? ENABLED_COLOR : DISABLED_COLOR;
         if (this.mod.script != null && this.mod.script.error) {
-            button_rgb = invalidColor;
+            button_rgb = INVALID_COLOR;
         }
         if (this.mod.moduleCategory() == Module.category.profiles && !(this.mod instanceof Manager) && !((ProfileModule) this.mod).saved && Raven.currentProfile.getModule() == this.mod) {
-            button_rgb = unsavedColor;
+            button_rgb = UNSAVED_COLOR;
         }
 
         if (smoothTimer != null && System.currentTimeMillis() - smoothTimer.last >= 300) {
@@ -144,10 +150,25 @@ public class ModuleComponent extends Component {
 
         Minecraft.getMinecraft().fontRendererObj.drawStringWithShadow(this.mod.getName(), (float) (this.categoryComponent.getX() + this.categoryComponent.getWidth() / 2 - Minecraft.getMinecraft().fontRendererObj.getStringWidth(this.mod.getName()) / 2), (float) (this.categoryComponent.getY() + this.yPos + 4), button_rgb);
         boolean scissorRequired = smoothTimer != null;
+        boolean wasScissorEnabled = false;
+        int prevScissorX = 0;
+        int prevScissorY = 0;
+        int prevScissorWidth = 0;
+        int prevScissorHeight = 0;
         if (scissorRequired) {
-            GL11.glPushMatrix();
-            GL11.glEnable(GL11.GL_SCISSOR_TEST);
-            RenderUtils.scissor(this.categoryComponent.getX() - 2, this.categoryComponent.getY() + this.yPos + 4, this.categoryComponent.getWidth() + 4, smoothingY + 4);
+            wasScissorEnabled = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
+            if (wasScissorEnabled) {
+                SCISSOR_BOX.clear();
+                GL11.glGetInteger(GL11.GL_SCISSOR_BOX, SCISSOR_BOX);
+                prevScissorX = SCISSOR_BOX.get(0);
+                prevScissorY = SCISSOR_BOX.get(1);
+                prevScissorWidth = SCISSOR_BOX.get(2);
+                prevScissorHeight = SCISSOR_BOX.get(3);
+            }
+            else {
+                GL11.glEnable(GL11.GL_SCISSOR_TEST);
+            }
+            RenderUtils.scissor(this.categoryComponent.getX() - 2, this.categoryComponent.getY() + this.yPos, this.categoryComponent.getWidth() + 4, smoothingY);
         }
 
         if (this.isOpened || smoothTimer != null) {
@@ -160,8 +181,12 @@ public class ModuleComponent extends Component {
         }
 
         if (scissorRequired) {
-            GL11.glDisable(GL11.GL_SCISSOR_TEST);
-            GL11.glPopMatrix();
+            if (wasScissorEnabled) {
+                GL11.glScissor(prevScissorX, prevScissorY, prevScissorWidth, prevScissorHeight);
+            }
+            else {
+                GL11.glDisable(GL11.GL_SCISSOR_TEST);
+            }
         }
     }
 

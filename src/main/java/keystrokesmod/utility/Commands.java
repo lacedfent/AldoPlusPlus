@@ -337,8 +337,8 @@ public class Commands {
                 }
             }
             else if (cm.startsWith("Debug".toLowerCase())) {
-                Raven.debug = !Raven.debug;
-                print("Debug " + (Raven.debug ? "enabled" : "disabled") + ".", 1);
+                Raven.DEBUG = !Raven.DEBUG;
+                print("Debug " + (Raven.DEBUG ? "enabled" : "disabled") + ".", 1);
             }
             else if (cm.startsWith("profiles") || cm.startsWith("p")) {
                 if (!hasArgs) {

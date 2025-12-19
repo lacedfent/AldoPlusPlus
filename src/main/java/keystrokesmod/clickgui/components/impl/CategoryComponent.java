@@ -350,7 +350,7 @@ public class CategoryComponent {
                 itemStack = new ItemStack(Items.golden_apple);
                 break;
             case world:
-                itemStack = new ItemStack(Items.map);
+                itemStack = new ItemStack(Items.filled_map);
                 break;
             case render:
                 itemStack = new ItemStack(Items.ender_eye);

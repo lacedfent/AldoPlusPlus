@@ -198,7 +198,7 @@ public class BedAura extends Module {
             }
             e.setYaw(RotationUtils.applyVanilla(rotations[0]));
             e.setPitch(rotations[1]);
-            if (Raven.debug) {
+            if (Raven.DEBUG) {
                 Utils.sendModuleMessage(this, "&7rotating (&3" + mc.thePlayer.ticksExisted + "&7).");
             }
             rotate = false;
@@ -376,14 +376,14 @@ public class BedAura extends Module {
     }
 
     private void startBreak(BlockPos blockPos) {
-        if (Raven.debug) {
+        if (Raven.DEBUG) {
             Utils.sendModuleMessage(this, "sending c07 &astart &7break &7(&b" + mc.thePlayer.ticksExisted + "&7)");
         }
         mc.thePlayer.sendQueue.addToSendQueue(new C07PacketPlayerDigging(C07PacketPlayerDigging.Action.START_DESTROY_BLOCK, blockPos, EnumFacing.UP));
     }
 
     private void stopBreak(BlockPos blockPos) {
-        if (Raven.debug) {
+        if (Raven.DEBUG) {
             Utils.sendModuleMessage(this, "sending c07 &cstop &7break &7(&b" + mc.thePlayer.ticksExisted + "&7)");
         }
         mc.thePlayer.sendQueue.addToSendQueue(new C07PacketPlayerDigging(C07PacketPlayerDigging.Action.STOP_DESTROY_BLOCK, blockPos, EnumFacing.UP));
@@ -427,7 +427,7 @@ public class BedAura extends Module {
             else if (noAutoBlockTicks == 99) {
                 noAutoBlockTicks = 0;
             }
-            if (Raven.debug) {
+            if (Raven.DEBUG) {
                 Utils.sendModuleMessage(this, "&7stopping autoblock on &3start &7(&b" + mc.thePlayer.ticksExisted + "&7)");
             }
             return;
@@ -479,14 +479,14 @@ public class BedAura extends Module {
             double progress = vanillaProgress = (float) (BlockUtils.getBlockHardness(block, (mode.getInput() == 2 && Utils.getTool(block) != -1) ? mc.thePlayer.inventory.getStackInSlot(Utils.getTool(block)) : mc.thePlayer.getHeldItem(), false, ignoreSlow.isToggled() || groundSpoof.isToggled()) * breakSpeed.getInput());
             if (lastProgress != 0 && breakProgress >= lastProgress - vanillaProgress) {
                 if (mode.getInput() == 2 && ModuleManager.killAura.autoBlockOverride()) {
-                    if (Raven.debug) {
+                    if (Raven.DEBUG) {
                         Utils.sendModuleMessage(this, "&7stopping autoblock &7(&b" + mc.thePlayer.ticksExisted + "&7)");
                     }
                     stopAutoblock = true; // if blocking then return and stop autoblocking
                 }
                 if (breakProgress >= lastProgress) {
                     if (mode.getInput() == 2) {
-                        if (Raven.debug) {
+                        if (Raven.DEBUG) {
                             Utils.sendModuleMessage(this, "&7setting slot &7(&b" + mc.thePlayer.ticksExisted + "&7)");
                         }
                         setPacketSlot(Utils.getTool(block));
@@ -510,8 +510,8 @@ public class BedAura extends Module {
             if (!silentSwing.isToggled()) {
                 swing();
             }
-            startBreak(blockPos);
             setSlot(Utils.getTool(block));
+            startBreak(blockPos);
             stopBreak(blockPos);
         }
         aiming = false;

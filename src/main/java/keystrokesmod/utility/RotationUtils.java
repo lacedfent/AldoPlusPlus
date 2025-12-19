@@ -294,6 +294,17 @@ public class RotationUtils {
         return mc.theWorld.rayTraceBlocks(getPositionEyes, getPositionEyes.addVector(vec3.xCoord * distance, vec3.yCoord * distance, vec3.zCoord * distance), true, collisionCheck, true);
     }
 
+    public static MovingObjectPosition rayCastBlock(final double distance, final float yaw, final float pitch) {
+        Vec3 eyeVec = mc.thePlayer.getPositionEyes(1.0f);
+        Vec3 lookVec = Utils.getLookVec(yaw, pitch);
+        Vec3 sumVec = eyeVec.addVector(lookVec.xCoord * distance, lookVec.yCoord * distance, lookVec.zCoord * distance);
+        MovingObjectPosition mop = mc.theWorld.rayTraceBlocks(eyeVec, sumVec, false, false, false);
+        if (mop == null || mop.typeOfHit != MovingObjectPosition.MovingObjectType.BLOCK) {
+            return null;
+        }
+        return mop;
+    }
+
     public static MovingObjectPosition rayTraceCustom(double blockReachDistance, float yaw, float pitch) {
         final Vec3 vec3 = mc.thePlayer.getPositionEyes(1.0F);
         final Vec3 vec31 = getVectorForRotation(pitch, yaw);

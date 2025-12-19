@@ -50,7 +50,7 @@ sourceSets.main {
 
 repositories {
     mavenCentral()
-    maven("https://repo.spongepowered.org/maven/")
+    maven("https://repo.polyfrost.cc/releases/")
 }
 
 val shadowImpl: Configuration by configurations.creating {

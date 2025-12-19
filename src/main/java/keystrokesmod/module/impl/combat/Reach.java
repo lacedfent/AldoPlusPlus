@@ -6,7 +6,6 @@ import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
 import keystrokesmod.utility.RotationUtils;
 import keystrokesmod.utility.Utils;
-import net.minecraft.client.renderer.EntityRenderer;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.item.EntityItemFrame;
@@ -30,7 +29,7 @@ public class Reach extends Module {
     public static ButtonSetting hitThroughBlocks;
 
     public Reach() {
-        super("Reach", Module.category.combat, 0);
+        super("Reach", category.combat, 0);
         this.registerSetting(min = new SliderSetting("Min", 3.1D, 3.0D, 6.0D, 0.05D));
         this.registerSetting(max = new SliderSetting("Max", 3.3D, 3.0D, 6.0D, 0.05D));
         this.registerSetting(weaponOnly = new ButtonSetting("Weapon only", false));
@@ -40,13 +39,14 @@ public class Reach extends Module {
         this.closetModule = true;
     }
 
+    @Override
     public void guiUpdate() {
         Utils.correctValue(min, max);
     }
 
     @SubscribeEvent
-    public void e(MouseEvent ev) {
-        if (ev.button >= 0 && ev.buttonstate && Utils.nullCheck() && (!ModuleManager.autoClicker.isEnabled() || !AutoClicker.leftClick.isToggled() || !Mouse.isButtonDown(0))) {
+    public void onMouse(MouseEvent ev) {
+        if (ev.button >= 0 && ev.buttonstate && Utils.nullCheck()) {
             call();
         }
     }
@@ -54,13 +54,17 @@ public class Reach extends Module {
     public static boolean call() {
         if (!Utils.nullCheck()) {
             return false;
-        } else if (weaponOnly.isToggled() && !Utils.holdingWeapon()) {
+        }
+        else if (weaponOnly.isToggled() && !Utils.holdingWeapon()) {
             return false;
-        } else if (movingOnly.isToggled() && (double) mc.thePlayer.moveForward == 0.0D && (double) mc.thePlayer.moveStrafing == 0.0D) {
+        }
+        else if (movingOnly.isToggled() && (double) mc.thePlayer.moveForward == 0.0D && (double) mc.thePlayer.moveStrafing == 0.0D) {
             return false;
-        } else if (sprintOnly.isToggled() && !mc.thePlayer.isSprinting()) {
+        }
+        else if (sprintOnly.isToggled() && !mc.thePlayer.isSprinting()) {
             return false;
-        } else {
+        }
+        else {
             if (!hitThroughBlocks.isToggled() && mc.objectMouseOver != null) {
                 BlockPos p = mc.objectMouseOver.getBlockPos();
                 if (p != null && mc.theWorld.getBlockState(p).getBlock() != Blocks.air) {
@@ -68,14 +72,16 @@ public class Reach extends Module {
                 }
             }
 
-            double r = Utils.getRandomValue(min, max, Utils.getRandom());
-            Object[] o = getEntity(r, 0.0D);
-            if (o == null) {
+            double reach = Utils.getRandomValue(min, max, Utils.getRandom());
+            Object[] entity = getEntity(reach, 0.0D);
+            if (entity == null) {
                 return false;
-            } else {
-                Entity en = (Entity) o[0];
-                mc.objectMouseOver = new MovingObjectPosition(en, (Vec3) o[1]);
+            }
+            else {
+                Entity en = (Entity) entity[0];
+                mc.objectMouseOver = new MovingObjectPosition(en, (Vec3) entity[1]);
                 mc.pointedEntity = en;
+                Utils.sendMessage("Sdasdaw");
                 return true;
             }
         }
@@ -94,7 +100,6 @@ public class Reach extends Module {
         if (zz2 == null) {
             return null;
         } else {
-            mc.mcProfiler.startSection("pick");
             Vec3 zz3 = zz2.getPositionEyes(1.0F);
             Vec3 zz4;
             if (rotations != null) {
@@ -143,7 +148,6 @@ public class Reach extends Module {
                 entity = null;
             }
 
-            mc.mcProfiler.endSection();
             if (entity != null && hitVec != null) {
                 return new Object[]{entity, hitVec};
             }

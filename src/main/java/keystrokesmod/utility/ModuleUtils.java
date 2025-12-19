@@ -1,5 +1,6 @@
 package keystrokesmod.utility;
 
+import keystrokesmod.Raven;
 import keystrokesmod.event.*;
 import keystrokesmod.module.impl.combat.KillAura;
 import keystrokesmod.module.impl.combat.Velocity;

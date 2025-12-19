@@ -67,7 +67,7 @@ public class Anticheat extends Module {
         lastClientBoundPacket = System.currentTimeMillis();
     }
 
-    private void alert(final EntityPlayer entityPlayer, ButtonSetting mode) {
+    private void alert(EntityPlayer entityPlayer, ButtonSetting mode) {
         if (Utils.isFriended(entityPlayer) || (ignoreTeammates.isToggled() && Utils.isTeammate(entityPlayer))) {
             return;
         }
@@ -79,23 +79,23 @@ public class Anticheat extends Module {
         else if (enemyAdd.isToggled()) {
             Utils.addEnemy(entityPlayer.getName());
         }
-        final long currentTimeMillis = System.currentTimeMillis();
+        long currentTimeMillis = System.currentTimeMillis();
         if (interval.getInput() > 0.0) {
             HashMap<ButtonSetting, Long> hashMap = flags.get(entityPlayer.getUniqueID());
             if (hashMap == null) {
                 hashMap = new HashMap<>();
             }
             else {
-                final Long n = hashMap.get(mode);
-                if (n != null && Utils.timeBetween(n, currentTimeMillis) <= interval.getInput() * 1000.0) {
+                Long lastFlag = hashMap.get(mode);
+                if (lastFlag != null && Utils.timeBetween(lastFlag, currentTimeMillis) <= interval.getInput() * 1000.0) {
                     return;
                 }
             }
             hashMap.put(mode, currentTimeMillis);
             flags.put(entityPlayer.getUniqueID(), hashMap);
         }
-        final ChatComponentText chatComponentText = new ChatComponentText(Utils.formatColor("&7[&dR&7]&r " + entityPlayer.getDisplayName().getUnformattedText() + " &7detected for &d" + mode.getName()));
-        final ChatStyle chatStyle = new ChatStyle();
+        ChatComponentText chatComponentText = new ChatComponentText(Utils.formatColor("&7[&dR&7]&r " + entityPlayer.getDisplayName().getUnformattedText() + " &7detected for &d" + mode.getName()));
+        ChatStyle chatStyle = new ChatStyle();
         chatStyle.setChatClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/wdr " + entityPlayer.getName()));
         chatComponentText.appendSibling(new ChatComponentText(Utils.formatColor(" §7[§cWDR§7]")).setChatStyle(chatStyle));
         mc.thePlayer.addChatMessage(chatComponentText);

@@ -1,7 +1,9 @@
 package keystrokesmod.module.setting.impl;
 
 import com.google.gson.JsonObject;
+import keystrokesmod.helper.MouseHelper;
 import keystrokesmod.module.setting.Setting;
+import keystrokesmod.utility.Utils;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
@@ -37,7 +39,7 @@ public class KeySetting extends Setting {
             return false;
         }
         if (this.getKey() >= 1000) {
-            return Mouse.isButtonDown(this.getKey() - 1000);
+            return (this.getKey() == 1069 || this.getKey() == 1070) ? MouseHelper.isScrollDown(this.getKey()) : Mouse.isButtonDown(this.getKey() - 1000);
         }
         else {
             return Keyboard.isKeyDown(this.getKey());

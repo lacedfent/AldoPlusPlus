@@ -9,6 +9,7 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraftforge.client.event.MouseEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import org.lwjgl.input.Mouse;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -22,6 +23,36 @@ public class MouseHelper {
     public static long LL = 0L;
     public static long LR = 0L;
 
+    private static int cachedWheelDelta = 0;
+    private static boolean wheelDeltaCached = false;
+
+    public static void updateWheelCache() {
+        cachedWheelDelta = Mouse.getDWheel();
+        wheelDeltaCached = true;
+    }
+
+    public static boolean isScrollDown(int key) {
+        if (!wheelDeltaCached) {
+            cachedWheelDelta = Mouse.getDWheel();
+            wheelDeltaCached = true;
+        }
+
+        if (cachedWheelDelta != 0) {
+            if (key == 1069) {
+                return cachedWheelDelta > 0;
+            }
+            else if (key == 1070) {
+                return cachedWheelDelta < 0;
+            }
+        }
+        return false;
+    }
+
+    public static void clearWheelCache() {
+        wheelDeltaCached = false;
+        cachedWheelDelta = 0;
+    }
+
     @SubscribeEvent
     public void onMouse(MouseEvent e) {
         if (!e.buttonstate) {
@@ -29,7 +60,7 @@ public class MouseHelper {
         }
         if (e.button == 0) {
             aL();
-            if (Raven.debug && mc.objectMouseOver != null) {
+            if (Raven.DEBUG && mc.objectMouseOver != null) {
                 Entity en = mc.objectMouseOver.entityHit;
                 if (en == null || !(en instanceof EntityLivingBase)) {
                     return;
