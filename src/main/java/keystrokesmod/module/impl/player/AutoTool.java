@@ -102,6 +102,10 @@ public class AutoTool extends Module {
             resetSlot();
             return;
         }
+        if (over == null || over.typeOfHit != MovingObjectPosition.MovingObjectType.BLOCK || over.getBlockPos() == null) {
+            resetVariables(false);
+            return;
+        }
         int slot = Utils.getTool(BlockUtils.getBlock(over.getBlockPos()));
         if (slot == -1) {
             return;
