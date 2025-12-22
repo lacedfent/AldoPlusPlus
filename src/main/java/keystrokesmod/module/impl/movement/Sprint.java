@@ -43,6 +43,7 @@ public class Sprint extends Module {
         this.closetModule = true;
     }
 
+    @Override
     public void onUpdate() {
         if (Utils.nullCheck() && mc.inGameHasFocus) {
             KeyBinding.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), true);

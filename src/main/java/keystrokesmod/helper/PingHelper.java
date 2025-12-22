@@ -1,6 +1,6 @@
 package keystrokesmod.helper;
 
-import keystrokesmod.utility.Commands;
+import keystrokesmod.utility.CommandHandler;
 import keystrokesmod.utility.Utils;
 import net.minecraftforge.client.event.ClientChatReceivedEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
@@ -29,14 +29,14 @@ public class PingHelper {
             Utils.sendMessage("&7[&fping&7] &7Checking...");
         }
         else {
-            Commands.print("§3Checking...", 1);
+            CommandHandler.print("§3Checking...", 1);
         }
         if (sendChat) {
             if (isChat) {
                 Utils.sendMessage("&7[&fping&7] &7Please wait.");
             }
             else {
-                Commands.print("§cPlease wait.", 0);
+                CommandHandler.print("§cPlease wait.", 0);
             }
         }
         else {
@@ -61,7 +61,7 @@ public class PingHelper {
             Utils.sendMessage("&7[&fping&7] &7Your ping: &b" + ping + "&7ms.");
         }
         else {
-            Commands.print("Your ping: " + ping + "ms", 0);
+            CommandHandler.print("Your ping: " + ping + "ms", 0);
         }
         reset(isChat);
     }

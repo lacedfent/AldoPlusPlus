@@ -8,7 +8,7 @@ import keystrokesmod.clickgui.components.impl.ModuleComponent;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.impl.client.CommandLine;
 import keystrokesmod.module.impl.client.Gui;
-import keystrokesmod.utility.Commands;
+import keystrokesmod.utility.CommandHandler;
 import keystrokesmod.utility.Timer;
 import keystrokesmod.utility.Utils;
 import keystrokesmod.utility.shader.BlurUtils;
@@ -160,7 +160,7 @@ public class ClickGui extends GuiScreen {
             this.drawHorizontalLine(0, r - 1, (this.height - 345), -1);
             this.drawHorizontalLine(0, r - 1, (this.height - 115), -1);
             drawRect(r - 1, 0, r, this.height, -1);
-            Commands.rc(this.fontRendererObj, this.height, r, this.sr.getScaleFactor());
+            CommandHandler.renderCommandOutput(this.fontRendererObj, this.height, r, this.sr.getScaleFactor());
             int x2 = r - 178;
             this.commandLineInput.xPosition = x2;
             this.commandLineSend.xPosition = x2;
@@ -281,7 +281,7 @@ public class ClickGui extends GuiScreen {
             if (CommandLine.opened) {
                 String cm = this.commandLineInput.getText();
                 if (k == 28 && !cm.isEmpty()) {
-                    Commands.runCommand(this.commandLineInput.getText());
+                    CommandHandler.runCommand(this.commandLineInput.getText());
                     this.commandLineInput.setText("");
                     return;
                 }
@@ -292,7 +292,7 @@ public class ClickGui extends GuiScreen {
 
     public void actionPerformed(GuiButton b) {
         if (b == this.commandLineSend) {
-            Commands.runCommand(this.commandLineInput.getText());
+            CommandHandler.runCommand(this.commandLineInput.getText());
             this.commandLineInput.setText("");
         }
     }

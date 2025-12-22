@@ -64,6 +64,7 @@ public class BridgeInfo extends Module {
         this.reset();
     }
 
+    @Override
     public void onUpdate() {
         if (!this.enemyName.isEmpty() && this.isBridge()) {
             EntityPlayer enem = null;

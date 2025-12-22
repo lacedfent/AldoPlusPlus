@@ -1,7 +1,10 @@
 package keystrokesmod.module.impl.player;
 
+import keystrokesmod.event.PreUpdateEvent;
 import keystrokesmod.module.Module;
+import keystrokesmod.module.ModuleManager;
 import keystrokesmod.module.setting.impl.ButtonSetting;
+import keystrokesmod.module.setting.impl.KeySetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
 import keystrokesmod.utility.Utils;
 import net.minecraft.init.Blocks;
@@ -14,17 +17,17 @@ import net.minecraft.inventory.IInventory;
 import net.minecraft.item.*;
 import net.minecraft.potion.PotionEffect;
 import net.minecraft.util.DamageSource;
-import org.lwjgl.input.Mouse;
+import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 
 public class InvManager extends Module {
-    private static SliderSetting stealerDelay;
-    private static SliderSetting sortDelay;
-    private static SliderSetting armorDelay;
-    private static SliderSetting cleanerDelay;
+    private static SliderSetting chestStealer;
+    private static SliderSetting autoSort;
+    private static SliderSetting autoArmor;
+    private static SliderSetting inventoryCleaner;
 
     private SliderSetting swordSlot;
     private SliderSetting blocksSlot;
@@ -32,38 +35,36 @@ public class InvManager extends Module {
     private SliderSetting projectileSlot;
     private SliderSetting speedSlot;
     private SliderSetting pearlSlot;
-    private ButtonSetting autoArmor;
-    private ButtonSetting autoSort;
-    private ButtonSetting customChests;
-    private ButtonSetting chestSteal;
-    private ButtonSetting closeAfterStealing;
-    private ButtonSetting invCleaner;
-    private ButtonSetting clickToClean;
+    private ButtonSetting setalFromCustomChests;
+    private ButtonSetting disableInLobby;
+    private ButtonSetting closeChest;
+    private ButtonSetting closeInventory;
+    private KeySetting cleanKey;
 
-    private long ticks = 0l;
-    private long nextDelay = 0l;
+    private long ticks = 0L;
+    private long nextDelay = 0L;
     private boolean closeGui = false;
+    private boolean closeInventoryGui = false;
+    private boolean inventoryActionPerformed = false;
     private double[] currentSword = new double[] { -1.0, -1.0 };
 
     private CurrentArmor[] armorArr = CurrentArmor.values();
 
     public InvManager() {
         super("InvManager", category.player);
-        this.registerSetting(autoArmor = new ButtonSetting("Auto armor", false));
-        this.registerSetting(armorDelay = new SliderSetting("Auto armor delay", 3.0, 1.0, 20.0, 1.0));
+        this.registerSetting(closeChest = new ButtonSetting("Close chest", false));
+        this.registerSetting(closeInventory = new ButtonSetting("Close inventory", false));
+        this.registerSetting(disableInLobby = new ButtonSetting("Disable in lobby", true));
+        this.registerSetting(autoArmor = new SliderSetting("Auto armor", " tick", true, 3.0, 1.0, 20.0, 1.0));
 
-        this.registerSetting(autoSort = new ButtonSetting("Auto sort", false));
-        this.registerSetting(sortDelay = new SliderSetting("Sort delay", 3.0, 1.0, 20.0, 1.0));
+        this.registerSetting(autoSort = new SliderSetting("Auto sort"," tick", true, 3.0, 1.0, 20.0, 1.0));
 
-        this.registerSetting(chestSteal = new ButtonSetting("Steal chests", false));
-        this.registerSetting(customChests = new ButtonSetting("Custom chest", false));
-        this.registerSetting(closeAfterStealing = new ButtonSetting("Close after stealing", false));
-        this.registerSetting(stealerDelay = new SliderSetting("Stealer delay", 3.0, 1.0, 20.0, 1.0));
+        this.registerSetting(chestStealer = new SliderSetting("Chest stealer"," tick", true, 3.0, 1.0, 20.0, 1.0));
+        this.registerSetting(setalFromCustomChests = new ButtonSetting("Steal from custom chests", false));
 
-        this.registerSetting(invCleaner = new ButtonSetting("Inventory cleaner", false));
-        this.registerSetting(clickToClean = new ButtonSetting("Middle click to clean", false));
+        this.registerSetting(inventoryCleaner = new SliderSetting("Inventory cleaner"," tick", true, 5.0, 1.0, 20.0, 1.0));
+        this.registerSetting(cleanKey = new KeySetting("Clean key", 1002));
 
-        this.registerSetting(cleanerDelay = new SliderSetting("Cleaner delay", 5.0, 1.0, 20.0, 1.0));
         this.registerSetting(swordSlot = new SliderSetting("Sword slot", true, -1, 1, 9, 1));
         this.registerSetting(blocksSlot = new SliderSetting("Blocks slot", true, -1, 1, 9, 1));
         this.registerSetting(goldenAppleSlot = new SliderSetting("Golden apple slot", true, -1, 1, 9, 1));
@@ -77,15 +78,27 @@ public class InvManager extends Module {
         this.nextDelay = 0L;
         this.ticks = 0L;
         this.closeGui = false;
+        this.closeInventoryGui = false;
+        this.inventoryActionPerformed = false;
     }
 
-    @Override
-    public void onUpdate() {
+    @SubscribeEvent
+    public void onPreUpdate(PreUpdateEvent e) {
         if (mc.currentScreen == null) {
+            this.closeInventoryGui = false;
+            this.inventoryActionPerformed = false;
             return;
         }
-        if (closeAfterStealing.isToggled() && this.closeGui) {
+        if ((disableInLobby.isToggled() && Utils.isLobby()) || (ModuleManager.skyWars.isEnabled() && ModuleManager.invmove.isEnabled() && ModuleManager.invmove.inventory.getInput() == 3 && Utils.getSkyWarsStatus() != 2)) {
+            return;
+        }
+        if (closeChest.isToggled() && this.closeGui) {
             this.closeGui = false;
+            mc.thePlayer.closeScreen();
+            return;
+        }
+        if (closeInventory.isToggled() && this.closeInventoryGui && mc.currentScreen instanceof GuiInventory) {
+            this.closeInventoryGui = false;
             mc.thePlayer.closeScreen();
             return;
         }
@@ -96,11 +109,14 @@ public class InvManager extends Module {
         }
         this.ticks = 0L;
         if (mc.currentScreen instanceof GuiInventory) {
-            if (autoArmor.isToggled() || autoSort.isToggled() || invCleaner.isToggled()) {
+            if (autoArmor.getInput() != -1 || autoSort.getInput() != -1 || inventoryCleaner.getInput() != -1) {
+                if (this.nextDelay == 0L) {
+                    this.inventoryActionPerformed = false;
+                }
                 this.updateCurrentArmor();
-                boolean armorOnly = !(autoSort.isToggled() || invCleaner.isToggled());
+                boolean armorOnly = !(autoSort.getInput() != -1 || inventoryCleaner.getInput() != -1);
                 InventoryData data = new InventoryData(mc.thePlayer.inventory, true, armorOnly);
-                if (autoArmor.isToggled()) {
+                if (autoArmor.getInput() != -1) {
                     for (int i = 0; i < data.armorData[0].length; ++i) {
                         if (data.armorData[1][i] != -1) {
                             CurrentArmor currentArmor = this.armorArr[i];
@@ -115,7 +131,7 @@ public class InvManager extends Module {
                         }
                     }
                 }
-                if (autoSort.isToggled()) {
+                if (autoSort.getInput() != -1) {
                     if (this.fixSwordSlot(data, true)) {
                         return;
                     }
@@ -233,8 +249,8 @@ public class InvManager extends Module {
                         }
                     }
                 }
-                if (invCleaner.isToggled()) {
-                    if (clickToClean.isToggled() && !Mouse.isButtonDown(2)) {
+                if (inventoryCleaner.getInput() != -1) {
+                    if (cleanKey.getKey() != 0 && !cleanKey.isPressed()) {
                         return;
                     }
                     List<Integer> duplicateItems = new ArrayList<>();
@@ -348,11 +364,14 @@ public class InvManager extends Module {
                         }
                     }
                 }
+                if (closeInventory.isToggled() && this.inventoryActionPerformed) {
+                    this.closeInventoryGui = true;
+                }
             }
         }
-        else if (mc.currentScreen instanceof GuiChest && chestSteal.isToggled()) {
+        else if (mc.currentScreen instanceof GuiChest && chestStealer.getInput() != -1) {
             IInventory chestInventory = ((ContainerChest)mc.thePlayer.openContainer).getLowerChestInventory();
-            if (!customChests.isToggled() && !chestInventory.getName().contains("Chest")) {
+            if (!setalFromCustomChests.isToggled() && !chestInventory.getName().contains("Chest")) {
                 return;
             }
             this.updateCurrentArmor();
@@ -482,7 +501,7 @@ public class InvManager extends Module {
                     }
                 }
             }
-            if (closeAfterStealing.isToggled()) {
+            if (closeChest.isToggled()) {
                 this.closeGui = true;
             }
         }
@@ -588,6 +607,7 @@ public class InvManager extends Module {
 
     private void guiClick(int slot, int mouse, int mode, Delay delayType) {
         this.nextDelay = (long)delayType.slider.getInput();
+        this.inventoryActionPerformed = true;
         guiClick(slot, mouse, mode);
     }
 
@@ -717,10 +737,10 @@ public class InvManager extends Module {
 
     enum Delay
     {
-        AUTOARMOR(armorDelay),
-        SORT(sortDelay),
-        STEALER(stealerDelay),
-        CLEANER(cleanerDelay);
+        AUTOARMOR(autoArmor),
+        SORT(autoSort),
+        STEALER(chestStealer),
+        CLEANER(inventoryCleaner);
 
         SliderSetting slider;
 

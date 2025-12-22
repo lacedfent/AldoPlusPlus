@@ -2,7 +2,7 @@ package keystrokesmod.module.impl.client;
 
 import keystrokesmod.module.Module;
 import keystrokesmod.module.setting.impl.ButtonSetting;
-import keystrokesmod.utility.Commands;
+import keystrokesmod.utility.CommandHandler;
 import keystrokesmod.utility.Timer;
 
 public class CommandLine extends Module {
@@ -17,7 +17,7 @@ public class CommandLine extends Module {
     }
 
     public void onEnable() {
-        Commands.setccs();
+        CommandHandler.setBackgroundColor();
         opened = true;
         closed = false;
         (animation = new Timer(500.0F)).start();
@@ -29,6 +29,6 @@ public class CommandLine extends Module {
             animation.start();
         }
 
-        Commands.onDisable();
+        CommandHandler.onDisable();
     }
 }

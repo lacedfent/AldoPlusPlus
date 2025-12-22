@@ -136,6 +136,7 @@ public class BedWars extends Module {
         }
     }
 
+    @Override
     public void onUpdate() {
         if (Utils.getBedwarsStatus() == 2) {
             if (diamondArmor.isToggled() || enderPearl.isToggled() || obsidian.isToggled()) {

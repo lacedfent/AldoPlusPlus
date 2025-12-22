@@ -8,7 +8,9 @@ import keystrokesmod.utility.Utils;
 
 public class ExtendCamera extends Module {
     public SliderSetting distance;
+
     private float lastDistance;
+
     public ExtendCamera() {
         super("ExtendCamera", category.render);
         this.registerSetting(new DescriptionSetting("Extends camera in third person."));
@@ -16,10 +18,12 @@ public class ExtendCamera extends Module {
         this.registerSetting(distance = new SliderSetting("Distance", " block", 4, 1, 40, 0.5));
     }
 
+    @Override
     public void onEnable() {
         setThirdPersonDistance((float) distance.getInput());
     }
 
+    @Override
     public void onUpdate() {
         try {
             float input = (float) distance.getInput();
@@ -33,6 +37,7 @@ public class ExtendCamera extends Module {
         }
     }
 
+    @Override
     public void onDisable() {
         setThirdPersonDistance(4.0f);
     }

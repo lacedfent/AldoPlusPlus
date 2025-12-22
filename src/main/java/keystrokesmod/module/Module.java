@@ -1,7 +1,6 @@
 package keystrokesmod.module;
 
 import keystrokesmod.Raven;
-import keystrokesmod.helper.DebugHelper;
 import keystrokesmod.helper.MouseHelper;
 import keystrokesmod.module.impl.combat.AntiKnockback;
 import keystrokesmod.module.setting.Setting;

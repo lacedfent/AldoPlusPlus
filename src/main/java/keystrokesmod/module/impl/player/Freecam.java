@@ -25,12 +25,14 @@ public class Freecam extends Module {
     private ButtonSetting allowDigging;
     private ButtonSetting allowInteracting;
     private ButtonSetting allowPlacing;
+
     public static EntityOtherPlayerMP freeEntity = null;
+
     private int[] lcc = new int[]{Integer.MAX_VALUE, 0};
     private float[] sAng = new float[]{0.0F, 0.0F};
 
     public Freecam() {
-        super("Freecam", category.player, 0);
+        super("Freecam", category.player);
         this.registerSetting(speed = new SliderSetting("Speed", 2.5D, 0.5D, 10.0D, 0.5D));
         this.registerSetting(disableOnDamage = new ButtonSetting("Disable on damage", true));
         this.registerSetting(allowDigging = new ButtonSetting("Allow digging", false));
@@ -39,10 +41,12 @@ public class Freecam extends Module {
         this.registerSetting(showArm = new ButtonSetting("Show arm", false));
     }
 
+    @Override
     public void onEnable() {
         if (!mc.thePlayer.onGround) {
             this.disable();
-        } else {
+        }
+        else {
             freeEntity = new EntityOtherPlayerMP(mc.theWorld, mc.thePlayer.getGameProfile());
             freeEntity.copyLocationAndAnglesFrom(mc.thePlayer);
             this.sAng[0] = freeEntity.rotationYawHead = mc.thePlayer.rotationYawHead;
@@ -54,6 +58,7 @@ public class Freecam extends Module {
         }
     }
 
+    @Override
     public void onDisable() {
         if (freeEntity != null) {
             mc.setRenderViewEntity(mc.thePlayer);
@@ -77,10 +82,12 @@ public class Freecam extends Module {
 
     }
 
+    @Override
     public void onUpdate() {
         if (disableOnDamage.isToggled() && mc.thePlayer.hurtTime != 0) {
             this.disable();
-        } else {
+        }
+        else {
             mc.thePlayer.setSprinting(false);
             mc.thePlayer.moveForward = 0.0F;
             mc.thePlayer.moveStrafing = 0.0F;
@@ -143,19 +150,19 @@ public class Freecam extends Module {
     }
 
     @SubscribeEvent
-    public void re(RenderWorldLastEvent e) {
-        if (Utils.nullCheck()) {
-            if (!showArm.isToggled()) {
-                mc.thePlayer.renderArmPitch = mc.thePlayer.prevRenderArmPitch = 700.0F;
-            }
-            RenderUtils.renderEntity(mc.thePlayer, 1, 0.0D, 0.0D, Color.green.getRGB(), false);
-            RenderUtils.renderEntity(mc.thePlayer, 2, 0.0D, 0.0D, Color.green.getRGB(), false);
+    public void onRenderWorld(RenderWorldLastEvent e) {
+        if (!Utils.nullCheck()) {
+            return;
         }
-
+        if (!showArm.isToggled()) {
+            mc.thePlayer.renderArmPitch = mc.thePlayer.prevRenderArmPitch = 700.0F;
+        }
+        RenderUtils.renderEntity(mc.thePlayer, 1, 0.0D, 0.0D, Color.green.getRGB(), false);
+        RenderUtils.renderEntity(mc.thePlayer, 2, 0.0D, 0.0D, Color.green.getRGB(), false);
     }
 
     @SubscribeEvent
-    public void m(MouseEvent e) {
+    public void onMouse(MouseEvent e) {
         if (!Utils.nullCheck()) {
             return;
         }

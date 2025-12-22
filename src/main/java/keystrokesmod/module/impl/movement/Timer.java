@@ -12,7 +12,7 @@ public class Timer extends Module {
     private ButtonSetting strafeOnly;
 
     public Timer() {
-        super("Timer", Module.category.movement, 0);
+        super("Timer", category.movement);
         this.registerSetting(speed = new SliderSetting("Speed", 1.0D, 0.5D, 2.5D, 0.01D));
         this.registerSetting(strafeOnly = new ButtonSetting("Strafe only", false));
     }
@@ -22,6 +22,12 @@ public class Timer extends Module {
         return Utils.asWholeNum(speed.getInput());
     }
 
+    @Override
+    public void onDisable() {
+        Utils.resetTimer();
+    }
+
+    @Override
     public void onUpdate() {
         if (!(mc.currentScreen instanceof ClickGui)) {
             if (strafeOnly.isToggled() && mc.thePlayer.moveStrafing == 0) {
@@ -33,9 +39,5 @@ public class Timer extends Module {
         else {
             Utils.resetTimer();
         }
-    }
-
-    public void onDisable() {
-        Utils.resetTimer();
     }
 }

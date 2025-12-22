@@ -9,6 +9,7 @@ import net.minecraft.util.ResourceLocation;
 
 public class Shaders extends Module {
     private SliderSetting shader;
+
     private String[] shaderNames;
     private ResourceLocation[] shaderLocations;
 
@@ -25,6 +26,7 @@ public class Shaders extends Module {
         this.registerSetting(shader = new SliderSetting("Shader", 0, shaderNames));
     }
 
+    @Override
     public void onUpdate() {
         if (!Utils.nullCheck() || mc.entityRenderer == null || shaderLocations == null) {
             return;
@@ -45,10 +47,12 @@ public class Shaders extends Module {
         }
     }
 
+    @Override
     public void onDisable() {
         mc.entityRenderer.stopUseShader();
     }
 
+    @Override
     public void onEnable() {
         if (!OpenGlHelper.shadersSupported) {
             Utils.sendMessage("&cShaders not supported.");

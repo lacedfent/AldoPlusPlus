@@ -1,5 +1,6 @@
 package keystrokesmod.module.impl.combat;
 
+import keystrokesmod.event.PreUpdateEvent;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.impl.world.AntiBot;
 import keystrokesmod.module.setting.impl.ButtonSetting;
@@ -22,19 +23,6 @@ public class TPAura extends Module {
         this.registerSetting(weaponOnly = new ButtonSetting("Weapon only", false));
     }
 
-    @SubscribeEvent
-    public void onLivingUpdate(LivingEvent.LivingUpdateEvent e) {
-        if (Utils.nullCheck() && mc.thePlayer.maxHurtTime > 0 && mc.thePlayer.hurtTime == mc.thePlayer.maxHurtTime) {
-            this.updatePosition();
-        }
-    }
-
-    private void updatePosition() {
-        this.x = Utils.randomizeInt(-15, 15) / 10.0;
-        this.y = Utils.randomizeInt(10, 15) / 10.0;
-        this.z = Utils.randomizeInt(-15, 15) / 10.0;
-    }
-
     @Override
     public void onEnable() {
         if (range.getInput() == 0.0) {
@@ -45,7 +33,15 @@ public class TPAura extends Module {
         this.updatePosition();
     }
 
-    public void onUpdate() {
+    @SubscribeEvent
+    public void onLivingUpdate(LivingEvent.LivingUpdateEvent e) {
+        if (Utils.nullCheck() && mc.thePlayer.maxHurtTime > 0 && mc.thePlayer.hurtTime == mc.thePlayer.maxHurtTime) {
+            this.updatePosition();
+        }
+    }
+
+    @SubscribeEvent
+    public void onPreUpdate(PreUpdateEvent e) {
         if (weaponOnly.isToggled() && !Utils.holdingWeapon()) {
             return;
         }
@@ -63,5 +59,11 @@ public class TPAura extends Module {
                 break;
             }
         }
+    }
+
+    private void updatePosition() {
+        this.x = Utils.randomizeInt(-15, 15) / 10.0;
+        this.y = Utils.randomizeInt(10, 15) / 10.0;
+        this.z = Utils.randomizeInt(-15, 15) / 10.0;
     }
 }

@@ -22,7 +22,7 @@ public class BreakProgress extends Module {
     private ButtonSetting bedAura;
     private ButtonSetting fadeIn;
 
-    private String[] modes = new String[] { "Percentage", "Second", "Decimal" };
+    private String[] MODES = new String[] { "Percentage", "Second", "Decimal" };
 
     private float progress;
     private BlockPos block;
@@ -30,7 +30,7 @@ public class BreakProgress extends Module {
 
     public BreakProgress() {
         super("BreakProgress", category.render);
-        this.registerSetting(mode = new SliderSetting("Mode", 0, modes));
+        this.registerSetting(mode = new SliderSetting("Mode", 0, MODES));
         this.registerSetting(manual = new ButtonSetting("Show manual", true));
         this.registerSetting(bedAura = new ButtonSetting("Show BedAura", true));
         this.registerSetting(fadeIn = new ButtonSetting("Fade in", false));
@@ -79,6 +79,7 @@ public class BreakProgress extends Module {
         }
     }
 
+    @Override
     public void onUpdate() {
         if (mc.thePlayer.capabilities.isCreativeMode || !mc.thePlayer.capabilities.allowEdit) {
             this.resetVariables();
@@ -106,6 +107,7 @@ public class BreakProgress extends Module {
         this.setProgress();
     }
 
+    @Override
     public void onDisable() {
         this.resetVariables();
     }

@@ -109,6 +109,7 @@ public class Anticheat extends Module {
         }
     }
 
+    @Override
     public void onUpdate() {
         if (mc.isSingleplayer()) {
             return;

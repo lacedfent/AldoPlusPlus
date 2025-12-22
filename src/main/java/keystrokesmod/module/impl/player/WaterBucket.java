@@ -2,6 +2,7 @@ package keystrokesmod.module.impl.player;
 
 import keystrokesmod.Raven;
 import keystrokesmod.event.ClientRotationEvent;
+import keystrokesmod.event.PreUpdateEvent;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.utility.Utils;
@@ -73,8 +74,8 @@ public class WaterBucket extends Module {
         }
     }
 
-    @Override
-    public void onUpdate() {
+    @SubscribeEvent
+    public void onPreUpdate(PreUpdateEvent e) {
         if (mc.isGamePaused()) {
             return;
         }
@@ -117,7 +118,7 @@ public class WaterBucket extends Module {
         mc.getNetHandler().addToSendQueue(new C08PacketPlayerBlockPlacement(mc.thePlayer.getHeldItem()));
     }
 
-    private boolean isItem(final ItemStack itemStack, final Item item) {
+    private boolean isItem(ItemStack itemStack, Item item) {
         return itemStack != null && itemStack.getItem() == item;
     }
 

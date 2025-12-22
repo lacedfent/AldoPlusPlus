@@ -118,12 +118,14 @@ public class AntiFireball extends Module {
         }
     }
 
+    @Override
     public void onDisable() {
         this.fireballs.clear();
         this.fireball = null;
         this.attack = false;
     }
 
+    @Override
     public void onUpdate() {
         if (!condition()) {
             return;

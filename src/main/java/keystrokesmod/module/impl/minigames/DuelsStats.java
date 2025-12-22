@@ -16,22 +16,25 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class DuelsStats extends Module {
-    public static SliderSetting mode;
-    public static ButtonSetting a;
-    public static ButtonSetting threatLevel;
+    private SliderSetting mode;
+    private ButtonSetting sendIgnOnJoin;
+    private ButtonSetting threatLevel;
+
     public static String nick = "";
     private String ign = "";
     private String en = "";
-    private static final String[] thr_lvl = new String[]{"§4VERY HIGH", "§cHIGH", "§6MODERATE", "§aLOW", "§2VERY LOW"};
+
+    private static final String[] THREAT_LEVELS = new String[]{"§4VERY HIGH", "§cHIGH", "§6MODERATE", "§aLOW", "§2VERY LOW"};
     private List<String> q = new ArrayList();
 
     public DuelsStats() {
-        super("Duels Stats", Module.category.minigames, 0);
-        this.registerSetting(mode = new SliderSetting("Mode", 0, thr_lvl));
-        this.registerSetting(a = new ButtonSetting("Send ign on join", false));
+        super("Duels Stats", category.minigames);
+        this.registerSetting(mode = new SliderSetting("Mode", 0, THREAT_LEVELS));
+        this.registerSetting(sendIgnOnJoin = new ButtonSetting("Send ign on join", false));
         this.registerSetting(threatLevel = new ButtonSetting("Threat Level", true));
     }
 
+    @Override
     public void onEnable() {
         if (mc.thePlayer != null) {
             this.ign = mc.thePlayer.getName();
@@ -41,20 +44,22 @@ public class DuelsStats extends Module {
         }
     }
 
+    @Override
     public void onDisable() {
         this.en = "";
         this.q.clear();
     }
 
+    @Override
     public void onUpdate() {
         if (this.id() && this.en.isEmpty()) {
-            List<EntityPlayer> pl = mc.theWorld.playerEntities;
-            pl.remove(mc.thePlayer);
+            List<EntityPlayer> players = mc.theWorld.playerEntities;
+            players.remove(mc.thePlayer);
 
-            for (EntityPlayer p : pl) {
-                String n = p.getName();
-                if (!n.equals(this.ign) && !n.equals(nick) && !this.q.contains(n) && p.getDisplayName().getUnformattedText().contains("§k")) {
-                    this.ef(n);
+            for (EntityPlayer player : players) {
+                String name = player.getName();
+                if (!name.equals(this.ign) && !name.equals(nick) && !this.q.contains(name) && player.getDisplayName().getUnformattedText().contains("§k")) {
+                    this.ef(name);
                     break;
                 }
             }
@@ -63,9 +68,9 @@ public class DuelsStats extends Module {
     }
 
     @SubscribeEvent
-    public void onMessageReceived(ClientChatReceivedEvent c) {
+    public void onMessageReceived(ClientChatReceivedEvent e) {
         if (Utils.nullCheck() && this.id()) {
-            String s = Utils.stripColor(c.message.getUnformattedText());
+            String s = Utils.stripColor(e.message.getUnformattedText());
             if (s.contains(" ")) {
                 String[] sp = s.split(" ");
                 String n;
@@ -75,7 +80,8 @@ public class DuelsStats extends Module {
                         this.q.remove(n);
                         this.ef(n);
                     }
-                } else if (sp.length == 3 && sp[1].equals("has") && sp[2].equals("quit!")) {
+                }
+                else if (sp.length == 3 && sp[1].equals("has") && sp[2].equals("quit!")) {
                     n = sp[0];
                     if (this.en.equals(n)) {
                         this.en = "";
@@ -84,34 +90,34 @@ public class DuelsStats extends Module {
                     this.q.add(n);
                 }
             }
-
         }
     }
 
     @SubscribeEvent
-    public void onEntityJoin(EntityJoinWorldEvent j) {
-        if (j.entity == mc.thePlayer) {
+    public void onEntityJoin(EntityJoinWorldEvent e) {
+        if (e.entity == mc.thePlayer) {
             this.en = "";
             this.q.clear();
         }
 
     }
 
-    private void ef(String n) {
-        this.en = n;
-        if (a.isToggled()) {
-            Utils.sendMessage("&eOpponent found: " + "&3" + n);
+    private void ef(String name) {
+        this.en = name;
+        if (sendIgnOnJoin.isToggled()) {
+            Utils.sendMessage("&eOpponent found: " + "&3" + name);
         }
 
         if (NetworkUtils.API_KEY.isEmpty()) {
             Utils.sendMessage("&cAPI Key is empty!");
-        } else {
+        }
+        else {
             ProfileUtils.DM dm = ProfileUtils.DM.values()[(int) (mode.getInput() - 1.0D)];
             Raven.getScheduledExecutor().execute(() -> {
-                int[] s = ProfileUtils.getHypixelStats(n, dm);
+                int[] s = ProfileUtils.getHypixelStats(name, dm);
                 if (s != null) {
                     if (s[0] == -1) {
-                        Utils.sendMessage("&3" + n + " " + "&eis nicked!");
+                        Utils.sendMessage("&3" + name + " " + "&eis nicked!");
                         return;
                     }
 
@@ -121,7 +127,7 @@ public class DuelsStats extends Module {
                         Utils.sendMessage("&eMode: &3" + dm.name());
                     }
 
-                    Utils.sendMessage("&eOpponent: &3" + n);
+                    Utils.sendMessage("&eOpponent: &3" + name);
                     Utils.sendMessage("&eWins: &3" + s[0]);
                     Utils.sendMessage("&eLosses: &3" + s[1]);
                     Utils.sendMessage("&eWLR: &3" + wlr);
@@ -210,15 +216,15 @@ public class DuelsStats extends Module {
 
         String thr;
         if (t == 0) {
-            thr = thr_lvl[4];
+            thr = THREAT_LEVELS[4];
         } else if (t <= 3) {
-            thr = thr_lvl[3];
+            thr = THREAT_LEVELS[3];
         } else if (t <= 6) {
-            thr = thr_lvl[2];
+            thr = THREAT_LEVELS[2];
         } else if (t <= 10) {
-            thr = thr_lvl[1];
+            thr = THREAT_LEVELS[1];
         } else {
-            thr = thr_lvl[0];
+            thr = THREAT_LEVELS[0];
         }
 
         return thr;

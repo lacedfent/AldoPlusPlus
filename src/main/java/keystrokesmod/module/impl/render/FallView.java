@@ -180,7 +180,7 @@ public class FallView extends Module {
                 hearts = (float) Utils.round(hearts, 1);
             }
             double percent = (double) finalDamage / currentHealth;
-            String healthStr = ((percent >= 0.7) ? "§c" : ((percent >= 0.5) ? "§6" : ((percent >= 0.3) ? "§e" : "§a")));
+            String healthStr = (finalDamage >= currentHealth) ? "§4" : ((percent >= 0.7) ? "§c" : ((percent >= 0.5) ? "§6" : ((percent >= 0.3) ? "§e" : "§a")));
             String damageStr = healthStr + Utils.asWholeNum(hearts);
             if (Settings.showHeartSymbol.isToggled()) {
                 damageStr += "§c\u2764§r";

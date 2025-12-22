@@ -53,6 +53,7 @@ public class Xray extends Module {
         this.blocks.clear();
     }
 
+    @Override
     public void onUpdate() {
         if (System.currentTimeMillis() - lastCheck < rate.getInput() * 1000) {
             return;
