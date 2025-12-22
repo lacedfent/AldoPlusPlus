@@ -1,6 +1,6 @@
-package keystrokesmod.utility.command.impl;
+package keystrokesmod.command.impl;
 
-import keystrokesmod.utility.command.Command;
+import keystrokesmod.command.Command;
 
 public class Help extends Command {
     public Help() {

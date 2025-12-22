@@ -50,7 +50,7 @@ public class JumpReset extends Module {
 
         if (hurtTime > lastHurtTime) {
 
-            boolean mouseDown = Mouse.isButtonDown(0) || !requireMouseDown.isToggled();
+            boolean mouseDown = mc.gameSettings.keyBindAttack.isKeyDown() || !requireMouseDown.isToggled();
             boolean aimingAt = aiming || !requireAim.isToggled();
 
             boolean forward = mc.gameSettings.keyBindForward.isKeyDown() || !requireMovingForward.isToggled();

@@ -34,7 +34,7 @@ public class AntiBot extends Module {
     }
 
     @SubscribeEvent
-    public void c(final EntityJoinWorldEvent e) {
+    public void onEntityJoin(EntityJoinWorldEvent e) {
         if ((e.entity instanceof EntityPlayer || Raven.DEBUG) && e.entity != mc.thePlayer) {
             if (delay.getInput() != -1 && e.entity instanceof EntityPlayer) {
                 entities.put((EntityPlayer) e.entity, System.currentTimeMillis());
@@ -45,12 +45,14 @@ public class AntiBot extends Module {
         }
     }
 
+    @Override
     public void onUpdate() {
         if (delay.getInput() != -1 && !entities.isEmpty()) {
             entities.values().removeIf(n -> n < System.currentTimeMillis() - delay.getInput());
         }
     }
 
+    @Override
     public void onDisable() {
         entities.clear();
     }

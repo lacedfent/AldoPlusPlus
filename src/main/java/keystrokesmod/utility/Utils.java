@@ -16,9 +16,8 @@ import keystrokesmod.module.impl.minigames.DuelsStats;
 import keystrokesmod.module.impl.player.Freecam;
 import keystrokesmod.module.impl.world.AntiBot;
 import keystrokesmod.module.setting.impl.SliderSetting;
+import keystrokesmod.utility.color.ColorConstants;
 import net.minecraft.block.*;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.inventory.GuiInventory;
 import net.minecraft.client.network.NetworkPlayerInfo;
@@ -45,41 +44,20 @@ import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
 import java.awt.*;
-import java.awt.datatransfer.Clipboard;
-import java.awt.datatransfer.StringSelection;
 import java.io.*;
-import java.math.BigInteger;
-import java.security.MessageDigest;
 import java.util.List;
 import java.util.*;
 import java.util.stream.IntStream;
 
-public class Utils {
+public class Utils implements IMinecraftInstance {
     private static final Random rand = new Random();
-    public static final Minecraft mc = Minecraft.getMinecraft();
     public static HashSet<String> friends = new HashSet<>();
     public static HashSet<String> enemies = new HashSet<>();
     public static final Logger log = LogManager.getLogger();
 
-    private static int darkRed = new Color(189, 0, 1).getRGB();
-    private static int red = new Color(253, 63, 63).getRGB();
-    private static int gold = new Color(215, 162, 50).getRGB();
-    private static int yellow = new Color(254, 254, 62).getRGB();
-    private static int darkGreen = new Color(0, 191, 4).getRGB();
-    private static int green = new Color(64, 253, 62).getRGB();
-    private static int aqua = new Color(65, 255, 254).getRGB();
-    private static int darkAqua = new Color(0, 190, 189).getRGB();
-    private static int darkBlue = new Color(1, 1, 187).getRGB();
-    private static int blue = new Color(61, 64, 255).getRGB();
-    private static int lightPurple = new Color(254, 63, 255).getRGB();
-    private static int darkPurple = new Color(190, 0, 190).getRGB();
-    private static int gray = new Color(190, 190, 190).getRGB();
-    private static int darkGray = new Color(63, 63, 63).getRGB();
-    private static int black = new Color(17, 17, 17).getRGB();
-
     public static boolean addEnemy(String name) {
         if (enemies.add(name.toLowerCase())) {
-            Utils.sendMessage("&7Added enemy&7: &b" + name);
+            sendMessage("&7Added enemy&7: &b" + name);
             return true;
         }
         return false;
@@ -87,7 +65,7 @@ public class Utils {
 
     public static boolean removeEnemy(String name) {
         if (enemies.remove(name.toLowerCase())) {
-            Utils.sendMessage("&Removed enemy&7: &b" + name);
+            sendMessage("&Removed enemy&7: &b" + name);
             return true;
         }
         return false;
@@ -120,8 +98,8 @@ public class Utils {
 
         double adjustedDistance = cameraDistance;
 
-        float cameraYaw = Utils.getCameraYaw();
-        float cameraPitch = Utils.getCameraPitch();
+        float cameraYaw = getCameraYaw();
+        float cameraPitch = getCameraPitch();
 
         double offsetX = -MathHelper.sin(cameraYaw / 180.0F * (float) Math.PI) * MathHelper.cos(cameraPitch / 180.0F * (float) Math.PI) * adjustedDistance;
         double offsetZ =  MathHelper.cos(cameraYaw / 180.0F * (float) Math.PI) * MathHelper.cos(cameraPitch / 180.0F * (float) Math.PI) * adjustedDistance;
@@ -155,38 +133,38 @@ public class Utils {
         if (ent == null) {
             return;
         }
-        Utils.sendMessage("&7&m-------------------------");
-        Utils.sendMessage("&eattacking: &r" + ent.getName());
-        Utils.sendMessage("&7type: &b" + ent.getClass().getSimpleName());
-        Utils.sendMessage("&7bot: &r" + (ModuleManager.antiBot.isEnabled() ? AntiBot.isBot(ent) : "&cantibot disabled"));
+        sendMessage("&7&m-------------------------");
+        sendMessage("&eattacking: &r" + ent.getName());
+        sendMessage("&7type: &b" + ent.getClass().getSimpleName());
+        sendMessage("&7bot: &r" + (ModuleManager.antiBot.isEnabled() ? AntiBot.isBot(ent) : "&cantibot disabled"));
         boolean isPlayer = ent instanceof EntityPlayer;
-        Utils.sendMessage("&7player: &r" + isPlayer);
-        Utils.sendMessage("&7dist eye: &d" + round(getDistanceToEye(ent), 2));
-        Utils.sendMessage("&7min dist: &d" + round(Math.sqrt(raycastDistanceSq(ent, 12.0, false)), 2));
+        sendMessage("&7player: &r" + isPlayer);
+        sendMessage("&7dist eye: &d" + round(getDistanceToEye(ent), 2));
+        sendMessage("&7min dist: &d" + round(Math.sqrt(raycastDistanceSq(ent, 12.0, false)), 2));
         IChatComponent displayName = ent.getDisplayName();
         boolean hasDisplayName = displayName != null;
         if (isPlayer) {
             EntityPlayer p = (EntityPlayer)ent;
             UUID uuid = p.getUniqueID();
-            Utils.sendMessage("&7uuid: &d" + uuid.toString() + " &b" + uuid.variant() + " " + uuid.version());
+            sendMessage("&7uuid: &d" + uuid.toString() + " &b" + uuid.variant() + " " + uuid.version());
             NetworkPlayerInfo clientPlayer = mc.getNetHandler().getPlayerInfo(p.getUniqueID());
-            Utils.sendMessage("&7ping: &d" + ((clientPlayer == null) ? "&cnot found" : clientPlayer.getResponseTime()));
-            Utils.sendMessage("&7teammate: &r" + isTeammate(p));
-            Utils.sendMessage("&7tablist: &r" + isInTabList(p));
+            sendMessage("&7ping: &d" + ((clientPlayer == null) ? "&cnot found" : clientPlayer.getResponseTime()));
+            sendMessage("&7teammate: &r" + isTeammate(p));
+            sendMessage("&7tablist: &r" + isInTabList(p));
             if (p.getTeam() != null) {
                 ScorePlayerTeam scoreTeam = (ScorePlayerTeam)p.getTeam();
-                Utils.sendMessage("&7team name: &r" + scoreTeam.getTeamName());
-                Utils.sendMessage("&7team prefix: &r" + scoreTeam.getColorPrefix());
-                Utils.sendMessage("&7team suffix: &r" + scoreTeam.getColorSuffix());
+                sendMessage("&7team name: &r" + scoreTeam.getTeamName());
+                sendMessage("&7team prefix: &r" + scoreTeam.getColorPrefix());
+                sendMessage("&7team suffix: &r" + scoreTeam.getColorSuffix());
             }
         }
-        Utils.sendMessage("&7display unformatted: &r" + (hasDisplayName ? displayName.getUnformattedText() : "&cnull"));
-        Utils.sendMessage("&7insertion: &r" + (hasDisplayName ? displayName.getChatStyle().getInsertion() : "&cnull"));
-        Utils.sendMessage("&7health: &r" + ent.getHealth());
-        Utils.sendMessage("&7ht: &d" + ent.hurtTime + " &7mht: &d" + ent.maxHurtTime);
-        Utils.sendMessage("&7ticks existed: &r" + ent.ticksExisted);
-        Utils.sendMessage("&7invisible: &r" + ent.isInvisible());
-        Utils.sendMessage("&7dead: &r" + ent.isDead);
+        sendMessage("&7display unformatted: &r" + (hasDisplayName ? displayName.getUnformattedText() : "&cnull"));
+        sendMessage("&7insertion: &r" + (hasDisplayName ? displayName.getChatStyle().getInsertion() : "&cnull"));
+        sendMessage("&7health: &r" + ent.getHealth());
+        sendMessage("&7ht: &d" + ent.hurtTime + " &7mht: &d" + ent.maxHurtTime);
+        sendMessage("&7ticks existed: &r" + ent.ticksExisted);
+        sendMessage("&7invisible: &r" + ent.isInvisible());
+        sendMessage("&7dead: &r" + ent.isDead);
     }
 
     public static double raycastDistanceSq(Entity en, double max_reach, boolean calc_rot) {
@@ -249,21 +227,6 @@ public class Utils {
         return mc.currentScreen == null && mc.inGameHasFocus;
     }
 
-    public static String getHardwareIdForLoad(String url) {
-        String hashedId = "";
-        try {
-            MessageDigest instance = MessageDigest.getInstance("MD5");
-            instance.update(((System.currentTimeMillis() / 20000L + 29062381L) + "J{LlrPhHgj8zy:uB").getBytes("UTF-8"));
-            hashedId = String.format("%032x", new BigInteger(1, instance.digest()));
-            instance.update((System.getenv("COMPUTERNAME") + System.getenv("PROCESSOR_IDENTIFIER") + System.getenv("PROCESSOR_LEVEL") + Runtime.getRuntime().availableProcessors() + url).getBytes("UTF-8"));
-            return hashedId;
-        }
-        catch (Exception ex) {
-            ex.printStackTrace();
-        }
-        return hashedId;
-    }
-
     public static boolean isConsuming(Entity entity) {
         if (!(entity instanceof EntityPlayer)) {
             return false;
@@ -286,41 +249,41 @@ public class Utils {
             }
         }
         String displayName = entity.getDisplayName().getFormattedText();
-        displayName = Utils.removeFormatCodes(displayName);
+        displayName = removeFormatCodes(displayName);
         if (displayName.isEmpty() || !displayName.startsWith("§") || displayName.charAt(1) == 'f') {
             return -1;
         }
         switch (displayName.charAt(1)) {
             case '0':
-                return black;
+                return ColorConstants.BLACK;
             case '1':
-                return darkBlue;
+                return ColorConstants.DARK_BLUE;
             case '2':
-                return darkGreen;
+                return ColorConstants.DARK_GREEN;
             case '3':
-                return darkAqua;
+                return ColorConstants.DARK_AQUA;
             case '4':
-                return darkRed;
+                return ColorConstants.DARK_RED;
             case '5':
-                return darkPurple;
+                return ColorConstants.DARK_PURPLE;
             case '6':
-                return gold;
+                return ColorConstants.GOLD;
             case '7':
-                return gray;
+                return ColorConstants.GRAY;
             case '8':
-                return darkGray;
+                return ColorConstants.DARK_GRAY;
             case '9':
-                return blue;
+                return ColorConstants.BLUE;
             case 'a':
-                return green;
+                return ColorConstants.GREEN;
             case 'b':
-                return aqua;
+                return ColorConstants.AQUA;
             case 'c':
-                return red;
+                return ColorConstants.RED;
             case 'd':
-                return lightPurple;
+                return ColorConstants.LIGHT_PURPLE;
             case 'e':
-                return yellow;
+                return ColorConstants.YELLOW;
         }
         return -1;
     }
@@ -394,7 +357,7 @@ public class Utils {
 
     public static boolean removeFriend(String name) {
         if (friends.remove(name.toLowerCase())) {
-            Utils.sendMessage("&7Removed &afriend&7: &b" + name);
+            sendMessage("&7Removed &afriend&7: &b" + name);
             return true;
         }
         return false;
@@ -416,7 +379,7 @@ public class Utils {
 
     public static boolean addFriend(String name) {
         if (friends.add(name.toLowerCase())) {
-            Utils.sendMessage("&7Added &afriend&7: &b" + name);
+            sendMessage("&7Added &afriend&7: &b" + name);
             if (enemies.contains(name.toLowerCase())) {
                 enemies.remove(name.toLowerCase());
             }
@@ -550,12 +513,11 @@ public class Utils {
     }
 
     public static boolean isBindDown(KeyBinding keyBinding) {
-        try {
-            return Keyboard.isKeyDown(keyBinding.getKeyCode());
+        int keyCode = keyBinding.getKeyCode();
+        if (keyCode < 0) {
+            return Mouse.isButtonDown(keyCode + 100);
         }
-        catch (IndexOutOfBoundsException e) {
-            return Mouse.isButtonDown(100 + keyBinding.getKeyCode());
-        }
+        return Keyboard.isKeyDown(keyCode);
     }
 
     public static int getTool(Block block) {
@@ -815,20 +777,20 @@ public class Utils {
     }
 
     public static boolean inInventory() {
-        if (!Utils.nullCheck()) {
+        if (!nullCheck()) {
             return false;
         }
         return (mc.currentScreen != null) && (mc.thePlayer.inventoryContainer != null) && (mc.thePlayer.inventoryContainer instanceof ContainerPlayer) && (mc.currentScreen instanceof GuiInventory);
     }
 
     public static int getSkyWarsStatus() {
-        List<String> sidebar = Utils.getSidebarLines();
+        List<String> sidebar = getSidebarLines();
         if (sidebar.isEmpty()) {
             return -1;
         }
-        if (Utils.stripColor(sidebar.get(0)).startsWith("SKYWARS")) {
+        if (stripColor(sidebar.get(0)).startsWith("SKYWARS")) {
             for (String line : sidebar) {
-                line = Utils.stripColor(line);
+                line = stripColor(line);
                 if (line.equals("Waiting...") || line.startsWith("Starting in ")) {
                     return 1;
                 }
@@ -851,7 +813,7 @@ public class Utils {
     }
 
     public static int getBedwarsStatus() {
-        if (!Utils.nullCheck()) {
+        if (!nullCheck()) {
             return -1;
         }
         final Scoreboard scoreboard = mc.theWorld.getScoreboard();
@@ -1359,17 +1321,6 @@ public class Utils {
         return sb.toString();
     }
 
-    public static void addToClipboard(String string) {
-        try {
-            Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
-            StringSelection stringSelection = new StringSelection(string);
-            clipboard.setContents(stringSelection, null);
-        }
-        catch (Exception e) {
-            Utils.sendMessage("&cFailed to copy &b" + string);
-        }
-    }
-
     public static List<String> getScoreBoardOld() {
         List<String> lines = new ArrayList();
         if (mc.theWorld == null) {
@@ -1424,7 +1375,7 @@ public class Utils {
 
     }
 
-    public static String uf(String s) {
+    public static String uppercaseFirst(String s) {
         return s.substring(0, 1).toUpperCase() + s.substring(1);
     }
 
@@ -1433,7 +1384,7 @@ public class Utils {
     }
 
     public static boolean spectatorCheck() {
-        return mc.thePlayer.inventory.getStackInSlot(8) != null && mc.thePlayer.inventory.getStackInSlot(8).getDisplayName().contains("Return") || Utils.stripString(((IAccessorGuiIngame) mc.ingameGUI).getDisplayedTitle()).contains("YOU DIED");
+        return mc.thePlayer.inventory.getStackInSlot(8) != null && mc.thePlayer.inventory.getStackInSlot(8).getDisplayName().contains("Return") || stripString(((IAccessorGuiIngame) mc.ingameGUI).getDisplayedTitle()).contains("YOU DIED");
     }
 
     public static boolean holdingWeapon() {
@@ -1445,15 +1396,7 @@ public class Utils {
             return false;
         }
         Item getItem = entityLivingBase.getHeldItem().getItem();
-        return getItem instanceof ItemSword || (Settings.weaponAxe.isToggled() && getItem instanceof ItemAxe) || (Settings.weaponRod.isToggled() && getItem instanceof ItemFishingRod) || (Settings.weaponStick.isToggled() && getItem == Items.stick) || (Settings.weaponHoe.isToggled() && isHoe(getItem)) || (Settings.weaponShovel.isToggled() && isShovel(getItem));
-    }
-
-    public static boolean isHoe(Item item) {
-        return item == Items.wooden_hoe || item == Items.stone_hoe || item == Items.iron_hoe || item == Items.golden_hoe || item == Items.diamond_hoe;
-    }
-
-    public static boolean isShovel(Item item) {
-        return item == Items.wooden_shovel || item == Items.stone_shovel || item == Items.iron_shovel || item == Items.golden_shovel || item == Items.diamond_shovel;
+        return getItem instanceof ItemSword || (Settings.weaponAxe.isToggled() && getItem instanceof ItemAxe) || (Settings.weaponRod.isToggled() && getItem instanceof ItemFishingRod) || (Settings.weaponStick.isToggled() && getItem == Items.stick) || (Settings.weaponHoe.isToggled() && getItem instanceof ItemHoe) || (Settings.weaponShovel.isToggled() && getItem instanceof ItemSpade);
     }
 
     public static boolean holdingSword() {
@@ -1568,10 +1511,10 @@ public class Utils {
     }
 
     public static boolean isLobby() {
-        if (Utils.isHypixel()) {
-            List<String> sidebarLines = Utils.getSidebarLines();
+        if (isHypixel()) {
+            List<String> sidebarLines = getSidebarLines();
             if (!sidebarLines.isEmpty()) {
-                String[] parts = Utils.stripColor(sidebarLines.get(1)).split("  ");
+                String[] parts = stripColor(sidebarLines.get(1)).split("  ");
                 if (parts.length > 1 && parts[1].charAt(0) == 'L') {
                     return true;
                 }
@@ -1581,8 +1524,8 @@ public class Utils {
     }
 
     public static boolean isBedwarsPracticeOrReplay() {
-        if (Utils.isHypixel()) {
-            if (!Utils.nullCheck()) {
+        if (isHypixel()) {
+            if (!nullCheck()) {
                 return false;
             }
             final Scoreboard scoreboard = mc.theWorld.getScoreboard();

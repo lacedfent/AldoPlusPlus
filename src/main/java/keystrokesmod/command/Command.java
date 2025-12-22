@@ -1,16 +1,15 @@
-package keystrokesmod.utility.command;
+package keystrokesmod.command;
 
 import keystrokesmod.module.ModuleManager;
+import keystrokesmod.utility.IMinecraftInstance;
 import keystrokesmod.utility.Utils;
-import net.minecraft.client.Minecraft;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public abstract class Command {
+public abstract class Command implements IMinecraftInstance {
     protected String command;
     protected String[] alias;
-    public Minecraft mc = Minecraft.getMinecraft();
 
     public Command(String command, String[] alias) {
         this.command = command;

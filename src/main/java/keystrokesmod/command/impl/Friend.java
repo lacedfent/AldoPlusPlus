@@ -1,7 +1,7 @@
-package keystrokesmod.utility.command.impl;
+package keystrokesmod.command.impl;
 
 import keystrokesmod.utility.Utils;
-import keystrokesmod.utility.command.Command;
+import keystrokesmod.command.Command;
 
 public class Friend extends Command {
     public Friend() {

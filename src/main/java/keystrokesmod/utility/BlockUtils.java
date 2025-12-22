@@ -3,7 +3,6 @@ package keystrokesmod.utility;
 import net.minecraft.block.*;
 import net.minecraft.block.material.Material;
 import net.minecraft.block.state.IBlockState;
-import net.minecraft.client.Minecraft;
 import net.minecraft.enchantment.Enchantment;
 import net.minecraft.enchantment.EnchantmentHelper;
 import net.minecraft.init.Blocks;
@@ -14,9 +13,7 @@ import net.minecraft.util.BlockPos;
 import net.minecraft.util.MovingObjectPosition;
 import net.minecraft.util.Vec3;
 
-public class BlockUtils {
-    public static final Minecraft mc = Minecraft.getMinecraft();
-
+public class BlockUtils implements IMinecraftInstance {
     public static boolean isSamePos(BlockPos blockPos, BlockPos blockPos2) {
         return blockPos == blockPos2 || (blockPos.getX() == blockPos2.getX() && blockPos.getY() == blockPos2.getY() && blockPos.getZ() == blockPos2.getZ());
     }
@@ -125,6 +122,9 @@ public class BlockUtils {
     }
 
     public static IBlockState getBlockState(BlockPos blockPos) {
+        if (mc.theWorld == null || blockPos == null) {
+            return Blocks.air.getDefaultState();
+        }
         return mc.theWorld.getBlockState(blockPos);
     }
 

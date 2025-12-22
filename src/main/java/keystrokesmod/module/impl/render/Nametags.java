@@ -42,9 +42,9 @@ public class Nametags extends Module {
     private ButtonSetting showDurability;
     private ButtonSetting showStackSize;
 
-    private int backGroundColor = new Color(0, 0, 0, 100).getRGB();
-    private int friendColor = new Color(0, 255, 0, 255).getRGB();
-    private int enemyColor = new Color(255, 0, 0, 255).getRGB();
+    private static final int BACKGROUND_COLOR = new Color(0, 0, 0, 100).getRGB();
+    private static final int FRIEND_COLOR = new Color(0, 255, 0, 255).getRGB();
+    private static final int ENEMY_COLOR = new Color(255, 0, 0, 255).getRGB();
 
     private double normalizedThreshold = 8;
 
@@ -201,13 +201,13 @@ public class Nametags extends Module {
             GlStateManager.scale(newScale, newScale, newScale);
             GlStateManager.translate(screenCords.xCoord / newScale, screenCords.yCoord / newScale, 0);
             if (drawBackground.isToggled()) {
-                RenderUtils.drawRect(x1, y1, x2, y2, backGroundColor);
+                RenderUtils.drawRect(x1, y1, x2, y2, BACKGROUND_COLOR);
             }
             if (Utils.isFriended(en)) {
-                RenderUtils.drawOutline(x1, y1, x2, y2, 2, friendColor);
+                RenderUtils.drawOutline(x1, y1, x2, y2, 2, FRIEND_COLOR);
             }
             else if (Utils.isEnemy(en)) {
-                RenderUtils.drawOutline(x1, y1, x2, y2, 2, enemyColor);
+                RenderUtils.drawOutline(x1, y1, x2, y2, 2, ENEMY_COLOR);
             }
             mc.fontRendererObj.drawString(name, -strWidth, -9, -1, dropShadow.isToggled());
             if (showArmor.isToggled()) {

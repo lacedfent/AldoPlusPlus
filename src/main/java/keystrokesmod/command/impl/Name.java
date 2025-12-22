@@ -1,7 +1,8 @@
-package keystrokesmod.utility.command.impl;
+package keystrokesmod.command.impl;
 
 import keystrokesmod.utility.Utils;
-import keystrokesmod.utility.command.Command;
+import keystrokesmod.command.Command;
+import keystrokesmod.utility.system.SystemUtils;
 
 public class Name extends Command {
     public Name() {
@@ -13,7 +14,7 @@ public class Name extends Command {
         if (!Utils.nullCheck()) {
             return;
         }
-        Utils.addToClipboard(mc.thePlayer.getName());
+        SystemUtils.addToClipboard(mc.thePlayer.getName());
         chatWithPrefix("&7Copied &b" + mc.thePlayer.getName() + " &7to clipboard");
     }
 }

@@ -1,6 +1,7 @@
 package keystrokesmod.module;
 
 import keystrokesmod.Raven;
+import keystrokesmod.helper.DebugHelper;
 import keystrokesmod.helper.MouseHelper;
 import keystrokesmod.module.impl.combat.AntiKnockback;
 import keystrokesmod.module.setting.Setting;
@@ -8,14 +9,12 @@ import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
 import keystrokesmod.script.Script;
 import keystrokesmod.utility.Utils;
-import keystrokesmod.utility.profile.ProfileModule;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.common.MinecraftForge;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
 public class Module {
@@ -52,18 +51,7 @@ public class Module {
     }
 
     public static Module getModule(Class<? extends Module> a) {
-        Iterator var1 = ModuleManager.modules.iterator();
-
-        Module module;
-        do {
-            if (!var1.hasNext()) {
-                return null;
-            }
-
-            module = (Module) var1.next();
-        } while (module.getClass() != a);
-
-        return module;
+        return ModuleManager.getModule(a);
     }
 
     public Module(String name, Module.category moduleCategory) {

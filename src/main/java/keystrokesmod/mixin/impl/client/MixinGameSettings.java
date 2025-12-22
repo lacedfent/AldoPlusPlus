@@ -14,7 +14,8 @@ import org.spongepowered.asm.mixin.Overwrite;
 public class MixinGameSettings {
 
     /**
-     * Overwrites the original isKeyDown method, used to fix not sneaking with SafeWalk on ViaForge
+     * @author Strangers
+     * @reason Overwrites the original isKeyDown method, used to fix not sneaking with SafeWalk on ViaForge
      */
     @Overwrite
     public static boolean isKeyDown(KeyBinding key) {
@@ -22,7 +23,7 @@ public class MixinGameSettings {
         if (key == Minecraft.getMinecraft().gameSettings.keyBindSneak && safewalk != null && safewalk.isEnabled() && safewalk.sneak.isToggled() && safewalk.isSneaking) {
             return true;
         }
-        return key.getKeyCode() == 0 ? false : (key.getKeyCode() < 0 ? Mouse.isButtonDown(key.getKeyCode() + 100) : Keyboard.isKeyDown(key.getKeyCode()));
+        return key.getKeyCode() != 0 && (key.getKeyCode() < 0 ? Mouse.isButtonDown(key.getKeyCode() + 100) : Keyboard.isKeyDown(key.getKeyCode()));
     }
 
 }

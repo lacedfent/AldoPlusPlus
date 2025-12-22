@@ -1,8 +1,8 @@
-package keystrokesmod.utility.command.impl;
+package keystrokesmod.command.impl;
 
 import keystrokesmod.Raven;
 import keystrokesmod.helper.DebugHelper;
-import keystrokesmod.utility.command.Command;
+import keystrokesmod.command.Command;
 
 public class Debug extends Command {
     public Debug() {

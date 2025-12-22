@@ -1,5 +1,6 @@
 package keystrokesmod.module.impl.player;
 
+import keystrokesmod.event.PreUpdateEvent;
 import keystrokesmod.mixin.impl.accessor.IAccessorMinecraft;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.setting.impl.ButtonSetting;
@@ -8,6 +9,7 @@ import keystrokesmod.utility.RotationUtils;
 import keystrokesmod.utility.Utils;
 import net.minecraft.client.gui.GuiChat;
 import net.minecraft.client.settings.KeyBinding;
+import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
 public class AntiAFK extends Module {
     private SliderSetting afk;
@@ -20,11 +22,14 @@ public class AntiAFK extends Module {
     private ButtonSetting randomizePitch;
     private SliderSetting minDelay;
     private SliderSetting maxDelay;
+
     private String[] afkModes = new String[]{"None", "Wander", "Lateral shuffle", "Forward", "Backward"};
     private String[] spinModes = new String[]{"None", "Random", "Right", "Left"};
+
     private int ticks;
-    private boolean c;
+    private boolean random;
     public boolean stop = false;
+
     public AntiAFK() {
         super("AntiAFK", category.player);
         this.registerSetting(afk = new SliderSetting("AFK", 0, afkModes));
@@ -41,10 +46,11 @@ public class AntiAFK extends Module {
 
     public void onEnable() {
         this.ticks = this.h();
-        this.c = Utils.getRandom().nextBoolean();
+        this.random = Utils.getRandom().nextBoolean();
     }
 
-    public void onUpdate() {
+    @SubscribeEvent
+    public void onPreUpdate(PreUpdateEvent e) {
         if (stop) {
             return;
         }
@@ -54,7 +60,7 @@ public class AntiAFK extends Module {
         --this.ticks;
         switch ((int) afk.getInput()) {
             case 1: {
-                if (this.c) {
+                if (this.random) {
                     KeyBinding.setKeyBindState(mc.gameSettings.keyBindForward.getKeyCode(), Utils.getRandom().nextBoolean());
                     KeyBinding.setKeyBindState(mc.gameSettings.keyBindRight.getKeyCode(), Utils.getRandom().nextBoolean());
                     break;
@@ -64,8 +70,8 @@ public class AntiAFK extends Module {
                 break;
             }
             case 2: {
-                KeyBinding.setKeyBindState(mc.gameSettings.keyBindRight.getKeyCode(), this.c);
-                KeyBinding.setKeyBindState(mc.gameSettings.keyBindLeft.getKeyCode(), !this.c);
+                KeyBinding.setKeyBindState(mc.gameSettings.keyBindRight.getKeyCode(), this.random);
+                KeyBinding.setKeyBindState(mc.gameSettings.keyBindLeft.getKeyCode(), !this.random);
                 break;
             }
             case 3: {
@@ -79,7 +85,7 @@ public class AntiAFK extends Module {
         }
         switch ((int) spin.getInput()) {
             case 1: {
-                mc.thePlayer.rotationYaw += this.c(this.c);
+                mc.thePlayer.rotationYaw += this.c(this.random);
                 this.d();
                 break;
             }
@@ -105,12 +111,12 @@ public class AntiAFK extends Module {
                 ((IAccessorMinecraft) mc).callClickMouse();
             }
             this.ticks = this.h();
-            this.c = !this.c;
+            this.random = !this.random;
         }
     }
 
     private double a() {
-        final int n = Utils.getRandom().nextBoolean() ? 1 : -1;
+        int n = Utils.getRandom().nextBoolean() ? 1 : -1;
         if (!randomizeDelta.isToggled()) {
             return 2 * n;
         }
@@ -126,7 +132,7 @@ public class AntiAFK extends Module {
         stop = false;
     }
 
-    private void b(final int n) {
+    private void b(int n) {
         switch (n) {
             case 1: {
                 KeyBinding.setKeyBindState(mc.gameSettings.keyBindForward.getKeyCode(), false);
@@ -164,8 +170,8 @@ public class AntiAFK extends Module {
         }
     }
 
-    private double c(final boolean b) {
-        final int n = b ? 1 : -1;
+    private double c(boolean b) {
+        int n = b ? 1 : -1;
         if (!randomizeDelta.isToggled()) {
             return 3 * n;
         }

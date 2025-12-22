@@ -128,24 +128,25 @@ public class ModuleComponent extends Component {
             button_rgb = UNSAVED_COLOR;
         }
 
-        if (smoothTimer != null && System.currentTimeMillis() - smoothTimer.last >= 300) {
-            smoothTimer = null;
-        }
         if (smoothTimer != null) {
-            int height = getModuleHeight();
-            if (isOpened) {
-                smoothingY = smoothTimer.getValueInt(16, height, 1);
-                if (smoothingY == height) {
-                    smoothTimer = null;
+            if (System.currentTimeMillis() - smoothTimer.last >= 280) {
+                smoothTimer = null;
+                smoothingY = isOpened ? getModuleHeight() : 16;
+            } else {
+                int height = getModuleHeight();
+                if (isOpened) {
+                    smoothingY = smoothTimer.getValueInt(16, height, 1);
+                    if (smoothingY == height) {
+                        smoothTimer = null;
+                    }
+                }
+                else {
+                    smoothingY = smoothTimer.getValueInt(height, 16, 1);
+                    if (smoothingY == 16) {
+                        smoothTimer = null;
+                    }
                 }
             }
-            else {
-                smoothingY = smoothTimer.getValueInt(height, 16, 1);
-                if (smoothingY == 16) {
-                    smoothTimer = null;
-                }
-            }
-            this.categoryComponent.updateHeight();
         }
 
         Minecraft.getMinecraft().fontRendererObj.drawStringWithShadow(this.mod.getName(), (float) (this.categoryComponent.getX() + this.categoryComponent.getWidth() / 2 - Minecraft.getMinecraft().fontRendererObj.getStringWidth(this.mod.getName()) / 2), (float) (this.categoryComponent.getY() + this.yPos + 4), button_rgb);
@@ -286,8 +287,7 @@ public class ModuleComponent extends Component {
 
         if (this.overModuleName(x, y) && mouse == 1) {
             this.isOpened = !this.isOpened;
-            (this.smoothTimer = new Timer(200)).start();
-            this.categoryComponent.updateHeight();
+            (this.smoothTimer = new Timer(250)).start();
             return true;
         }
 

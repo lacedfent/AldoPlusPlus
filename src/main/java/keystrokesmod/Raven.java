@@ -21,7 +21,7 @@ import keystrokesmod.script.ScriptManager;
 import keystrokesmod.script.model.Entity;
 import keystrokesmod.script.model.NetworkPlayer;
 import keystrokesmod.utility.*;
-import keystrokesmod.utility.command.CommandManager;
+import keystrokesmod.command.CommandManager;
 import keystrokesmod.utility.profile.Profile;
 import keystrokesmod.utility.profile.ProfileManager;
 import net.minecraft.client.Minecraft;
@@ -76,7 +76,7 @@ public class Raven {
         MinecraftForge.EVENT_BUS.register(new KeyStrokeRenderer());
         MinecraftForge.EVENT_BUS.register(new PingHelper());
         MinecraftForge.EVENT_BUS.register(packetsHandler = new PacketsHandler());
-        MinecraftForge.EVENT_BUS.register(new ModuleUtils(mc));
+        MinecraftForge.EVENT_BUS.register(new ModuleUtils());
 
         ReflectionUtils.setupFields();
         moduleManager.register();

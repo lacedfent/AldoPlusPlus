@@ -16,7 +16,6 @@ import net.minecraft.util.MovingObjectPosition;
 import net.minecraft.util.Vec3;
 import net.minecraftforge.client.event.MouseEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import org.lwjgl.input.Mouse;
 
 import java.util.List;
 
@@ -81,7 +80,6 @@ public class Reach extends Module {
                 Entity en = (Entity) entity[0];
                 mc.objectMouseOver = new MovingObjectPosition(en, (Vec3) entity[1]);
                 mc.pointedEntity = en;
-                Utils.sendMessage("Sdasdaw");
                 return true;
             }
         }

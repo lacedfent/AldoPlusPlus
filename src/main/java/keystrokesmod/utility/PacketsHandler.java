@@ -16,9 +16,7 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class PacketsHandler {
-    public Minecraft mc = Minecraft.getMinecraft();
-
+public class PacketsHandler implements IMinecraftInstance {
     public PacketData C0A = new PacketData();
     public PacketData C08 = new PacketData();
     public PacketData C07 = new PacketData();

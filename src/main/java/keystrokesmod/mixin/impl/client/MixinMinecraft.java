@@ -15,6 +15,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(Minecraft.class)
 public class MixinMinecraft {
 
+    @Inject(method = "runTick", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/EntityRenderer;getMouseOver(F)V", shift = At.Shift.AFTER))
+    public void onRunTickMouseOver(CallbackInfo ci) {
+        MinecraftForge.EVENT_BUS.post(new PostMouseSelectionEvent());
+    }
+
     @Inject(method = "runTick", at = @At(value = "FIELD", opcode = Opcodes.GETFIELD, target = "Lnet/minecraft/client/settings/GameSettings;chatVisibility:Lnet/minecraft/entity/player/EntityPlayer$EnumChatVisibility;"))
     private void injectBeforeChatVisibility(CallbackInfo ci) {
         MinecraftForge.EVENT_BUS.post(new PrePlayerInteractEvent());
@@ -28,6 +33,16 @@ public class MixinMinecraft {
     @Inject(method = "runGameLoop", at = @At("HEAD"))
     public void onRunGameLoop(CallbackInfo ci) {
         MinecraftForge.EVENT_BUS.post(new RunGameLoopEvent());
+    }
+
+    @Inject(method = "clickMouse", at = @At("HEAD"))
+    public void injectClickMouse(CallbackInfo ci) {
+        MinecraftForge.EVENT_BUS.post(new ClickMouseEvent());
+    }
+
+    @Inject(method = "rightClickMouse", at = @At("HEAD"))
+    public void injectRightClickMouse(CallbackInfo ci) {
+        MinecraftForge.EVENT_BUS.post(new RightClickMouseEvent());
     }
 
     @Inject(method = "runTick", at = @At("HEAD"))

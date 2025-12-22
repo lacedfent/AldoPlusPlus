@@ -20,7 +20,6 @@ import net.minecraft.network.play.client.C0EPacketClickWindow;
 import net.minecraft.network.play.client.C16PacketClientStatus;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import org.lwjgl.input.Keyboard;
-import org.lwjgl.input.Mouse;
 
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -34,16 +33,19 @@ public class InvMove extends Module {
     private ButtonSetting allowSprinting;
     public ButtonSetting invManagerOnly;
     private ButtonSetting allowRotating;
+
     public int ticks;
     public boolean setMotion;
-    private String[] inventoryModes = new String[] { "Disabled", "Vanilla", "Blink", "Close" };
-    private String[] chestAndOtherModes = new String[] { "Disabled", "Vanilla", "Blink" };
+
     private ConcurrentLinkedQueue<Packet> blinkedPackets = new ConcurrentLinkedQueue<>();
+
+    private final String[] INVENTORY_MODES = new String[] { "Disabled", "Vanilla", "Blink", "Close" };
+    private final String[] CHEST_AND_OTHER_MODES = new String[] { "Disabled", "Vanilla", "Blink" };
 
     public InvMove() {
         super("InvMove", Module.category.movement);
-        this.registerSetting(inventory = new SliderSetting("Inventory", 1, inventoryModes));
-        this.registerSetting(chestAndOthers = new SliderSetting("Chest & others", 1, chestAndOtherModes));
+        this.registerSetting(inventory = new SliderSetting("Inventory", 1, INVENTORY_MODES));
+        this.registerSetting(chestAndOthers = new SliderSetting("Chest & others", 1, CHEST_AND_OTHER_MODES));
         this.registerSetting(motion = new SliderSetting("Motion", "x", 1, 0.05, 1, 0.01));
         this.registerSetting(modifyMotionPost = new ButtonSetting("Modify motion after click", false));
         this.registerSetting(slowWhenNecessary = new ButtonSetting("Slow motion when necessary", false));

@@ -11,7 +11,7 @@ import java.util.List;
 
 public class KeyStrokeMouse {
     private static String[] a = new String[]{"LMB", "RMB"};
-    private Minecraft b = Minecraft.getMinecraft();
+    private Minecraft mc = Minecraft.getMinecraft();
     private int c;
     private int d;
     private int e;
@@ -58,15 +58,15 @@ public class KeyStrokeMouse {
             net.minecraft.client.gui.Gui.drawRect(o + this.d + 33, p + this.e, o + this.d + 34, p + this.e + 22, c);
         }
 
-        this.b.fontRendererObj.drawString(s, o + this.d + 8, p + this.e + 4, -16777216 + ((int) ((double) t * this.j) << 16) + ((int) ((double) u * this.j) << 8) + (int) ((double) v * this.j));
+        this.mc.fontRendererObj.drawString(s, o + this.d + 8, p + this.e + 4, -16777216 + ((int) ((double) t * this.j) << 16) + ((int) ((double) u * this.j) << 8) + (int) ((double) v * this.j));
         String w = MouseHelper.f() + " CPS";
         String x = MouseHelper.i() + " CPS";
-        int y = this.b.fontRendererObj.getStringWidth(w);
-        int z = this.b.fontRendererObj.getStringWidth(x);
+        int y = this.mc.fontRendererObj.getStringWidth(w);
+        int z = this.mc.fontRendererObj.getStringWidth(x);
         boolean a2 = this.c == 0;
         int b2 = a2 ? y : z;
         GL11.glScalef(0.5F, 0.5F, 0.5F);
-        this.b.fontRendererObj.drawString(a2 ? w : x, (o + this.d + 17) * 2 - b2 / 2, (p + this.e + 14) * 2, -16777216 + ((int) (255.0D * this.j) << 16) + ((int) (255.0D * this.j) << 8) + (int) (255.0D * this.j));
+        this.mc.fontRendererObj.drawString(a2 ? w : x, (o + this.d + 17) * 2 - b2 / 2, (p + this.e + 14) * 2, -16777216 + ((int) (255.0D * this.j) << 16) + ((int) (255.0D * this.j) << 8) + (int) (255.0D * this.j));
         GL11.glScalef(2.0F, 2.0F, 2.0F);
     }
 }

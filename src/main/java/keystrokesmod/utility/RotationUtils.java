@@ -12,8 +12,7 @@ import net.minecraft.util.*;
 
 import java.util.List;
 
-public class RotationUtils {
-    public static final Minecraft mc = Minecraft.getMinecraft();
+public class RotationUtils implements IMinecraftInstance {
     public static float renderPitch;
     public static float prevRenderPitch;
     public static float renderYaw;

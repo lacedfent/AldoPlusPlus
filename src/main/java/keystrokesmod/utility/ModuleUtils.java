@@ -1,6 +1,5 @@
 package keystrokesmod.utility;
 
-import keystrokesmod.Raven;
 import keystrokesmod.event.*;
 import keystrokesmod.module.impl.combat.KillAura;
 import keystrokesmod.module.impl.combat.Velocity;
@@ -8,7 +7,6 @@ import keystrokesmod.module.impl.movement.LongJump;
 import keystrokesmod.module.impl.render.HUD;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockAir;
-import net.minecraft.client.Minecraft;
 import keystrokesmod.module.ModuleManager;
 import net.minecraft.network.Packet;
 import net.minecraft.network.play.client.*;
@@ -21,13 +19,7 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import java.util.Iterator;
 import java.util.Map;
 
-public class ModuleUtils {
-    private final Minecraft mc;
-
-    public ModuleUtils(Minecraft mc) {
-        this.mc = mc;
-    }
-
+public class ModuleUtils implements IMinecraftInstance {
     public static boolean isBreaking;
     public static boolean threwFireball, threwFireballLow;
     private int isBreakingTick;

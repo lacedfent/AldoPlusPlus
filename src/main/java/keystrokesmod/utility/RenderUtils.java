@@ -30,9 +30,9 @@ import java.nio.IntBuffer;
 
 import static org.lwjgl.opengl.GL11.*;
 
-public class RenderUtils {
-    private static Minecraft mc = Minecraft.getMinecraft();
+public class RenderUtils implements IMinecraftInstance {
     private static Frustum frustum = new Frustum();
+
     private static final FloatBuffer MODELVIEW = BufferUtils.createFloatBuffer(16);
     private static final FloatBuffer PROJECTION = BufferUtils.createFloatBuffer(16);
     private static final IntBuffer VIEWPORT = BufferUtils.createIntBuffer(16);

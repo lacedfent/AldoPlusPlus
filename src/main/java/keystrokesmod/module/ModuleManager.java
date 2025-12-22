@@ -18,11 +18,16 @@ import keystrokesmod.utility.profile.Manager;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class ModuleManager {
     public static List<Module> modules = new ArrayList<>();
     public static List<Module> organizedModules = Collections.synchronizedList(new ArrayList<>());
+    private static final Map<String, Module> modulesByName = new HashMap<>();
+    private static final Map<Class<?>, Module> modulesByClass = new HashMap<>();
+
     public static Module nameHider;
     public static Module fastPlace;
     public static MurderMystery murderMystery;
@@ -73,6 +78,9 @@ public class ModuleManager {
     public static ChatCommands chatCommands;
 
     public void register() {
+        this.addModule(new Debug());
+        this.addModule(new GhostHand());
+
         this.addModule(autoClicker = new AutoClicker());
         this.addModule(longJump = new LongJump());
         this.addModule(new AimAssist());
@@ -85,6 +93,7 @@ public class ModuleManager {
         this.addModule(skyWars = new SkyWars());
         this.addModule(new DelayRemover());
         this.addModule(hitBox = new HitBox());
+        this.addModule(new FallView());
         this.addModule(new Radar());
         this.addModule(new Settings());
         this.addModule(reach = new Reach());
@@ -178,6 +187,8 @@ public class ModuleManager {
 
     public void addModule(Module m) {
         modules.add(m);
+        modulesByName.put(m.getName(), m);
+        modulesByClass.put(m.getClass(), m);
     }
 
     public List<Module> getModules() {
@@ -196,22 +207,12 @@ public class ModuleManager {
         return categoryModules;
     }
 
-    public Module getModule(String moduleName) {
-        for (Module module : modules) {
-            if (module.getName().equals(moduleName)) {
-                return module;
-            }
-        }
-        return null;
+    public static Module getModule(String moduleName) {
+        return modulesByName.get(moduleName);
     }
 
-    public Module getModule(Class clazz) {
-        for (Module module : modules) {
-            if (module.getClass().equals(clazz)) {
-                return module;
-            }
-        }
-        return null;
+    public static Module getModule(Class<?> clazz) {
+        return modulesByClass.get(clazz);
     }
 
     public static void sort() {

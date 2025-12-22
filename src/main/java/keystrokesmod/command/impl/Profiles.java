@@ -1,8 +1,8 @@
-package keystrokesmod.utility.command.impl;
+package keystrokesmod.command.impl;
 
 import keystrokesmod.Raven;
 import keystrokesmod.utility.Utils;
-import keystrokesmod.utility.command.Command;
+import keystrokesmod.command.Command;
 import keystrokesmod.utility.profile.Profile;
 
 import java.util.ArrayList;

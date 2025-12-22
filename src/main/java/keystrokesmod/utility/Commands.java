@@ -13,7 +13,6 @@ import keystrokesmod.module.impl.movement.Speed;
 import keystrokesmod.module.impl.other.FakeChat;
 import keystrokesmod.module.impl.other.NameHider;
 import keystrokesmod.utility.profile.Profile;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import org.lwjgl.opengl.GL11;
 
@@ -22,30 +21,30 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-public class Commands {
-    private static final Minecraft mc = Minecraft.getMinecraft();
+public class Commands implements IMinecraftInstance {
     private static boolean f = true;
     private static final List<Integer> cs = Arrays.asList((new Color(170, 107, 148, 50)).getRGB(), (new Color(122, 158, 134, 50)).getRGB(), (new Color(16, 16, 16, 50)).getRGB(), (new Color(64, 114, 148, 50)).getRGB());
     private static int ccs = 0;
     private static int lccs = -1;
     public static List<String> rs = new ArrayList();
-    private static final String invSyn = "&cInvalid syntax.";
-    private static final String invCom = "&cInvalid command.";
 
-    public static void rCMD(String c) {
-        if (!c.isEmpty()) {
-            String cm = c.toLowerCase();
-            boolean hasArgs = c.contains(" ");
-            String[] args = hasArgs ? c.split(" ") : null;
+    private static final String INVALID_SYNTAX = "&cInvalid syntax.";
+    private static final String INVALID_COMMAND = "&cInvalid command.";
+
+    public static void runCommand(String contents) {
+        if (!contents.isEmpty()) {
+            String cm = contents.toLowerCase();
+            boolean hasArgs = contents.contains(" ");
+            String[] args = hasArgs ? contents.split(" ") : null;
             String n;
             if (cm.startsWith("setkey".toLowerCase())) {
                 if (!hasArgs) {
-                    print(invSyn, 1);
+                    print(INVALID_SYNTAX, 1);
                     return;
                 }
 
                 if (args.length != 2) {
-                    print(invSyn, 1);
+                    print(INVALID_SYNTAX, 1);
                     return;
                 }
 
@@ -56,18 +55,18 @@ public class Commands {
                         NetworkUtils.API_KEY = n;
                         print("&a" + "success!", 0);
                     } else {
-                        print("&c" + "Invalid key.", 0);
+                        print("&contents" + "Invalid key.", 0);
                     }
 
                 });
             } else if (cm.startsWith("nick")) {
                 if (!hasArgs) {
-                    print(invSyn, 1);
+                    print(INVALID_SYNTAX, 1);
                     return;
                 }
 
                 if (args.length != 2) {
-                    print(invSyn, 1);
+                    print(INVALID_SYNTAX, 1);
                     return;
                 }
 
@@ -82,26 +81,26 @@ public class Commands {
             }
             else if (cm.startsWith("cname")) {
                 if (!hasArgs) {
-                    print(invSyn, 1);
+                    print(INVALID_SYNTAX, 1);
                     return;
                 }
 
                 if (args.length != 2) {
-                    print(invSyn, 1);
+                    print(INVALID_SYNTAX, 1);
                     return;
                 }
 
                 NameHider.fakeName = args[1];
-                print("&a" + Utils.uf("name") + "Nick has been set to:".substring(4), 1);
+                print("&a" + Utils.uppercaseFirst("name") + "Nick has been set to:".substring(4), 1);
                 print("\"" + NameHider.fakeName + "\"", 0);
             }
             else if (cm.startsWith(FakeChat.command)) {
                 if (!hasArgs) {
-                    print(invSyn, 1);
+                    print(INVALID_SYNTAX, 1);
                     return;
                 }
 
-                n = c.replaceFirst(FakeChat.command, "").substring(1);
+                n = contents.replaceFirst(FakeChat.command, "").substring(1);
                 if (n.isEmpty() || n.equals("\\n")) {
                     print(FakeChat.c4, 1);
                     return;
@@ -112,12 +111,12 @@ public class Commands {
             }
             else if (cm.startsWith("Duels".toLowerCase())) {
                 if (!hasArgs) {
-                    print(invSyn, 1);
+                    print(INVALID_SYNTAX, 1);
                     return;
                 }
 
                 if (args.length != 2) {
-                    print(invSyn, 1);
+                    print(INVALID_SYNTAX, 1);
                     return;
                 }
 
@@ -133,7 +132,7 @@ public class Commands {
                     int[] s = ProfileUtils.getHypixelStats(n, ProfileUtils.DM.OVERALL);
                     if (s != null) {
                         if (s[0] == -1) {
-                            print("&c" + (n.length() > 16 ? n.substring(0, 16) + "..." : n) + " does not exist!", 0);
+                            print("&contents" + (n.length() > 16 ? n.substring(0, 16) + "..." : n) + " does not exist!", 0);
                         } else {
                             double wlr = s[1] != 0 ? Utils.round((double) s[0] / (double) s[1], 2) : (double) s[0];
                             print("&e" + n + " stats:", 1);
@@ -151,12 +150,12 @@ public class Commands {
             }
             else if (cm.startsWith("setspeed")) {
                 if (!hasArgs) {
-                    print(invSyn, 1);
+                    print(INVALID_SYNTAX, 1);
                     return;
                 }
 
                 if (args.length != 3) {
-                    print(invSyn, 1);
+                    print(INVALID_SYNTAX, 1);
                     return;
                 }
 
@@ -185,7 +184,7 @@ public class Commands {
                         Speed.multiplier.setValueRawWithEvent(value);
                         break;
                     default:
-                        print(invSyn, 1);
+                        print(INVALID_SYNTAX, 1);
                         return;
                 }
                 print("&aSet speed to ", 1);
@@ -193,12 +192,12 @@ public class Commands {
             }
             else if (cm.startsWith("setvelocity")) {
                 if (!hasArgs) {
-                    print(invSyn, 1);
+                    print(INVALID_SYNTAX, 1);
                     return;
                 }
 
                 if (args.length != 3) {
-                    print(invSyn, 1);
+                    print(INVALID_SYNTAX, 1);
                     return;
                 }
 
@@ -226,7 +225,7 @@ public class Commands {
                         Velocity.vertical.setValueRawWithEvent(value);
                         break;
                     default:
-                        print(invSyn, 1);
+                        print(INVALID_SYNTAX, 1);
                         return;
                 }
 
@@ -238,7 +237,7 @@ public class Commands {
             }
             else if (cm.startsWith("sprint")) {
                 if (!hasArgs || args.length != 2) {
-                    print(invSyn, 1);
+                    print(INVALID_SYNTAX, 1);
                     return;
                 }
                 String text = args[1];
@@ -254,7 +253,7 @@ public class Commands {
             }
             else if (cm.startsWith("hide")) {
                 if (!hasArgs || args.length != 2) {
-                    print(invSyn, 1);
+                    print(INVALID_SYNTAX, 1);
                     return;
                 }
 
@@ -268,12 +267,12 @@ public class Commands {
             }
             else if (cm.startsWith("show")) {
                 if (!hasArgs) {
-                    print(invSyn, 1);
+                    print(INVALID_SYNTAX, 1);
                     return;
                 }
 
                 if (args.length != 2) {
-                    print(invSyn, 1);
+                    print(INVALID_SYNTAX, 1);
                     return;
                 }
 
@@ -287,12 +286,12 @@ public class Commands {
             }
             else if (cm.startsWith("friend") || cm.startsWith("f")) {
                 if (!hasArgs) {
-                    print(invSyn, 1);
+                    print(INVALID_SYNTAX, 1);
                     return;
                 }
 
                 if (args.length != 2) {
-                    print(invSyn, 1);
+                    print(INVALID_SYNTAX, 1);
                     return;
                 }
 
@@ -312,12 +311,12 @@ public class Commands {
             }
             else if (cm.startsWith("enemy") || cm.startsWith("e")) {
                 if (!hasArgs) {
-                    print(invSyn, 1);
+                    print(INVALID_SYNTAX, 1);
                     return;
                 }
 
                 if (args.length != 2) {
-                    print(invSyn, 1);
+                    print(INVALID_SYNTAX, 1);
                     return;
                 }
 
@@ -354,7 +353,7 @@ public class Commands {
                 else if (args.length > 1) {
                     if (args[1].equals("save") || args[1].equals("s")) {
                         if (args.length != 3) {
-                            print(invSyn, 1);
+                            print(INVALID_SYNTAX, 1);
                             return;
                         }
                         String name = args[2];
@@ -369,7 +368,7 @@ public class Commands {
                     }
                     else if (args[1].equals("load") || args[1].equals("l")) {
                         if (args.length != 3) {
-                            print(invSyn, 1);
+                            print(INVALID_SYNTAX, 1);
                             return;
                         }
                         String name = args[2];
@@ -388,7 +387,7 @@ public class Commands {
                     }
                     else if (args[1].equals("remove") || args[1].equals("r")) {
                         if (args.length != 3) {
-                            print(invSyn, 1);
+                            print(INVALID_SYNTAX, 1);
                             return;
                         }
                         String name = args[2];
@@ -412,7 +411,7 @@ public class Commands {
                     print("- mood", 0);
                     print("- charlotte", 0);
                 } else {
-                    print(invCom + " (" + (cm.length() > 5 ? cm.substring(0, 5) + "..." : cm) + ")", 1);
+                    print(INVALID_COMMAND + " (" + (cm.length() > 5 ? cm.substring(0, 5) + "..." : cm) + ")", 1);
                 }
             } else {
                 print("&eAvailable commands:", 1);

@@ -1,10 +1,10 @@
-package keystrokesmod.utility.command.impl;
+package keystrokesmod.command.impl;
 
 import keystrokesmod.module.ModuleManager;
 import keystrokesmod.module.impl.world.AntiBot;
 import keystrokesmod.utility.RenderUtils;
 import keystrokesmod.utility.Utils;
-import keystrokesmod.utility.command.Command;
+import keystrokesmod.command.Command;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.common.MinecraftForge;

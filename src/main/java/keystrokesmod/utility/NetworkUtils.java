@@ -1,5 +1,6 @@
 package keystrokesmod.utility;
 
+import keystrokesmod.utility.system.SystemUtils;
 import net.minecraft.client.renderer.texture.TextureUtil;
 import org.apache.commons.io.IOUtils;
 
@@ -15,26 +16,28 @@ import java.util.regex.Pattern;
 
 public class NetworkUtils {
     public static String API_KEY = "";
+
     private static final Pattern OGP_IMAGE_REGEX = Pattern.compile("<meta property=\"(?:og:image|twitter:image)\" content=\"(?<url>.+?)\".*?/?>");
     private static final Pattern IMG_TAG_REGEX = Pattern.compile("<img.*?src=\"(?<url>.+?)\".*?>");
+
     public static final String CHROME_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
     public static boolean isHypixelKeyValid(String ak) {
-        String c = getTextFromURL("https://api.hypixel.net/key?key=" + ak, false, false);
-        return !c.isEmpty() && !c.contains("Invalid");
+        String contents = getTextFromURL("https://api.hypixel.net/key?key=" + ak, false, false);
+        return !contents.isEmpty() && !contents.contains("Invalid");
     }
 
     public static String getTextFromURL(String _url, boolean appendNewline, boolean sendHardwareId) {
-        String r = "";
+        String contents = "";
         HttpURLConnection con = null;
 
         try {
             URL url = new URL(_url);
             con = (HttpURLConnection) url.openConnection();
             if (sendHardwareId) {
-                con.setRequestProperty("id", Utils.getHardwareIdForLoad(_url));
+                con.setRequestProperty("id", SystemUtils.getHardwareIdForLoad(_url));
             }
-            r = getTextFromConnection(con, appendNewline);
+            contents = getTextFromConnection(con, appendNewline);
         } catch (IOException ignored) {
         } finally {
             if (con != null) {
@@ -42,7 +45,7 @@ public class NetworkUtils {
             }
 
         }
-        return r;
+        return contents;
     }
 
     public static String getTextFromConnection(HttpURLConnection connection, boolean appendIndent) {

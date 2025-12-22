@@ -1,5 +1,6 @@
 package keystrokesmod.utility.shader;
 
+import keystrokesmod.utility.IMinecraftInstance;
 import keystrokesmod.utility.RenderUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GlStateManager;
@@ -13,8 +14,7 @@ import java.util.List;
 
 import static org.lwjgl.opengl.GL11.*;
 
-public class KawaseBloom {
-    private static final Minecraft mc = Minecraft.getMinecraft();
+public class KawaseBloom implements IMinecraftInstance {
     public static ShaderUtils kawaseDown = new ShaderUtils("kawaseDownBloom");
     public static ShaderUtils kawaseUp = new ShaderUtils("kawaseUpBloom");
     public static Framebuffer framebuffer = new Framebuffer(1, 1, false);

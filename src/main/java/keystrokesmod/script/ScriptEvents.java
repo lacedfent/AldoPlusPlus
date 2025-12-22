@@ -2,6 +2,8 @@ package keystrokesmod.script;
 
 import keystrokesmod.Raven;
 import keystrokesmod.event.*;
+import keystrokesmod.mixin.impl.accessor.IAccessorEntityRenderer;
+import keystrokesmod.mixin.impl.accessor.IAccessorMinecraft;
 import keystrokesmod.module.Module;
 import keystrokesmod.script.model.Entity;
 import keystrokesmod.script.model.MovementInput;
@@ -11,6 +13,7 @@ import keystrokesmod.script.packet.clientbound.SPacket;
 import keystrokesmod.script.packet.serverbound.CPacket;
 import keystrokesmod.script.packet.serverbound.PacketHandler;
 import keystrokesmod.utility.Utils;
+import net.minecraft.client.Minecraft;
 import net.minecraftforge.client.event.ClientChatReceivedEvent;
 import net.minecraftforge.client.event.MouseEvent;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
@@ -119,6 +122,8 @@ public class ScriptEvents {
         if (!Utils.nullCheck()) {
             return;
         }
+        Minecraft mc = Minecraft.getMinecraft();
+        ((IAccessorEntityRenderer) mc.entityRenderer).callSetupCameraTransform(((IAccessorMinecraft) mc).getTimer().renderPartialTicks, 0);
         Raven.scriptManager.invoke("onRenderWorld", module, e.partialTicks);
     }
 

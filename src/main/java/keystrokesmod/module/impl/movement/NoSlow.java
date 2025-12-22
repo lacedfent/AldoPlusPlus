@@ -9,16 +9,13 @@ import keystrokesmod.module.setting.impl.DescriptionSetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
 import keystrokesmod.utility.BlockUtils;
 import keystrokesmod.utility.Utils;
-import net.minecraft.init.Items;
 import net.minecraft.item.*;
-import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.nbt.NBTTagList;
-import net.minecraft.nbt.NBTTagString;
 import net.minecraft.network.play.client.*;
 import net.minecraft.util.BlockPos;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import org.lwjgl.input.Mouse;
 
+import static net.minecraft.util.EnumFacing.DOWN;
 
 public class NoSlow extends Module {
     public static SliderSetting mode;
@@ -29,7 +26,7 @@ public class NoSlow extends Module {
     public static ButtonSetting vanillaSword;
     public ButtonSetting preventStepping;
 
-    private String[] modes = new String[] { "Vanilla", "Pre", "Post", "Alpha", "Float" };
+    private final String[] NOSLOW_MODES = new String[] { "Vanilla", "Pre", "Post", "Alpha", "Beta", "Float" };
 
     private boolean postPlace;
     private boolean canFloat;
@@ -40,7 +37,7 @@ public class NoSlow extends Module {
     public NoSlow() {
         super("NoSlow", category.movement, 0);
         this.registerSetting(new DescriptionSetting("Default is 80% motion reduction."));
-        this.registerSetting(mode = new SliderSetting("Mode", 0, modes));
+        this.registerSetting(mode = new SliderSetting("Mode", 0, NOSLOW_MODES));
         this.registerSetting(slowed = new SliderSetting("Slow %", 80.0D, 0.0D, 80.0D, 1.0D));
         this.registerSetting(disableBow = new ButtonSetting("Disable bow", false));
         this.registerSetting(disablePotions = new ButtonSetting("Disable potions", false));
@@ -62,7 +59,8 @@ public class NoSlow extends Module {
         }
     }
 
-    public void onUpdate() {
+    @SubscribeEvent
+    public void onPreUpdate(PreUpdateEvent e) {
         if (ModuleManager.bedAura.stopAutoblock) {
             return;
         }
@@ -75,30 +73,32 @@ public class NoSlow extends Module {
             return;
         }
         switch ((int) mode.getInput()) {
-            case 1:
+            case 1: // Pre
                 if (mc.thePlayer.ticksExisted % 3 == 0 && !Raven.packetsHandler.C07.sentCurrentTick.get()) {
                     mc.thePlayer.sendQueue.addToSendQueue(new C08PacketPlayerBlockPlacement(mc.thePlayer.getHeldItem()));
                 }
                 break;
-            case 2:
+            case 2: // Post
                 postPlace = true;
                 break;
-            case 3:
+            case 3: // Alpha
                 if (mc.thePlayer.ticksExisted % 3 == 0 && !Raven.packetsHandler.C07.sentCurrentTick.get()) {
                     mc.thePlayer.sendQueue.addToSendQueue(new C08PacketPlayerBlockPlacement(new BlockPos(-1, -1, -1), 1, null, 0, 0, 0));
                 }
                 break;
-            case 4:
+            case 4: // Beta
+                mc.thePlayer.sendQueue.addToSendQueue(new C09PacketHeldItemChange(mc.thePlayer.inventory.currentItem % 8 + 1));
+                mc.thePlayer.sendQueue.addToSendQueue(new C09PacketHeldItemChange(mc.thePlayer.inventory.currentItem));
+                mc.thePlayer.sendQueue.addToSendQueue(new C07PacketPlayerDigging(C07PacketPlayerDigging.Action.RELEASE_USE_ITEM, BlockPos.ORIGIN, DOWN));
+            case 5: // Float
                 if (reSendConsume) {
                     if (mc.thePlayer.onGround) {
                         setJump = true;
                         break;
                     }
-                    if (!mc.thePlayer.onGround) {
-                        mc.playerController.sendUseItem(mc.thePlayer, mc.theWorld, mc.thePlayer.getHeldItem());
-                        canFloat = true;
-                        reSendConsume = false;
-                    }
+                    mc.playerController.sendUseItem(mc.thePlayer, mc.theWorld, mc.thePlayer.getHeldItem());
+                    canFloat = true;
+                    reSendConsume = false;
                 }
                 break;
         }
@@ -106,7 +106,7 @@ public class NoSlow extends Module {
 
     @SubscribeEvent
     public void onPostMotion(PostMotionEvent e) {
-        if (postPlace && mode.getInput() == 2) {
+        if (postPlace && mode.getInput() == 2) { // Post
             if (mc.thePlayer.ticksExisted % 3 == 0 && !Raven.packetsHandler.C07.sentCurrentTick.get()) {
                 mc.thePlayer.sendQueue.addToSendQueue(new C08PacketPlayerBlockPlacement(mc.thePlayer.getHeldItem()));
             }
@@ -116,12 +116,12 @@ public class NoSlow extends Module {
 
     @SubscribeEvent
     public void onPreMotion(PreMotionEvent e) {
-        if (ModuleManager.bedAura.stopAutoblock || mode.getInput() != 4) {
+        if (ModuleManager.bedAura.stopAutoblock || mode.getInput() != 5) { // Is not float noslow
             resetFloat();
             return;
         }
         postPlace = false;
-        if (!Mouse.isButtonDown(1)) {
+        if (!mc.gameSettings.keyBindUseItem.isKeyDown()) {
             resetFloat();
             noSlowing = false;
             return;
@@ -143,7 +143,7 @@ public class NoSlow extends Module {
 
     @SubscribeEvent
     public void onPacketSend(SendPacketEvent e) {
-        if (e.getPacket() instanceof C08PacketPlayerBlockPlacement && mode.getInput() == 4 && getSlowed() != 0.2f && holdingUsable(((C08PacketPlayerBlockPlacement) e.getPacket()).getStack()) && !BlockUtils.isInteractable(mc.objectMouseOver) && Utils.holdingEdible(((C08PacketPlayerBlockPlacement) e.getPacket()).getStack())) {
+        if (e.getPacket() instanceof C08PacketPlayerBlockPlacement && mode.getInput() == 5 && getSlowed() != 0.2f && holdingUsable(((C08PacketPlayerBlockPlacement) e.getPacket()).getStack()) && !BlockUtils.isInteractable(mc.objectMouseOver) && Utils.holdingEdible(((C08PacketPlayerBlockPlacement) e.getPacket()).getStack())) {
             if (((C08PacketPlayerBlockPlacement) e.getPacket()).getStack().getItem() instanceof ItemFood && mc.thePlayer.capabilities.isCreativeMode) {
                 return;
             }
@@ -188,7 +188,7 @@ public class NoSlow extends Module {
 
     @Override
     public String getInfo() {
-        return modes[(int) mode.getInput()];
+        return NOSLOW_MODES[(int) mode.getInput()];
     }
 
     private void resetFloat() {

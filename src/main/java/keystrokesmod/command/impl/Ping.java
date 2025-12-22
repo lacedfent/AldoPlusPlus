@@ -1,7 +1,7 @@
-package keystrokesmod.utility.command.impl;
+package keystrokesmod.command.impl;
 
 import keystrokesmod.helper.PingHelper;
-import keystrokesmod.utility.command.Command;
+import keystrokesmod.command.Command;
 
 public class Ping extends Command {
     public Ping() {

@@ -17,13 +17,17 @@ import java.awt.*;
 
 public class Radar extends Module {
     private ButtonSetting tracerLines;
+    
     private int scale = 2;
-    private int rectColor = new Color(0, 0, 0, 125).getRGB();
+    
+    private static final int RECT_COLOR = new Color(0, 0, 0, 125).getRGB();
+    
     public Radar() {
         super("Radar", category.render);
         this.registerSetting(tracerLines = new ButtonSetting("Show tracer lines", false));
     }
 
+    @Override
     public void onUpdate() {
         this.scale = new ScaledResolution(mc).getScaleFactor();
     }
@@ -39,58 +43,60 @@ public class Radar extends Module {
         if (mc.currentScreen != null || mc.gameSettings.showDebugInfo) {
             return;
         }
-        final int n = 5;
-        final int n2 = 70;
-        final int n3 = n + 100;
-        final int n4 = n2 + 100;
-        Gui.drawRect(n, n2, n3, n4, rectColor);
-        Gui.drawRect(n - 1, n2 - 1, n3 + 1, n2, -1);
-        Gui.drawRect(n - 1, n4, n3 + 1, n4 + 1, -1);
-        Gui.drawRect(n - 1, n2, n, n4, -1);
-        Gui.drawRect(n3, n2, n3 + 1, n4, -1);
-        RenderUtils.drawPolygon((double)(n3 / 2 + 3), (double)(n2 + 52), 5.0, 3, -1);
+        int x = 5;
+        int y = 70;
+        int rightX = x + 100;
+        int bottomY = y + 100;
+        Gui.drawRect(x, y, rightX, bottomY, RECT_COLOR);
+        Gui.drawRect(x - 1, y - 1, rightX + 1, y, -1);
+        Gui.drawRect(x - 1, bottomY, rightX + 1, bottomY + 1, -1);
+        Gui.drawRect(x - 1, y, x, bottomY, -1);
+        Gui.drawRect(rightX, y, rightX + 1, bottomY, -1);
+        int playerIndicatorX = rightX / 2 + 3;
+        int playerIndicatorY = y + 52;
+        RenderUtils.drawPolygon(playerIndicatorX, playerIndicatorY, 5.0, 3, -1);
         GL11.glPushMatrix();
-        GL11.glEnable(3089);
-        GL11.glScissor(n * this.scale, mc.displayHeight - this.scale * 170, n3 * this.scale - this.scale * 5, this.scale * 100);
-        for (final EntityPlayer entityPlayer : mc.theWorld.playerEntities) {
-            if (entityPlayer != mc.thePlayer && entityPlayer.deathTime == 0) {
-                if (AntiBot.isBot(entityPlayer)) {
+        GL11.glEnable(GL11.GL_SCISSOR_TEST);
+        GL11.glScissor(x * this.scale, mc.displayHeight - this.scale * 170, rightX * this.scale - this.scale * 5, this.scale * 100);
+        for (EntityPlayer player : mc.theWorld.playerEntities) {
+            if (player != mc.thePlayer && player.deathTime == 0) {
+                if (AntiBot.isBot(player)) {
                     continue;
                 }
-                final double getDistanceSqToEntity = entityPlayer.getDistanceSqToEntity(mc.thePlayer);
-                if (getDistanceSqToEntity > 360.0) {
+                double distanceSquared = player.getDistanceSqToEntity(mc.thePlayer);
+                if (distanceSquared > 360.0) {
                     continue;
                 }
-                final double n5 = (mc.thePlayer.rotationYaw + Math.atan2(entityPlayer.posX - mc.thePlayer.posX, entityPlayer.posZ - mc.thePlayer.posZ) * 57.295780181884766) % 360.0;
-                final double n6 = getDistanceSqToEntity / 5.0;
-                final double n7 = n6 * Math.sin(Math.toRadians(n5));
-                final double n8 = n6 * Math.cos(Math.toRadians(n5));
+                double playerAngle = (mc.thePlayer.rotationYaw + Math.atan2(player.posX - mc.thePlayer.posX, player.posZ - mc.thePlayer.posZ) * 57.295780181884766) % 360.0;
+                double scaledDistance = distanceSquared / 5.0;
+                double xOffset = scaledDistance * Math.sin(Math.toRadians(playerAngle));
+                double zOffset = scaledDistance * Math.cos(Math.toRadians(playerAngle));
                 if (tracerLines.isToggled()) {
                     GL11.glPushMatrix();
-                    GL11.glEnable(3042);
-                    GL11.glEnable(2848);
-                    GL11.glDisable(2929);
-                    GL11.glDisable(3553);
-                    GL11.glBlendFunc(770, 771);
-                    GL11.glEnable(3042);
+                    GL11.glEnable(GL11.GL_BLEND);
+                    GL11.glEnable(GL11.GL_LINE_SMOOTH);
+                    GL11.glDisable(GL11.GL_DEPTH_TEST);
+                    GL11.glDisable(GL11.GL_TEXTURE_2D);
+                    GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+                    GL11.glEnable(GL11.GL_BLEND);
                     GL11.glLineWidth(0.5f);
                     GL11.glColor3d(1.0, 1.0, 1.0);
-                    GL11.glBegin(2);
-                    GL11.glVertex2d((double)(n3 / 2 + 3), (double)(n2 + 52));
-                    GL11.glVertex2d((double)(n3 / 2 + 3) - n7, (double)(n2 + 52) - n8);
+                    GL11.glBegin(GL11.GL_LINES);
+                    GL11.glVertex2d(playerIndicatorX, playerIndicatorY);
+                    GL11.glVertex2d((double)playerIndicatorX - xOffset, (double)playerIndicatorY - zOffset);
                     GL11.glEnd();
                     GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-                    GL11.glDisable(3042);
-                    GL11.glEnable(3553);
-                    GL11.glEnable(2929);
-                    GL11.glDisable(2848);
-                    GL11.glDisable(3042);
+                    GL11.glDisable(GL11.GL_BLEND);
+                    GL11.glEnable(GL11.GL_TEXTURE_2D);
+                    GL11.glEnable(GL11.GL_DEPTH_TEST);
+                    GL11.glDisable(GL11.GL_LINE_SMOOTH);
+                    GL11.glDisable(GL11.GL_BLEND);
                     GL11.glPopMatrix();
                 }
-                RenderUtils.drawPolygon((double)(n3 / 2 + 3) - n7, (double)(n2 + 52) - n8, 3.0, 4, Color.red.getRGB());
+                RenderUtils.drawPolygon((double)playerIndicatorX - xOffset, (double)playerIndicatorY - zOffset, 3.0, 4, Color.red.getRGB());
             }
         }
-        GL11.glDisable(3089);
+        GL11.glDisable(GL11.GL_SCISSOR_TEST);
         GL11.glPopMatrix();
     }
 }

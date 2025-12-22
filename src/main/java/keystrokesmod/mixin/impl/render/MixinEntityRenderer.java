@@ -1,29 +1,24 @@
 package keystrokesmod.mixin.impl.render;
 
+import keystrokesmod.event.PostMouseSelectionEvent;
 import keystrokesmod.module.ModuleManager;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.EntityRenderer;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.potion.Potion;
 import net.minecraft.util.*;
+import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import java.util.List;
-
 @SideOnly(Side.CLIENT)
 @Mixin(EntityRenderer.class)
 public class MixinEntityRenderer {
-
-    @Shadow
-    private Minecraft mc;
 
     @Redirect(method = "hurtCameraEffect", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/GlStateManager;rotate(FFFF)V"))
     public void injectNoHurtCam(float angle, float x, float y, float z) {
@@ -63,5 +58,10 @@ public class MixinEntityRenderer {
             return false;
         }
         return entity.isPotionActive(potion);
+    }
+
+    @Inject(method = "renderWorld", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/EntityRenderer;getMouseOver(F)V", shift = At.Shift.AFTER))
+    private void onRenderWorld(float partialTicks, long finishTimeNano, CallbackInfo ci) {
+        MinecraftForge.EVENT_BUS.post(new PostMouseSelectionEvent());
     }
 }

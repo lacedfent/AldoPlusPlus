@@ -1,7 +1,7 @@
-package keystrokesmod.utility.command;
+package keystrokesmod.command;
 
 import keystrokesmod.utility.Utils;
-import keystrokesmod.utility.command.impl.*;
+import keystrokesmod.command.impl.*;
 
 import java.util.ArrayList;
 import java.util.Arrays;

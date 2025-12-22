@@ -17,8 +17,8 @@ import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.KeySetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
 import keystrokesmod.script.Manager;
+import keystrokesmod.utility.IMinecraftInstance;
 import keystrokesmod.utility.Utils;
-import net.minecraft.client.Minecraft;
 import net.minecraftforge.common.MinecraftForge;
 
 import java.io.File;
@@ -26,8 +26,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.util.*;
 
-public class ProfileManager {
-    public static Minecraft mc = Minecraft.getMinecraft();
+public class ProfileManager implements IMinecraftInstance {
     public File directory;
     public List<Profile> profiles = new ArrayList<>();
 

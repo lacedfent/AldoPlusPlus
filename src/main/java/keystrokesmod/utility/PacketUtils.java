@@ -2,11 +2,15 @@ package keystrokesmod.utility;
 
 import keystrokesmod.Raven;
 import net.minecraft.network.Packet;
+import net.minecraft.network.play.client.C07PacketPlayerDigging;
+import net.minecraft.util.BlockPos;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class PacketUtils {
+import static net.minecraft.util.EnumFacing.DOWN;
+
+public class PacketUtils implements IMinecraftInstance {
     public static List<Packet> skipSendEvent = new ArrayList<>();
     public static List<Packet> skipReceiveEvent = new ArrayList<>();
 
@@ -26,5 +30,9 @@ public class PacketUtils {
         catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    public static void sendReleasePacket() {
+        mc.thePlayer.sendQueue.addToSendQueue(new C07PacketPlayerDigging(C07PacketPlayerDigging.Action.RELEASE_USE_ITEM, BlockPos.ORIGIN, DOWN));
     }
 }

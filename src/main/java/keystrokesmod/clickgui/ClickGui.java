@@ -202,7 +202,8 @@ public class ClickGui extends GuiScreen {
         }
 
         for (CategoryComponent category : categories) {
-            if (category.isOpened() && !category.getModules().isEmpty() && category.overRect(mouseX, mouseY)) {
+            // Only process module clicks if not clicking on the category title
+            if (category.isOpened() && !category.getModules().isEmpty() && category.overRect(mouseX, mouseY) && !category.overTitle(mouseX, mouseY)) {
                 for (ModuleComponent component : category.getModules()) {
                     if (component.onClick(mouseX, mouseY, mouseButton)) {
                         category.openModule(component);
@@ -280,7 +281,7 @@ public class ClickGui extends GuiScreen {
             if (CommandLine.opened) {
                 String cm = this.commandLineInput.getText();
                 if (k == 28 && !cm.isEmpty()) {
-                    Commands.rCMD(this.commandLineInput.getText());
+                    Commands.runCommand(this.commandLineInput.getText());
                     this.commandLineInput.setText("");
                     return;
                 }
@@ -291,7 +292,7 @@ public class ClickGui extends GuiScreen {
 
     public void actionPerformed(GuiButton b) {
         if (b == this.commandLineSend) {
-            Commands.rCMD(this.commandLineInput.getText());
+            Commands.runCommand(this.commandLineInput.getText());
             this.commandLineInput.setText("");
         }
     }
@@ -305,6 +306,7 @@ public class ClickGui extends GuiScreen {
         }
         for (CategoryComponent c : categories) {
             c.dragging = false;
+            c.onGuiClosed();
             for (Component m : c.getModules()) {
                 m.onGuiClosed();
             }
