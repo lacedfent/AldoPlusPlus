@@ -78,9 +78,6 @@ public class ModuleManager {
     public static ChatCommands chatCommands;
 
     public void register() {
-        this.addModule(new Debug());
-        this.addModule(new GhostHand());
-
         this.addModule(autoClicker = new AutoClicker());
         this.addModule(longJump = new LongJump());
         this.addModule(new AimAssist());
