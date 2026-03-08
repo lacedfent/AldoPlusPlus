@@ -21,10 +21,9 @@ public class SliderComponent extends Component {
     public float o;
     public float x;
     private float y;
-    private boolean heldDown = false;
+    public boolean heldDown = false;
     private double width;
     public float xOffset;
-    public boolean renderLine;
 
     private double targetValue;
     private double displayedValue;
@@ -172,5 +171,15 @@ public class SliderComponent extends Component {
 
     public void updateHeight(float n) {
         this.o = n;
+    }
+
+    @Override
+    public float getOffset() {
+        return this.o;
+    }
+
+    @Override
+    public boolean isBaseVisible() {
+        return this.sliderSetting.visible;
     }
 }

@@ -29,7 +29,6 @@
     "world.MixinBlock",
     "render.MixinRenderPlayer",
     "client.MixinGameSettings",
-
     "accessor.IAccessorEntityPlayerSP",
     "accessor.IAccessorEntityArrow",
     "accessor.IAccessorEntityLivingBase",

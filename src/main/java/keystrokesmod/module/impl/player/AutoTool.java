@@ -36,8 +36,8 @@ public class AutoTool extends Module {
 
     public AutoTool() {
         super("AutoTool", category.player);
-        this.registerSetting(hoverDelay = new SliderSetting("Hover delay", 0.0, 0.0, 20.0, 1.0));
-        this.registerSetting(swapDelay = new SliderSetting("Swap delay", 0, 0, 20, 1));
+        this.registerSetting(hoverDelay = new SliderSetting("Hover delay", "ms", 0.0, 0.0, 1000.0, 50.0));
+        this.registerSetting(swapDelay = new SliderSetting("Swap delay", "ms", 0.0, 0.0, 1000.0, 50.0));
         this.registerSetting(disableOnInteractable = new ButtonSetting("Disable on interactable", true));
         this.registerSetting(disableWhileHoldingBlocks = new ButtonSetting("Disable while holding blocks", true));
         this.registerSetting(rightDisable = new ButtonSetting("Disable while right click", true));
@@ -90,7 +90,8 @@ public class AutoTool extends Module {
             }
             long ticks = this.ticksHovered + 1L;
             this.ticksHovered = ticks;
-            if (ticks < this.hoverDelay.getInput()) {
+            long hoverDelayTicks = (long) (this.hoverDelay.getInput() / 50.0); // ms to ticks (50ms = 1 tick)
+            if (ticks < hoverDelayTicks) {
                 return;
             }
         }
@@ -119,7 +120,7 @@ public class AutoTool extends Module {
         else if (slot != mc.thePlayer.inventory.currentItem) {
             if (swapDelayTick-- <= 0) {
                 setSlot(slot);
-                swapDelayTick = (int) swapDelay.getInput();
+                swapDelayTick = (int) (swapDelay.getInput() / 50.0); // ms to ticks (50ms = 1 tick)
             }
         }
     }
@@ -165,7 +166,7 @@ public class AutoTool extends Module {
         }
         mc.thePlayer.inventory.currentItem = currentItem;
         hasSwapped = true;
-        swapDelayTick = (int) swapDelay.getInput();
-        ((IAccessorPlayerControllerMP) mc.playerController).syncCurrentPlayItem();
+        swapDelayTick = (int) (swapDelay.getInput() / 50.0); // ms to ticks (50ms = 1 tick)
+        ((IAccessorPlayerControllerMP) mc.playerController).callSyncCurrentPlayItem();
     }
 }

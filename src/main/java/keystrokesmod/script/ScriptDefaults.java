@@ -22,7 +22,8 @@ import keystrokesmod.utility.shader.RoundedUtils;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.*;
-import net.minecraft.client.gui.inventory.*;
+import net.minecraft.client.gui.inventory.GuiContainerCreative;
+import net.minecraft.client.gui.inventory.GuiInventory;
 import net.minecraft.client.network.NetworkPlayerInfo;
 import net.minecraft.client.renderer.*;
 import net.minecraft.client.renderer.texture.DynamicTexture;
@@ -52,7 +53,9 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -520,6 +523,38 @@ public class ScriptDefaults {
             RotationHelper.get().forceMovementFix = true;
         }
 
+        public static void disableMovementFix() {
+            RotationHelper.get().forceMovementFix = false;
+        }
+
+        public static boolean isMovementFixActive() {
+            return RotationHelper.get().fixMovement();
+        }
+
+        public static boolean isRotationActive() {
+            return RotationHelper.get().isActive();
+        }
+
+        public static void setRotations(float yaw, float pitch) {
+            RotationHelper.get().setRotations(yaw, pitch);
+        }
+
+        public static void setYaw(float yaw) {
+            RotationHelper.get().setYaw(yaw);
+        }
+
+        public static void setPitch(float pitch) {
+            RotationHelper.get().setPitch(pitch);
+        }
+
+        public static Float getServerYaw() {
+            return RotationHelper.get().getServerYaw();
+        }
+
+        public static Float getServerPitch() {
+            return RotationHelper.get().getServerPitch();
+        }
+
         public static float[] getRotationsToBlock(Vec3 position) {
             return RotationUtils.getRotations(new BlockPos(position.x, position.y, position.z));
         }
@@ -780,7 +815,7 @@ public class ScriptDefaults {
 
         public float[] getBedAuraProgress() {
             if (ModuleManager.bedAura != null && ModuleManager.bedAura.isEnabled()) {
-                return new float[]{ModuleManager.bedAura.breakProgress, ModuleManager.bedAura.vanillaProgress};
+                return new float[]{ModuleManager.bedAura.breakProgress, ModuleManager.bedAura.groundBreakProgress};
             }
             return new float[]{0, 0};
         }

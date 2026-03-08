@@ -31,8 +31,9 @@ public class Xray extends Module {
     private ButtonSetting coal;
     private ButtonSetting spawner;
     private ButtonSetting obsidian;
+
     private Set<BlockPos> blocks = ConcurrentHashMap.newKeySet();
-    private long lastCheck = 0;
+    private long lastCheck = 0L;
 
     public Xray() {
         super("Xray", category.render);
@@ -49,6 +50,7 @@ public class Xray extends Module {
         this.registerSetting(spawner = new ButtonSetting("Spawner", true));
     }
 
+    @Override
     public void onDisable() {
         this.blocks.clear();
     }
@@ -60,19 +62,26 @@ public class Xray extends Module {
         }
         lastCheck = System.currentTimeMillis();
         Raven.getCachedExecutor().execute(() -> {
-            synchronized (blocks) {
-                int i;
-                for (int n = i = (int) range.getInput(); i >= -n; --i) {
-                    for (int j = -n; j <= n; ++j) {
-                        for (int k = -n; k <= n; ++k) {
-                            BlockPos blockPos = new BlockPos(mc.thePlayer.posX + j, mc.thePlayer.posY + i, mc.thePlayer.posZ + k);
-                            if (blocks.contains(blockPos)) {
-                                continue;
-                            }
-                            Block blockState = BlockUtils.getBlock(blockPos);
-                            if (blockState != null && canBreak(blockState)) {
-                                blocks.add(blockPos);
-                            }
+            int n = (int) range.getInput();
+            int playerX = (int) mc.thePlayer.posX;
+            int playerY = (int) mc.thePlayer.posY;
+            int playerZ = (int) mc.thePlayer.posZ;
+            int minY = Math.max(-n, -playerY);
+            BlockPos.MutableBlockPos mutablePos = new BlockPos.MutableBlockPos();
+            for (int y = n; y >= minY; --y) {
+                for (int x = -n; x <= n; ++x) {
+                    for (int z = -n; z <= n; ++z) {
+                        int blockY = playerY + y;
+                        if (blockY < 0) {
+                            continue;
+                        }
+                        mutablePos.set(playerX + x, blockY, playerZ + z);
+                        if (blocks.contains(mutablePos)) {
+                            continue;
+                        }
+                        Block blockState = BlockUtils.getBlock(mutablePos);
+                        if (blockState != null && canBreak(blockState)) {
+                            blocks.add(new BlockPos(mutablePos.getX(), mutablePos.getY(), mutablePos.getZ()));
                         }
                     }
                 }
@@ -92,18 +101,16 @@ public class Xray extends Module {
         if (!Utils.nullCheck()) {
             return;
         }
-        synchronized (blocks) {
-            if (!this.blocks.isEmpty()) {
-                Iterator<BlockPos> iterator = blocks.iterator();
-                while (iterator.hasNext()) {
-                    BlockPos blockPos = iterator.next();
-                    Block block = BlockUtils.getBlock(blockPos);
-                    if (block == null || !canBreak(block)) {
-                        iterator.remove();
-                        continue;
-                    }
-                    this.drawBox(blockPos);
+        if (!this.blocks.isEmpty()) {
+            Iterator<BlockPos> iterator = blocks.iterator();
+            while (iterator.hasNext()) {
+                BlockPos blockPos = iterator.next();
+                Block block = BlockUtils.getBlock(blockPos);
+                if (block == null || !canBreak(block)) {
+                    iterator.remove();
+                    continue;
                 }
+                this.drawBox(blockPos);
             }
         }
     }

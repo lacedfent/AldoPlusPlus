@@ -50,20 +50,29 @@ public class RenderUtils implements IMinecraftInstance {
         renderBox(blockPos.getX(), blockPos.getY(), blockPos.getZ(), 1, y2, 1, color, outline, shade);
     }
 
+    /**
+     * Sets scissor in GUI coords (origin top-left). Uses edge-aware rounding so
+     * the clip rectangle does not lose/gain a pixel at animation boundaries.
+     */
     public static void scissor(double x, double y, double width, double height) {
         ScaledResolution sr = new ScaledResolution(mc);
         int scale = sr.getScaleFactor();
+        double screenH = sr.getScaledHeight();
 
-        int scaledX = (int) (x * scale);
-        int scaledY = (int) ((sr.getScaledHeight() - (y + height)) * scale);
-        int scaledWidth = (int) (width * scale);
-        int scaledHeight = (int) (height * scale);
+        int left = (int) Math.floor(x * scale);
+        int right = (int) Math.ceil((x + width) * scale);
+        int scaledWidth = Math.max(0, right - left);
+
+        double bottomGui = y + height;
+        int glBottom = (int) Math.floor((screenH - bottomGui) * scale);
+        int glTop = (int) Math.ceil((screenH - y) * scale);
+        int scaledHeight = Math.max(0, glTop - glBottom);
 
         if (scaledWidth < 0 || scaledHeight < 0) {
             return;
         }
 
-        GL11.glScissor(scaledX, scaledY, scaledWidth, scaledHeight);
+        GL11.glScissor(left, glBottom, scaledWidth, scaledHeight);
     }
 
 
@@ -333,6 +342,15 @@ public class RenderUtils implements IMinecraftInstance {
         getInstance.draw();
         GlStateManager.enableTexture2D();
         GlStateManager.disableBlend();
+    }
+
+    /**
+     * Draws a 12-edge wireframe outline of an AABB in world space.
+     * Caller must set GL11.glLineWidth and GL11.glColor before calling.
+     */
+    public static void drawOutlinedBox(AxisAlignedBB worldBox, double viewerX, double viewerY, double viewerZ) {
+        AxisAlignedBB renderBox = worldBox.offset(-viewerX, -viewerY, -viewerZ);
+        RenderGlobal.drawSelectionBoundingBox(renderBox);
     }
 
     public static void drawBoundingBox(AxisAlignedBB abb, float r, float g, float b) {
@@ -995,5 +1013,124 @@ public class RenderUtils implements IMinecraftInstance {
         int rgba = (alphaInt << 24) | (red << 16) | (green << 8) | blue;
 
         return rgba;
+    }
+
+    public static void draw2DCircle(float centerX, float centerY, float radius, int segments,
+                                    float lineWidth, float r, float g, float b, float a) {
+        GL11.glPushMatrix();
+        GL11.glEnable(GL11.GL_BLEND);
+        GL11.glEnable(GL11.GL_CULL_FACE);
+        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GL11.glDisable(GL11.GL_TEXTURE_2D);
+        GL11.glEnable(GL11.GL_LINE_SMOOTH);
+        GL11.glColor4f(r, g, b, a);
+        GL11.glLineWidth(lineWidth);
+
+        GL11.glBegin(GL11.GL_LINE_LOOP);
+        for (int i = 0; i <= segments; i++) {
+            double theta = 2 * Math.PI * i / segments;
+            float x = (float) (radius * Math.cos(theta)) + centerX;
+            float y = (float) (radius * Math.sin(theta)) + centerY;
+            GL11.glVertex2f(x, y);
+        }
+        GL11.glEnd();
+
+        GL11.glDisable(GL11.GL_BLEND);
+        GL11.glDisable(GL11.GL_CULL_FACE);
+        GL11.glEnable(GL11.GL_TEXTURE_2D);
+        GL11.glDisable(GL11.GL_LINE_SMOOTH);
+        GL11.glColor4f(1, 1, 1, 1);
+        GL11.glLineWidth(1);
+        GL11.glPopMatrix();
+    }
+
+    public static void draw2DCircleArc(float centerX, float centerY, float radius,
+                                       float startAngle, float endAngle, float lineWidth, int color) {
+        float r = ((color >> 16) & 0xFF) / 255f;
+        float g = ((color >> 8) & 0xFF) / 255f;
+        float b = (color & 0xFF) / 255f;
+        float a = ((color >> 24) & 0xFF) / 255f;
+
+        GL11.glPushMatrix();
+        GL11.glEnable(GL11.GL_BLEND);
+        GL11.glEnable(GL11.GL_CULL_FACE);
+        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GL11.glDisable(GL11.GL_TEXTURE_2D);
+        GL11.glEnable(GL11.GL_LINE_SMOOTH);
+        GL11.glColor4f(r, g, b, a);
+        GL11.glLineWidth(lineWidth);
+
+        GL11.glBegin(GL11.GL_LINE_STRIP);
+        for (float angle = startAngle; angle <= endAngle; angle += 1) {
+            double theta = Math.toRadians(angle + 180);
+            float x = (float) (radius * Math.cos(theta)) + centerX;
+            float y = (float) (radius * Math.sin(theta)) + centerY;
+            GL11.glVertex2f(x, y);
+        }
+        GL11.glEnd();
+
+        GL11.glDisable(GL11.GL_BLEND);
+        GL11.glDisable(GL11.GL_CULL_FACE);
+        GL11.glEnable(GL11.GL_TEXTURE_2D);
+        GL11.glDisable(GL11.GL_LINE_SMOOTH);
+        GL11.glColor4f(1, 1, 1, 1);
+        GL11.glLineWidth(1);
+        GL11.glPopMatrix();
+    }
+
+    public static void drawHorizontalGradientRect(float left, float top, float right, float bottom, int leftColor, int rightColor) {
+        float la = (leftColor >> 24 & 0xFF) / 255.0F;
+        float lr = (leftColor >> 16 & 0xFF) / 255.0F;
+        float lg = (leftColor >> 8 & 0xFF) / 255.0F;
+        float lb = (leftColor & 0xFF) / 255.0F;
+        float ra = (rightColor >> 24 & 0xFF) / 255.0F;
+        float rr = (rightColor >> 16 & 0xFF) / 255.0F;
+        float rg = (rightColor >> 8 & 0xFF) / 255.0F;
+        float rb = (rightColor & 0xFF) / 255.0F;
+        GlStateManager.disableTexture2D();
+        GlStateManager.enableBlend();
+        GlStateManager.disableAlpha();
+        GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
+        GlStateManager.shadeModel(7425);
+        Tessellator tessellator = Tessellator.getInstance();
+        WorldRenderer wr = tessellator.getWorldRenderer();
+        wr.begin(7, DefaultVertexFormats.POSITION_COLOR);
+        wr.pos(left, bottom, 0).color(lr, lg, lb, la).endVertex();
+        wr.pos(right, bottom, 0).color(rr, rg, rb, ra).endVertex();
+        wr.pos(right, top, 0).color(rr, rg, rb, ra).endVertex();
+        wr.pos(left, top, 0).color(lr, lg, lb, la).endVertex();
+        tessellator.draw();
+        GlStateManager.shadeModel(7424);
+        GlStateManager.disableBlend();
+        GlStateManager.enableAlpha();
+        GlStateManager.enableTexture2D();
+    }
+
+    public static void drawVerticalGradientRect(float left, float top, float right, float bottom, int topColor, int bottomColor) {
+        float ta = (topColor >> 24 & 0xFF) / 255.0F;
+        float tr = (topColor >> 16 & 0xFF) / 255.0F;
+        float tg = (topColor >> 8 & 0xFF) / 255.0F;
+        float tb = (topColor & 0xFF) / 255.0F;
+        float ba = (bottomColor >> 24 & 0xFF) / 255.0F;
+        float br = (bottomColor >> 16 & 0xFF) / 255.0F;
+        float bg = (bottomColor >> 8 & 0xFF) / 255.0F;
+        float bb = (bottomColor & 0xFF) / 255.0F;
+        GlStateManager.disableTexture2D();
+        GlStateManager.enableBlend();
+        GlStateManager.disableAlpha();
+        GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
+        GlStateManager.shadeModel(7425);
+        Tessellator tessellator = Tessellator.getInstance();
+        WorldRenderer wr = tessellator.getWorldRenderer();
+        wr.begin(7, DefaultVertexFormats.POSITION_COLOR);
+        wr.pos(right, top, 0).color(tr, tg, tb, ta).endVertex();
+        wr.pos(left, top, 0).color(tr, tg, tb, ta).endVertex();
+        wr.pos(left, bottom, 0).color(br, bg, bb, ba).endVertex();
+        wr.pos(right, bottom, 0).color(br, bg, bb, ba).endVertex();
+        tessellator.draw();
+        GlStateManager.shadeModel(7424);
+        GlStateManager.disableBlend();
+        GlStateManager.enableAlpha();
+        GlStateManager.enableTexture2D();
     }
 }

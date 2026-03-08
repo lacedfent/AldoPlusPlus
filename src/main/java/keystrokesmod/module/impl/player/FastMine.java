@@ -27,7 +27,7 @@ public class FastMine extends Module {
     public FastMine() {
         super("FastMine", category.player);
         this.registerSetting(new DescriptionSetting("Vanilla is 5 delay & 1x speed."));
-        this.registerSetting(delay = new SliderSetting("Break delay", " tick", 5.0, 0.0, 5.0, 1.0));
+        this.registerSetting(delay = new SliderSetting("Break delay", "ms", 250.0, 0.0, 250.0, 50.0));
         this.registerSetting(multiplier = new SliderSetting("Break speed", "x", 1.0, 1.0, 2.0, 0.02));
         this.registerSetting(mode = new SliderSetting("Mode", 0, FASTMINE_MODES));
         this.registerSetting(creativeDisable = new ButtonSetting("Disable in creative", true));
@@ -60,8 +60,8 @@ public class FastMine extends Module {
         if (creativeDisable.isToggled() && mc.thePlayer.capabilities.isCreativeMode) {
             return;
         }
-        int delay = (int) this.delay.getInput();
-        if (delay < 5.0) {
+        int delay = (int) (this.delay.getInput() / 50.0); // ms to ticks (50ms = 1 tick)
+        if (delay < 5) {
             if (delay == 0) {
                 ((IAccessorPlayerControllerMP) mc.playerController).setBlockHitDelay(0);
             }

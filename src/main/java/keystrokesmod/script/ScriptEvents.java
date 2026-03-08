@@ -58,6 +58,18 @@ public class ScriptEvents {
     }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public void onDispatchPacket(DispatchPacketEvent e) {
+        if (e.getPacket() == null) {
+            return;
+        }
+        if (e.getPacket().getClass().getSimpleName().startsWith("S")) {
+            return;
+        }
+        CPacket packet = PacketHandler.convertServerBound(e.getPacket());
+        Raven.scriptManager.invoke("onDispatchPacket", module, packet);
+    }
+
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
     public void onReceivePacket(ReceivePacketEvent e) {
         if (e.isCanceled() || e.getPacket() == null) {
             return;
@@ -80,6 +92,7 @@ public class ScriptEvents {
         }
     }
 
+    // ClientRotationEvent fires before getMouseOver (from RotationHelper.updateServerRotations)
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public void onClientRotations(ClientRotationEvent e) {
         Float[] rotations = Raven.scriptManager.invokeFloatArray("getRotations", module);

@@ -14,6 +14,7 @@ import keystrokesmod.module.impl.render.HUD;
 import keystrokesmod.module.impl.render.TargetHUD;
 import keystrokesmod.module.setting.Setting;
 import keystrokesmod.module.setting.impl.ButtonSetting;
+import keystrokesmod.module.setting.impl.ColorSetting;
 import keystrokesmod.module.setting.impl.KeySetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
 import keystrokesmod.script.Manager;
@@ -27,6 +28,18 @@ import java.io.FileWriter;
 import java.util.*;
 
 public class ProfileManager implements IMinecraftInstance {
+
+    private static final class SavedCategoryState {
+        final float x, y;
+        final boolean opened;
+
+        SavedCategoryState(float x, float y, boolean opened) {
+            this.x = x;
+            this.y = y;
+            this.opened = opened;
+        }
+    }
+
     public File directory;
     public List<Profile> profiles = new ArrayList<>();
 
@@ -110,6 +123,11 @@ public class ProfileManager implements IMinecraftInstance {
             else if (setting instanceof KeySetting) {
                 moduleInformation.addProperty(setting.getName(), ((KeySetting) setting).getKey());
             }
+            else if (setting instanceof ColorSetting) {
+                ColorSetting cs = (ColorSetting) setting;
+                moduleInformation.addProperty(setting.getName(),
+                        cs.getRed() + "," + cs.getGreen() + "," + cs.getBlue() + "," + cs.getAlpha());
+            }
         }
         return moduleInformation;
     }
@@ -150,7 +168,7 @@ public class ProfileManager implements IMinecraftInstance {
                     failedMessage("load", name);
                     return;
                 }
-                boolean currentProfileGuiSave = Settings.loadGuiPositions.isToggled();
+                Map<String, SavedCategoryState> savedGuiCategoryState = new HashMap<>();
                 for (JsonElement moduleJson : modules) {
                     JsonObject moduleInformation = moduleJson.getAsJsonObject();
                     String moduleName = moduleInformation.get("name").getAsString();
@@ -225,7 +243,7 @@ public class ProfileManager implements IMinecraftInstance {
                             ModuleManager.sprint.text = text;
                         }
                     }
-                    else if (currentProfileGuiSave && module.getName().equals("Gui")) {
+                    else if (module.getName().equals("Gui")) {
                         for (Map.Entry<String, JsonElement> setting : moduleInformation.entrySet()) {
                             String settingName = setting.getKey();
                             if (!Module.categoriesString.contains(settingName)) {
@@ -236,26 +254,26 @@ public class ProfileManager implements IMinecraftInstance {
 
                             float posX = Float.parseFloat(statesStr[0]);
                             float posY = Float.parseFloat(statesStr[1]);
-
-                            for (CategoryComponent c : ClickGui.categories) {
-                                if (c.category.name().equals(settingName)) {
-                                    c.setX(posX, true);
-                                    c.setY(posY, true);
-                                    if (statesStr.length > 2) {
-                                        boolean opened = Boolean.parseBoolean(statesStr[2]);
-                                        c.opened = opened;
-                                    }
-                                    break;
-                                }
-                            }
+                            boolean opened = statesStr.length > 2 && Boolean.parseBoolean(statesStr[2]);
+                            savedGuiCategoryState.put(settingName, new SavedCategoryState(posX, posY, opened));
                         }
                     }
 
                     for (Setting setting : module.getSettings()) {
                         setting.loadProfile(moduleInformation);
                     }
+                }
+                Raven.currentProfile = getProfile(name);
 
-                    Raven.currentProfile = getProfile(name);
+                boolean loadGuiPositions = Settings.loadGuiPositions.isToggled();
+                Raven.clickGui.refreshAfterProfileLoad();
+                if (loadGuiPositions) {
+                    for (CategoryComponent c : ClickGui.categories) {
+                        SavedCategoryState state = savedGuiCategoryState.get(c.category.name());
+                        if (state != null) {
+                            c.applySavedState(state.x, state.y, state.opened, true);
+                        }
+                    }
                 }
                 MinecraftForge.EVENT_BUS.post(new PostProfileLoadEvent(Raven.currentProfile.getName()));
             }

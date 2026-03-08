@@ -1,27 +1,27 @@
 package keystrokesmod;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-
+import keystrokesmod.clickgui.ClickGui;
+import keystrokesmod.command.CommandManager;
 import keystrokesmod.event.PostProfileLoadEvent;
 import keystrokesmod.event.PostSetSliderEvent;
 import keystrokesmod.helper.DebugHelper;
 import keystrokesmod.helper.MouseHelper;
-import keystrokesmod.helper.RotationHelper;
 import keystrokesmod.helper.PingHelper;
-import keystrokesmod.keystroke.KeyStrokeRenderer;
-import keystrokesmod.keystroke.KeyStrokeConfigGui;
+import keystrokesmod.helper.RotationHelper;
 import keystrokesmod.keystroke.KeyStrokeCommand;
+import keystrokesmod.keystroke.KeyStrokeConfigGui;
+import keystrokesmod.keystroke.KeyStrokeRenderer;
+import keystrokesmod.lag.handler.UnifiedLagHandler;
 import keystrokesmod.module.Module;
-import keystrokesmod.clickgui.ClickGui;
 import keystrokesmod.module.ModuleManager;
 import keystrokesmod.script.ScriptDefaults;
 import keystrokesmod.script.ScriptManager;
 import keystrokesmod.script.model.Entity;
 import keystrokesmod.script.model.NetworkPlayer;
-import keystrokesmod.utility.*;
-import keystrokesmod.command.CommandManager;
+import keystrokesmod.utility.ModuleUtils;
+import keystrokesmod.utility.PacketsHandler;
+import keystrokesmod.utility.ReflectionUtils;
+import keystrokesmod.utility.Utils;
 import keystrokesmod.utility.profile.Profile;
 import keystrokesmod.utility.profile.ProfileManager;
 import net.minecraft.client.Minecraft;
@@ -34,6 +34,10 @@ import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent.ClientTickEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent.Phase;
+
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 
 @Mod(modid = "keystrokes", name = "KeystrokesMod", version = "KMV5", acceptedMinecraftVersions = "[1.8.9]")
 public class Raven {
@@ -55,6 +59,7 @@ public class Raven {
     public static CommandManager commandManager;
     public static Profile currentProfile;
     public static PacketsHandler packetsHandler;
+    public static UnifiedLagHandler lagHandler;
 
     private static boolean firstLoad;
 
@@ -77,6 +82,7 @@ public class Raven {
         MinecraftForge.EVENT_BUS.register(new PingHelper());
         MinecraftForge.EVENT_BUS.register(packetsHandler = new PacketsHandler());
         MinecraftForge.EVENT_BUS.register(new ModuleUtils());
+        MinecraftForge.EVENT_BUS.register(lagHandler = new UnifiedLagHandler());
 
         ReflectionUtils.setupFields();
         moduleManager.register();
@@ -196,5 +202,36 @@ public class Raven {
 
     public static void toggleKeyStrokeConfigGui() {
         isKeyStrokeConfigGuiToggled = true;
+    }
+
+    /**
+     * Runs keybind checks and GUI updates when timer is frozen (timerSpeed=0).
+     * Called from per-frame hook - ticks stop but runGameLoop still runs.
+     * Does NOT run module.onUpdate() so the world stays frozen.
+     */
+    public static void handleFrozenKeybinds() {
+        if (!Utils.nullCheck()) return;
+
+        MouseHelper.updateWheelCache();
+
+        if (mc.currentScreen == null) {
+            for (Module module : getModuleManager().getModules()) {
+                if (module.canBeEnabled()) {
+                    module.onKeyBind();
+                }
+            }
+            for (Module module : scriptManager.scripts.values()) {
+                module.onKeyBind();
+            }
+        } else if (mc.currentScreen instanceof ClickGui) {
+            for (Module module : getModuleManager().getModules()) {
+                module.guiUpdate();
+            }
+        }
+
+        if (isKeyStrokeConfigGuiToggled) {
+            isKeyStrokeConfigGuiToggled = false;
+            mc.displayGuiScreen(new KeyStrokeConfigGui());
+        }
     }
 }

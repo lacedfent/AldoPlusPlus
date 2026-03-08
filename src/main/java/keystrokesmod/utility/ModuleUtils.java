@@ -87,7 +87,7 @@ public class ModuleUtils implements IMinecraftInstance {
 
     @SubscribeEvent
     public void onReceivePacket(ReceivePacketEvent e) {
-        if (!Utils.nullCheck() || e.isCanceled() || ModuleManager.bedAura.cancelKnockback()) {
+        if (!Utils.nullCheck() || e.isCanceled()) {
             return;
         }
         if (e.getPacket() instanceof S27PacketExplosion) {

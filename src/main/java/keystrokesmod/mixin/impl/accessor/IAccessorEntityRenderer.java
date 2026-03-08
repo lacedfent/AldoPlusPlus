@@ -1,6 +1,7 @@
 package keystrokesmod.mixin.impl.accessor;
 
 import net.minecraft.client.renderer.EntityRenderer;
+import net.minecraft.entity.Entity;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
@@ -34,4 +35,10 @@ public interface IAccessorEntityRenderer {
 
     @Accessor("thirdPersonDistance")
     void setThirdPersonDistance(float distance);
+
+    @Accessor("pointedEntity")
+    Entity getPointedEntity();
+
+    @Accessor("pointedEntity")
+    void setPointedEntity(Entity entity);
 }

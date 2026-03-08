@@ -8,6 +8,7 @@ import keystrokesmod.utility.Timer;
 public class CommandLine extends Module {
     public static boolean opened = false;
     public static boolean closed = false;
+
     public static Timer animation;
     public static ButtonSetting animate;
 
@@ -16,6 +17,7 @@ public class CommandLine extends Module {
         this.registerSetting(animate = new ButtonSetting("Animate", true));
     }
 
+    @Override
     public void onEnable() {
         CommandHandler.setBackgroundColor();
         opened = true;
@@ -23,6 +25,7 @@ public class CommandLine extends Module {
         (animation = new Timer(500.0F)).start();
     }
 
+    @Override
     public void onDisable() {
         closed = true;
         if (animation != null) {

@@ -65,7 +65,7 @@ public abstract class MixinRendererLivingEntity<T extends EntityLivingBase> exte
             i = Utils.getChroma(2L, 0L);
         }
         else {
-            i = (new Color((int) ModuleManager.playerESP.red.getInput(), (int) ModuleManager.playerESP.green.getInput(), (int) ModuleManager.playerESP.blue.getInput())).getRGB();
+            i = ModuleManager.playerESP.color.getColor();
         }
 
         if (drawOutline && ModuleManager.playerESP.redOnDamage.isToggled() && entityLivingBaseIn.hurtTime != 0) {

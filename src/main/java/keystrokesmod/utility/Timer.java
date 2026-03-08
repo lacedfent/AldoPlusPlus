@@ -3,14 +3,14 @@ package keystrokesmod.utility;
 public class Timer {
     public float updates;
     public long last;
-    public float cached;
+    public float cached = Float.NaN;
 
     public Timer(float updates) {
         this.updates = updates;
     }
 
     public float getValueFloat(float begin, float end, int type) {
-        if (this.cached == end) {
+        if (!Float.isNaN(this.cached) && this.cached == end) {
             return this.cached;
         }
         else {
@@ -48,7 +48,7 @@ public class Timer {
     }
 
     public void start() {
-        this.cached = 0.0F;
+        this.cached = Float.NaN;
         this.last = System.currentTimeMillis();
     }
 

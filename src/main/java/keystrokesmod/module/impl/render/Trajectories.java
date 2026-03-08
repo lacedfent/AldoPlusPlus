@@ -3,13 +3,20 @@ package keystrokesmod.module.impl.render;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.impl.world.AntiBot;
 import keystrokesmod.module.setting.impl.ButtonSetting;
+import keystrokesmod.module.setting.impl.SliderSetting;
+import keystrokesmod.utility.BlockUtils;
+import keystrokesmod.utility.RenderUtils;
 import keystrokesmod.utility.Utils;
 import net.minecraft.client.renderer.entity.RenderManager;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.item.EntityArmorStand;
 import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.item.*;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemBow;
+import net.minecraft.item.ItemEgg;
+import net.minecraft.item.ItemEnderPearl;
+import net.minecraft.item.ItemSnowball;
 import net.minecraft.util.*;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
@@ -23,6 +30,7 @@ public class Trajectories extends Module {
     private ButtonSetting disableUnchargedBow;
     private ButtonSetting highlightEntities;
     private ButtonSetting shortenLine;
+    private SliderSetting lineThickness;
 
     public Trajectories() {
         super("Trajectories", category.render);
@@ -30,6 +38,30 @@ public class Trajectories extends Module {
         this.registerSetting(disableUnchargedBow = new ButtonSetting("Disable uncharged bow", true));
         this.registerSetting(highlightEntities = new ButtonSetting("Highlight on entity", true));
         this.registerSetting(shortenLine = new ButtonSetting("Shorten line", false));
+        this.registerSetting(lineThickness = new SliderSetting("Line thickness", 2.0, 1.0, 5.0, 0.1));
+    }
+
+    /**
+     * Matches vanilla ItemBow.onPlayerStoppedUsing():
+     *   int i = maxDuration - timeLeft;
+     *   float f = i / 20.0F;
+     *   f = (f*f + f*2) / 3;  clamp 0..1
+     *   EntityArrow(world, player, f * 2.0F)  -> setThrowableHeading at velocity * 1.5F
+     * So max initial speed = 1.0 * 2.0 * 1.5 = 3.0 blocks/tick.
+     *
+     * We add partialTicks so the curve updates continuously while drawing.
+     */
+    private float getBowVelocity(float partialTicks) {
+        int timeLeft = mc.thePlayer.getItemInUseCount();
+        // getMaxItemUseDuration = 72000; draw duration = 72000 - timeLeft
+        // interpolate by adding partialTicks for sub-tick smoothness
+        float drawTicks = (72000 - timeLeft) + partialTicks;
+        float f = drawTicks / 20.0f;
+        f = (f * f + f * 2.0f) / 3.0f;
+        if (f > 1.0f) f = 1.0f;
+        // vanilla: EntityArrow velocity arg = f * 2.0F
+        // setThrowableHeading multiplies that by 1.5F for final motion magnitude
+        return f * 2.0f * 1.5f;
     }
 
     @SubscribeEvent
@@ -37,195 +69,256 @@ public class Trajectories extends Module {
         if (!Utils.nullCheck() || mc.thePlayer.getHeldItem() == null) {
             return;
         }
-       Item item = mc.thePlayer.getHeldItem().getItem();
-       boolean usingBow = item instanceof ItemBow;
+        Item item = mc.thePlayer.getHeldItem().getItem();
+        boolean usingBow = item instanceof ItemBow;
         if (!usingBow && !(item instanceof ItemSnowball) && !(item instanceof ItemEgg) && !(item instanceof ItemEnderPearl)) {
             return;
         }
         if (usingBow && disableUnchargedBow.isToggled() && !mc.thePlayer.isUsingItem()) {
             return;
         }
-       float yaw = (float)Math.toRadians(mc.thePlayer.rotationYaw);
-       float pitch = (float)Math.toRadians(mc.thePlayer.rotationPitch);
-        double arrowPosX = mc.thePlayer.lastTickPosX + (mc.thePlayer.posX - mc.thePlayer.lastTickPosX) * e.partialTicks - MathHelper.cos(yaw) * 0.16f;
-        double arrowPosY = mc.thePlayer.lastTickPosY + (mc.thePlayer.posY - mc.thePlayer.lastTickPosY) * e.partialTicks + mc.thePlayer.getEyeHeight() - 0.1;
-        double arrowPosZ = mc.thePlayer.lastTickPosZ + (mc.thePlayer.posZ - mc.thePlayer.lastTickPosZ) * e.partialTicks - MathHelper.sin(yaw) * 0.16f;
-       float arrowMotionFactor = usingBow ? 1.0f : 0.4f;
-        float arrowMotionX = -MathHelper.sin(yaw) * MathHelper.cos(pitch) * arrowMotionFactor;
-        float arrowMotionY = -MathHelper.sin(pitch) * arrowMotionFactor;
-        float arrowMotionZ = MathHelper.cos(yaw) * MathHelper.cos(pitch) * arrowMotionFactor;
-       double arrowMotion = Math.sqrt(arrowMotionX * arrowMotionX + arrowMotionY * arrowMotionY + arrowMotionZ * arrowMotionZ);
-        arrowMotionX /= arrowMotion;
-        arrowMotionY /= arrowMotion;
-        arrowMotionZ /= arrowMotion;
+
+        float partialTicks = e.partialTicks;
+        float yaw   = (float) Math.toRadians(mc.thePlayer.rotationYaw);
+        float pitch = (float) Math.toRadians(mc.thePlayer.rotationPitch);
+
+        // Interpolated spawn position matching EntityArrow constructor
+        double posX = mc.thePlayer.lastTickPosX + (mc.thePlayer.posX - mc.thePlayer.lastTickPosX) * partialTicks
+                - MathHelper.cos(yaw) * 0.16f;
+        double posY = mc.thePlayer.lastTickPosY + (mc.thePlayer.posY - mc.thePlayer.lastTickPosY) * partialTicks
+                + mc.thePlayer.getEyeHeight() - 0.10;
+        double posZ = mc.thePlayer.lastTickPosZ + (mc.thePlayer.posZ - mc.thePlayer.lastTickPosZ) * partialTicks
+                - MathHelper.sin(yaw) * 0.16f;
+
+        // Normalized direction
+        double motX = -MathHelper.sin(yaw) * MathHelper.cos(pitch);
+        double motY = -MathHelper.sin(pitch);
+        double motZ =  MathHelper.cos(yaw) * MathHelper.cos(pitch);
+        double len  = Math.sqrt(motX * motX + motY * motY + motZ * motZ);
+        motX /= len;
+        motY /= len;
+        motZ /= len;
+
+        // Scale to initial velocity
+        // Bow: vanilla setThrowableHeading(dir, velocity=f*2*1.5, inaccuracy=1.0) — we ignore random spread for visual predictor
+        // Throwable: EntityThrowable constructor uses getVelocity()=1.5 * 1.5 = wait, no:
+        //   setThrowableHeading(dx, dy, dz, 1.5F (getVelocity()), 1.0F) -> 1.5 * 1.5 = wait, the scale is:
+        //   normalize dir, scale by velocity arg directly -> final motX = normalizedX * velocity
+        //   EntityThrowable getVelocity() = 1.5F, so initial |motion| = 1.5
+        double velocity;
         if (usingBow) {
-            float bowPower = (72000 - mc.thePlayer.getItemInUseCount()) / 20.0f;
-            bowPower = (bowPower * bowPower + bowPower * 2.0f) / 3.0f;
-            if (bowPower > 1.0f) {
-                bowPower = 1.0f;
+            velocity = getBowVelocity(partialTicks);
+        } else {
+            velocity = 1.5; // vanilla EntityThrowable.getVelocity() * 1.0 (already normalized * velocity)
+        }
+        motX *= velocity;
+        motY *= velocity;
+        motZ *= velocity;
+
+        double gravity = usingBow ? 0.05 : 0.03;
+
+        // Visual sample points (denser than physics steps for smooth arc)
+        List<double[]> renderPoints = new ArrayList<>();
+
+        MovingObjectPosition hitBlock  = null;
+        Entity               hitEntity = null;
+        AxisAlignedBB        hitEntityBox = null;  // the expanded box used for collision test
+
+        RenderManager rm = mc.getRenderManager();
+
+        final int maxSteps = 750;
+        // Each physics step is one tick. We sample VISUAL_SUBDIVISIONS intermediate points per step
+        // so the arc looks smooth without faking physics.
+        final int SUB = 4;
+
+        outer:
+        for (int i = 0; i < maxSteps; i++) {
+            double nextX = posX + motX;
+            double nextY = posY + motY;
+            double nextZ = posZ + motZ;
+
+            Vec3 start = new Vec3(posX, posY, posZ);
+            Vec3 end   = new Vec3(nextX, nextY, nextZ);
+
+            // --- VANILLA COLLISION ORDER ---
+
+            // 1. Block ray trace first
+            MovingObjectPosition blockMop = mc.theWorld.rayTraceBlocks(start, end);
+
+            // 2. Clamp segment end to block hit if found (matching vanilla)
+            Vec3 clampedEnd = end;
+            if (blockMop != null) {
+                clampedEnd = new Vec3(blockMop.hitVec.xCoord, blockMop.hitVec.yCoord, blockMop.hitVec.zCoord);
             }
-            bowPower *= 3.0f;
-            arrowMotionX *= bowPower;
-            arrowMotionY *= bowPower;
-            arrowMotionZ *= bowPower;
+
+            // 3. Gather entity candidates using vanilla AABB: arrow boundingBox.addCoord(motion).expand(1,1,1)
+            //    Arrow size is 0.5 x 0.5 (setSize(0.5F, 0.5F) in constructor), half = 0.25
+            double hw = 0.25;
+            AxisAlignedBB broadBox = new AxisAlignedBB(
+                    posX - hw, posY - hw, posZ - hw,
+                    posX + hw, posY + hw, posZ + hw)
+                    .addCoord(motX, motY, motZ)
+                    .expand(1.0, 1.0, 1.0);
+
+            List<Entity> candidates = mc.theWorld.getEntitiesWithinAABBExcludingEntity(mc.getRenderViewEntity(), broadBox);
+
+            // 4. Find nearest entity intercept on this (possibly clamped) segment
+            Entity         bestEntity  = null;
+            Vec3           bestHitVec  = null;
+            AxisAlignedBB  bestBox     = null;
+            double         bestDistSq  = Double.MAX_VALUE;
+
+            for (Entity en : candidates) {
+                if (!(en instanceof EntityLivingBase)) continue;
+                if (en instanceof EntityArmorStand) continue;
+                if (!en.canBeCollidedWith()) continue;
+                if (((EntityLivingBase) en).deathTime != 0) continue;
+                if (en instanceof EntityPlayer && AntiBot.isBot(en)) continue;
+
+                AxisAlignedBB testBox = en.getEntityBoundingBox().expand(0.3, 0.3, 0.3);
+                MovingObjectPosition mop = testBox.calculateIntercept(start, clampedEnd);
+                if (mop == null) continue;
+
+                double dSq = start.squareDistanceTo(mop.hitVec);
+                if (dSq < bestDistSq) {
+                    bestDistSq = dSq;
+                    bestEntity = en;
+                    bestHitVec = mop.hitVec;
+                    bestBox    = testBox;
+                }
+            }
+
+            if (bestEntity != null) {
+                // Record subdivided points up to the actual hit position on this segment
+                double hitT = Math.sqrt(bestDistSq) / Math.sqrt(motX * motX + motY * motY + motZ * motZ);
+                hitT = Math.max(0, Math.min(1, hitT));
+                int subCount = (int) Math.ceil(hitT * SUB);
+                for (int s = 0; s < subCount; s++) {
+                    double t = (double) s / SUB;
+                    renderPoints.add(new double[]{
+                            posX + motX * t - rm.viewerPosX,
+                            posY + motY * t - rm.viewerPosY,
+                            posZ + motZ * t - rm.viewerPosZ
+                    });
+                }
+                renderPoints.add(new double[]{
+                        bestHitVec.xCoord - rm.viewerPosX,
+                        bestHitVec.yCoord - rm.viewerPosY,
+                        bestHitVec.zCoord - rm.viewerPosZ
+                });
+                hitEntity = bestEntity;
+                hitEntityBox = bestBox;
+                break outer;
+            }
+
+            if (blockMop != null) {
+                // Record subdivided points up to the block hit position on this segment
+                Vec3 hitVec = blockMop.hitVec;
+                double segLenSq = motX * motX + motY * motY + motZ * motZ;
+                double hitDx = hitVec.xCoord - posX;
+                double hitDy = hitVec.yCoord - posY;
+                double hitDz = hitVec.zCoord - posZ;
+                double hitT = segLenSq > 0 ? Math.sqrt((hitDx * hitDx + hitDy * hitDy + hitDz * hitDz) / segLenSq) : 0;
+                hitT = Math.max(0, Math.min(1, hitT));
+                int subCount = (int) Math.ceil(hitT * SUB);
+                for (int s = 0; s < subCount; s++) {
+                    double t = (double) s / SUB;
+                    renderPoints.add(new double[]{
+                            posX + motX * t - rm.viewerPosX,
+                            posY + motY * t - rm.viewerPosY,
+                            posZ + motZ * t - rm.viewerPosZ
+                    });
+                }
+                renderPoints.add(new double[]{
+                        hitVec.xCoord - rm.viewerPosX,
+                        hitVec.yCoord - rm.viewerPosY,
+                        hitVec.zCoord - rm.viewerPosZ
+                });
+                hitBlock = blockMop;
+                break outer;
+            }
+
+            // No hit this step: record all SUB intermediate points and advance physics
+            for (int s = 0; s < SUB; s++) {
+                double t = (double) s / SUB;
+                renderPoints.add(new double[]{
+                        posX + motX * t - rm.viewerPosX,
+                        posY + motY * t - rm.viewerPosY,
+                        posZ + motZ * t - rm.viewerPosZ
+                });
+            }
+
+            // Advance physics
+            posX = nextX;
+            posY = nextY;
+            posZ = nextZ;
+            motX *= 0.99;
+            motY *= 0.99;
+            motZ *= 0.99;
+            motY -= gravity;
         }
-        else {
-            arrowMotionX *= 1.5;
-            arrowMotionY *= 1.5;
-            arrowMotionZ *= 1.5;
-        }
+
+        // --- GL setup ---
         GL11.glPushMatrix();
-        GL11.glEnable(2848);
-        GL11.glBlendFunc(770, 771);
-        GL11.glEnable(3042);
-        GL11.glDisable(3553);
-        GL11.glDisable(2929);
-        GL11.glEnable(32925);
+        GL11.glEnable(GL11.GL_LINE_SMOOTH);
+        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GL11.glEnable(GL11.GL_BLEND);
+        GL11.glDisable(GL11.GL_TEXTURE_2D);
+        GL11.glDisable(GL11.GL_DEPTH_TEST);
         GL11.glDepthMask(false);
-       RenderManager renderManager = mc.getRenderManager();
-       double gravity = usingBow ? 0.05 : 0.03;
-       List<double[]> posList = new ArrayList<>();
-        MovingObjectPosition block = null;
-        Entity entity = null;
-        EnumFacing facingEntity = null;
-        EnumFacing facingBlock = null;
-        for (int i = 0; i < 750; ++i) {
-            posList.add(new double[] { arrowPosX - renderManager.viewerPosX, arrowPosY - renderManager.viewerPosY, arrowPosZ - renderManager.viewerPosZ });
-           Vec3 arrowVec = new Vec3(arrowPosX, arrowPosY, arrowPosZ);
-           Vec3 arrowVecNext = new Vec3(arrowPosX + arrowMotionX, arrowPosY + arrowMotionY, arrowPosZ + arrowMotionZ);
-            arrowPosX = arrowVecNext.xCoord;
-            arrowPosY = arrowVecNext.yCoord;
-            arrowPosZ = arrowVecNext.zCoord;
-            arrowMotionX *= 0.99;
-            arrowMotionY *= 0.99;
-            arrowMotionZ *= 0.99;
-            arrowMotionY -= gravity;
-           double size = 0.5;
-           AxisAlignedBB arrowBox = new AxisAlignedBB(arrowPosX - size, arrowPosY - size, arrowPosZ - size, arrowPosX + size, arrowPosY + size, arrowPosZ + size).addCoord((double)arrowMotionX, (double)arrowMotionY, (double)arrowMotionZ).expand(1.0, 1.0, 1.0);
-           List<Entity> list = mc.theWorld.getEntitiesWithinAABBExcludingEntity(mc.getRenderViewEntity(), arrowBox);
-            double minDistSq = 0.0;
-            for (final Entity en : list) {
-                if (en instanceof EntityLivingBase && !(en instanceof EntityArmorStand) && en.canBeCollidedWith()) {
-                    if (((EntityLivingBase)en).deathTime != 0) {
-                        continue;
-                    }
-                    if (en instanceof EntityPlayer && AntiBot.isBot(en)) {
-                        continue;
-                    }
-                   AxisAlignedBB axis = en.getEntityBoundingBox().expand(0.30000001192092896, 0.30000001192092896, 0.30000001192092896);
-                   MovingObjectPosition mop = axis.calculateIntercept(arrowVec, arrowVecNext);
-                    if (mop == null) {
-                        continue;
-                    }
-                    if (minDistSq == 0.0) {
-                        entity = en;
-                        facingEntity = mop.sideHit;
-                    }
-                    else {
-                       double distSq = arrowVec.squareDistanceTo(mop.hitVec);
-                        if (distSq >= minDistSq) {
-                            continue;
-                        }
-                        entity = en;
-                        facingEntity = mop.sideHit;
-                        minDistSq = distSq;
-                    }
-                }
-            }
-            block = mc.theWorld.rayTraceBlocks(arrowVec, arrowVecNext);
-            if (block != null) {
-                facingBlock = block.sideHit;
-            }
-            if (entity != null) {
-                break;
-            }
-            if (block != null) {
-                break;
-            }
+
+        float lineW = (float) lineThickness.getInput();
+
+        // --- Draw trajectory line ---
+        if (hitEntity != null && highlightEntities.isToggled()) {
+            GL11.glColor3f(1.0f, 0.0f, 0.0f);
+        } else {
+            GL11.glColor3f(1.0f, 1.0f, 1.0f);
         }
-        if (entity != null && block != null) {
-            if (mc.thePlayer.getDistanceSqToEntity(entity) >= mc.thePlayer.getDistanceSqToCenter(block.getBlockPos())) {
-                entity = null;
-                facingEntity = null;
+        GL11.glLineWidth(lineW);
+        GL11.glBegin(GL11.GL_LINE_STRIP);
+        boolean first = true;
+        for (double[] pt : renderPoints) {
+            if (first && shortenLine.isToggled()) {
+                first = false;
+                continue;
             }
-            else {
-                block = null;
-                facingBlock = null;
-            }
-        }
-       EnumFacing facing = (facingEntity == null) ? facingBlock : facingEntity;
-        if (entity != null && highlightEntities.isToggled()) {
-            GL11.glColor3d(1.0, 0.0, 0.0);
-            GL11.glLineWidth(2.5f);
-        }
-        else {
-            if (facingBlock == EnumFacing.UP) {
-                GL11.glColor3d(0, 1.0, 0);
-            }
-            else {
-                GL11.glColor3d(1.0, 1.0, 1.0);
-            }
-            GL11.glLineWidth(1.8f);
-        }
-        GL11.glBegin(3);
-        for (int j = 0; j < posList.size(); ++j) {
-            if (j != 0 || !shortenLine.isToggled()) {
-               double[] pos = posList.get(j);
-                GL11.glVertex3d(pos[0], pos[1], pos[2]);
-            }
-        }
-       double renderX = arrowPosX - renderManager.viewerPosX;
-       double renderY = arrowPosY - renderManager.viewerPosY;
-       double renderZ = arrowPosZ - renderManager.viewerPosZ;
-        double distSq2 = 0.0;
-        if (entity != null) {
-            distSq2 = mc.thePlayer.getDistanceSq(entity.getPosition());
-        }
-        else if (block != null) {
-            distSq2 = mc.thePlayer.getDistanceSq(block.getBlockPos());
-        }
-        if (facing != null) {
-           double size2 = autoScale.isToggled() ? Math.min(0.1 * (1.0 + distSq2 / 500.0), 0.5) : 0.1;
-            switch (facing) {
-                case WEST:
-                case EAST: {
-                    GL11.glVertex3d(renderX, renderY, renderZ);
-                    GL11.glVertex3d(renderX, renderY - size2, renderZ - size2);
-                    GL11.glVertex3d(renderX, renderY + size2, renderZ + size2);
-                    GL11.glVertex3d(renderX, renderY, renderZ);
-                    GL11.glVertex3d(renderX, renderY - size2, renderZ + size2);
-                    GL11.glVertex3d(renderX, renderY + size2, renderZ - size2);
-                    break;
-                }
-                case NORTH:
-                case SOUTH: {
-                    GL11.glVertex3d(renderX, renderY, renderZ);
-                    GL11.glVertex3d(renderX - size2, renderY - size2, renderZ);
-                    GL11.glVertex3d(renderX + size2, renderY + size2, renderZ);
-                    GL11.glVertex3d(renderX, renderY, renderZ);
-                    GL11.glVertex3d(renderX + size2, renderY - size2, renderZ);
-                    GL11.glVertex3d(renderX - size2, renderY + size2, renderZ);
-                    break;
-                }
-                case DOWN:
-                case UP: {
-                    GL11.glVertex3d(renderX, renderY, renderZ);
-                    GL11.glVertex3d(renderX - size2, renderY, renderZ - size2);
-                    GL11.glVertex3d(renderX + size2, renderY, renderZ + size2);
-                    GL11.glVertex3d(renderX, renderY, renderZ);
-                    GL11.glVertex3d(renderX + size2, renderY, renderZ - size2);
-                    GL11.glVertex3d(renderX - size2, renderY, renderZ + size2);
-                    break;
-                }
-            }
+            first = false;
+            GL11.glVertex3d(pt[0], pt[1], pt[2]);
         }
         GL11.glEnd();
-        GL11.glDisable(3042);
-        GL11.glEnable(3553);
-        GL11.glEnable(2929);
-        GL11.glDisable(32925);
+
+        // --- Draw impact marker ---
+        GL11.glLineWidth(lineW);
+
+        if (hitEntity != null && highlightEntities.isToggled() && hitEntityBox != null) {
+            double ex = hitEntity.lastTickPosX + (hitEntity.posX - hitEntity.lastTickPosX) * partialTicks;
+            double ey = hitEntity.lastTickPosY + (hitEntity.posY - hitEntity.lastTickPosY) * partialTicks;
+            double ez = hitEntity.lastTickPosZ + (hitEntity.posZ - hitEntity.lastTickPosZ) * partialTicks;
+            AxisAlignedBB renderBox = new AxisAlignedBB(
+                    hitEntityBox.minX - hitEntity.posX + ex,
+                    hitEntityBox.minY - hitEntity.posY + ey,
+                    hitEntityBox.minZ - hitEntity.posZ + ez,
+                    hitEntityBox.maxX - hitEntity.posX + ex,
+                    hitEntityBox.maxY - hitEntity.posY + ey,
+                    hitEntityBox.maxZ - hitEntity.posZ + ez
+            );
+            GL11.glColor3f(1.0f, 0.0f, 0.0f);
+            RenderUtils.drawOutlinedBox(renderBox, rm.viewerPosX, rm.viewerPosY, rm.viewerPosZ);
+        } else if (hitBlock != null) {
+            BlockPos bpos = hitBlock.getBlockPos();
+            AxisAlignedBB selBox = BlockUtils.getBlockSelectionBox(bpos);
+            if (selBox != null) {
+                GL11.glColor3f(0.2f, 0.8f, 0.2f);
+                RenderUtils.drawOutlinedBox(selBox, rm.viewerPosX, rm.viewerPosY, rm.viewerPosZ);
+            }
+        }
+
+        GL11.glDisable(GL11.GL_BLEND);
+        GL11.glEnable(GL11.GL_TEXTURE_2D);
+        GL11.glEnable(GL11.GL_DEPTH_TEST);
         GL11.glDepthMask(true);
-        GL11.glDisable(2848);
+        GL11.glDisable(GL11.GL_LINE_SMOOTH);
         GL11.glPopMatrix();
     }
 }

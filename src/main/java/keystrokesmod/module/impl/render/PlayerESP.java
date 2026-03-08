@@ -9,8 +9,8 @@ import keystrokesmod.module.impl.client.Settings;
 import keystrokesmod.module.impl.player.Freecam;
 import keystrokesmod.module.impl.world.AntiBot;
 import keystrokesmod.module.setting.impl.ButtonSetting;
+import keystrokesmod.module.setting.impl.ColorSetting;
 import keystrokesmod.module.setting.impl.GroupSetting;
-import keystrokesmod.module.setting.impl.SliderSetting;
 import keystrokesmod.utility.RenderUtils;
 import keystrokesmod.utility.Utils;
 import net.minecraft.client.gui.ScaledResolution;
@@ -26,14 +26,11 @@ import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import org.lwjgl.opengl.GL11;
 
-import java.awt.*;
 import java.util.HashMap;
 import java.util.Map;
 
 public class PlayerESP extends Module {
-    public SliderSetting red;
-    public SliderSetting green;
-    public SliderSetting blue;
+    public ColorSetting color;
 
     public ButtonSetting teamColor;
     public ButtonSetting rainbow;
@@ -51,7 +48,6 @@ public class PlayerESP extends Module {
     public ButtonSetting renderSelf;
     public ButtonSetting showInvis;
 
-    private int rgbInput = 0;
     private static final float RAD_TO_DEG = 57.29578f;
 
     private final Map<EntityLivingBase, Integer> renderAsTwoD = new HashMap<>(); // entity with its rgb
@@ -66,9 +62,7 @@ public class PlayerESP extends Module {
         this.registerSetting(ring = new ButtonSetting(espTypes, "Ring", false));
         this.registerSetting(shaded = new ButtonSetting(espTypes, "Shaded", false));
         this.registerSetting(skeleton = new ButtonSetting(espTypes, "Skeleton", false));
-        this.registerSetting(red = new SliderSetting("Red", 0.0D, 0.0D, 255.0D, 1.0D));
-        this.registerSetting(green = new SliderSetting("Green", 255.0D, 0.0D, 255.0D, 1.0D));
-        this.registerSetting(blue = new SliderSetting("Blue", 0.0D, 0.0D, 255.0D, 1.0D));
+        this.registerSetting(color = new ColorSetting("Color", 0, 255, 0));
         this.registerSetting(rainbow = new ButtonSetting("Rainbow", false));
         this.registerSetting(healthBar = new ButtonSetting("Health bar", true));
         this.registerSetting(redOnDamage = new ButtonSetting("Red on damage", true));
@@ -77,9 +71,8 @@ public class PlayerESP extends Module {
         this.registerSetting(showInvis = new ButtonSetting("Show invis", true));
     }
 
-    @Override
-    public void guiUpdate() {
-        this.rgbInput = (new Color((int) red.getInput(), (int) green.getInput(), (int) blue.getInput())).getRGB();
+    private int getColorRGB() {
+        return rainbow.isToggled() ? Utils.getChroma(2L, 0L) : color.getColor();
     }
 
     @SubscribeEvent
@@ -96,7 +89,7 @@ public class PlayerESP extends Module {
                 if (mc.thePlayer != player && AntiBot.isBot(player)) {
                     return;
                 }
-                int rgb = rainbow.isToggled() ? Utils.getChroma(2L, 0L) : this.rgbInput;
+                int rgb = getColorRGB();
                 if (teamColor.isToggled()) {
                     rgb = Utils.getColorFromEntity(player);
                 }
@@ -111,7 +104,7 @@ public class PlayerESP extends Module {
         if (!Utils.nullCheck()) {
             return;
         }
-        int rgb = rainbow.isToggled() ? Utils.getChroma(2L, 0L) : this.rgbInput;
+        int rgb = getColorRGB();
         if (Raven.DEBUG) {
             for (final Entity entity : mc.theWorld.loadedEntityList) {
                 if (entity instanceof EntityLivingBase && entity != mc.thePlayer) {

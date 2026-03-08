@@ -200,7 +200,8 @@ public class Module {
         } else {
             this.enable();
         }
-        if (Raven.currentProfile != null) {
+        // Don't mark profile unsaved when opening the GUI—it's just a keybind to show the screen, not a settings change
+        if (Raven.currentProfile != null && !(this instanceof keystrokesmod.module.impl.client.Gui)) {
             Raven.currentProfile.getModule().saved = false;
         }
     }

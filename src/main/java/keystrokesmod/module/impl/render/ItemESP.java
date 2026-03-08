@@ -25,6 +25,9 @@ public class ItemESP extends Module {
     private final ButtonSetting renderIron;
     private final ButtonSetting renderGold;
 
+    private final HashMap<Item, ArrayList<EntityItem>> itemsMap = new HashMap<>();
+    private final HashMap<Double, Integer> colorMap = new HashMap<>();
+
     public ItemESP() {
         super("ItemESP", category.render);
         this.registerSetting(renderIron = new ButtonSetting("Render iron", true));
@@ -33,8 +36,8 @@ public class ItemESP extends Module {
 
     @SubscribeEvent
     public void onRenderWorldLast(RenderWorldLastEvent e) {
-        HashMap<Item, ArrayList<EntityItem>> itemsMap = new HashMap<>();
-        HashMap<Double, Integer> colorMap = new HashMap<>();
+        itemsMap.clear();
+        colorMap.clear();
 
         for (Entity entity : mc.theWorld.loadedEntityList) {
             if (entity instanceof EntityItem) {
@@ -57,12 +60,7 @@ public class ItemESP extends Module {
                 int newStackCount;
                 if (existingStackCount == null) {
                     newStackCount = stackSize;
-                    ArrayList<EntityItem> itemList = itemsMap.get(currentItem);
-                    if (itemList == null) {
-                        itemList = new ArrayList<>();
-                    }
-                    itemList.add(entityItem);
-                    itemsMap.put(currentItem, itemList);
+                    itemsMap.computeIfAbsent(currentItem, k -> new ArrayList<>()).add(entityItem);
                 }
                 else {
                     newStackCount = existingStackCount + stackSize;
@@ -177,7 +175,7 @@ public class ItemESP extends Module {
         GlStateManager.depthMask(false);
         GlStateManager.disableDepth();
         String value = String.valueOf(size);
-        mc.fontRendererObj.drawString(value, -(mc.fontRendererObj.getStringWidth(value) / 2) + scale * 3.5f, -(123.805f * scale - 2.47494f), textColor, true);
+        mc.fontRendererObj.drawString(value, -((float) mc.fontRendererObj.getStringWidth(value) / 2) + scale * 3.5f, -(123.805f * scale - 2.47494f), textColor, true);
         GlStateManager.enableDepth();
         GlStateManager.depthMask(true);
         GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);

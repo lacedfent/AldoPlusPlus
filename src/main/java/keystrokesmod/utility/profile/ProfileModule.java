@@ -28,9 +28,6 @@ public class ProfileModule extends Module {
     @Override
     public void toggle() {
         if (mc.currentScreen instanceof ClickGui || mc.currentScreen == null) {
-            if (this.profile == Raven.currentProfile && saved) {
-                return;
-            }
             Raven.profileManager.loadProfile(this.getName());
 
             Raven.currentProfile = profile;

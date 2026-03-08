@@ -31,4 +31,14 @@ public class DescriptionComponent extends Component {
     public void updateHeight(float n) {
         this.o = n;
     }
+
+    @Override
+    public float getOffset() {
+        return this.o;
+    }
+
+    @Override
+    public boolean isBaseVisible() {
+        return this.desc.visible;
+    }
 }

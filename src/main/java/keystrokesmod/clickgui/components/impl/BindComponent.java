@@ -39,6 +39,16 @@ public class BindComponent extends Component {
         this.o = n;
     }
 
+    @Override
+    public float getOffset() {
+        return this.o;
+    }
+
+    @Override
+    public boolean isBaseVisible() {
+        return this.keySetting == null || this.keySetting.visible;
+    }
+
     public void render() {
         GL11.glPushMatrix();
         GL11.glScaled(0.5D, 0.5D, 0.5D);
@@ -153,11 +163,17 @@ public class BindComponent extends Component {
         return "&cERROR";
     }
 
-    public int getHeight() {
+    @Override
+    public float getHeightF() {
         if (this.keySetting != null) {
-            return 0;
+            return 0f;
         }
-        return 16;
+        return 16f;
+    }
+
+    @Override
+    public int getHeight() {
+        return Math.round(getHeightF());
     }
 
     private void drawString(String s) {

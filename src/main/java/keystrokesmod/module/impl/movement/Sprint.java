@@ -62,6 +62,9 @@ public class Sprint extends Module {
     }
 
     public boolean disableBackwards() {
+        if (!isEnabled()) {
+            return false;
+        }
         limit = MathHelper.wrapAngleTo180_float(mc.thePlayer.rotationYaw - ((IAccessorEntityPlayerSP) mc.thePlayer).getLastReportedYaw());
         double limitVal = 125;
         if (!disableBackwards.isToggled()) {

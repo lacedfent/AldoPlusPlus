@@ -63,6 +63,7 @@ public class ModuleManager {
     public static SafeWalk safeWalk;
     public static KeepSprint keepSprint;
     public static Piercing piercing;
+    public static GhostHand ghostHand;
     public static AntiKnockback antiKnockback;
     public static ExtendCamera extendCamera;
     public static InvManager invManager;
@@ -76,6 +77,7 @@ public class ModuleManager {
     public static Sprint sprint;
     public static Weather weather;
     public static ChatCommands chatCommands;
+    public static BlockIn blockIn;
 
     public void register() {
         this.addModule(chatCommands = new ChatCommands());
@@ -86,12 +88,15 @@ public class ModuleManager {
         this.addModule(new AimAssist());
         this.addModule(antiKnockback = new AntiKnockback());
         this.addModule(autoClicker = new AutoClicker());
+        this.addModule(new Autoblock());
+        this.addModule(blockIn = new BlockIn());
         this.addModule(new BurstClicker());
         this.addModule(new ClickAssist());
         this.addModule(hitBox = new HitBox());
         this.addModule(new JumpReset());
         this.addModule(killAura = new KillAura());
         this.addModule(piercing = new Piercing());
+        this.addModule(ghostHand = new GhostHand());
         this.addModule(reach = new Reach());
         this.addModule(reduce = new Reduce());
         this.addModule(new RodAimbot());
@@ -140,7 +145,7 @@ public class ModuleManager {
         this.addModule(new AntiAFK());
         this.addModule(antiFireball = new AntiFireball());
         this.addModule(new AutoJump());
-        this.addModule(new AutoPlace());
+        this.addModule(new BridgeAssist());
         this.addModule(autoSwap = new AutoSwap());
         this.addModule(autoTool = new AutoTool());
         this.addModule(bedAura = new BedAura());
