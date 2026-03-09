@@ -15,6 +15,7 @@ import net.minecraft.client.shader.Framebuffer;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.BlockPos;
 import net.minecraft.util.EnumFacing;
@@ -493,34 +494,63 @@ public class RenderUtils implements IMinecraftInstance {
     }
 
     public static void drawTracerLine(Entity e, int color, float lineWidth, float partialTicks) {
-        if (e != null) {
-            double x = e.lastTickPosX + (e.posX - e.lastTickPosX) * (double) partialTicks - mc.getRenderManager().viewerPosX;
-            double y = (double) e.getEyeHeight() + e.lastTickPosY + (e.posY - e.lastTickPosY) * (double) partialTicks - mc.getRenderManager().viewerPosY;
-            double z = e.lastTickPosZ + (e.posZ - e.lastTickPosZ) * (double) partialTicks - mc.getRenderManager().viewerPosZ;
-            float a = (float) (color >> 24 & 255) / 255.0F;
-            float r = (float) (color >> 16 & 255) / 255.0F;
-            float g = (float) (color >> 8 & 255) / 255.0F;
-            float b = (float) (color & 255) / 255.0F;
-            GL11.glPushMatrix();
-            glEnable(3042);
-            glEnable(2848);
-            GL11.glDisable(2929);
-            GL11.glDisable(3553);
-            GL11.glBlendFunc(770, 771);
-            glEnable(3042);
-            GL11.glLineWidth(lineWidth);
-            GL11.glColor4f(r, g, b, a);
-            GL11.glBegin(2);
-            GL11.glVertex3d(0.0D, (double) mc.thePlayer.getEyeHeight(), 0.0D);
-            GL11.glVertex3d(x, y, z);
-            GL11.glEnd();
-            GL11.glDisable(3042);
-            glEnable(3553);
-            glEnable(2929);
-            GL11.glDisable(2848);
-            GL11.glDisable(3042);
-            glPopMatrix();
+        if (e == null || mc.getRenderManager() == null) {
+            return;
         }
+
+        Entity viewEntity = mc.getRenderViewEntity();
+        if (viewEntity == null) {
+            viewEntity = mc.thePlayer;
+        }
+        if (viewEntity == null) {
+            return;
+        }
+
+        double targetX = e.lastTickPosX + (e.posX - e.lastTickPosX) * (double) partialTicks - mc.getRenderManager().viewerPosX;
+        double targetY = e.lastTickPosY + (e.posY - e.lastTickPosY) * (double) partialTicks - mc.getRenderManager().viewerPosY
+                + (double) e.getEyeHeight() + (e.isSneaking() ? -0.125D : 0.0D);
+        double targetZ = e.lastTickPosZ + (e.posZ - e.lastTickPosZ) * (double) partialTicks - mc.getRenderManager().viewerPosZ;
+
+        double startX = 0.0D;
+        double startY = viewEntity.getEyeHeight();
+        double startZ = 0.0D;
+        if (viewEntity == mc.thePlayer && mc.gameSettings.thirdPersonView == 0) {
+            float yaw = viewEntity.rotationYaw;
+            float pitch = viewEntity.rotationPitch;
+            double dirX = -Math.sin(Math.toRadians(yaw)) * Math.cos(Math.toRadians(pitch));
+            double dirY = -Math.sin(Math.toRadians(pitch));
+            double dirZ = Math.cos(Math.toRadians(yaw)) * Math.cos(Math.toRadians(pitch));
+            startX = dirX;
+            startY += dirY;
+            startZ = dirZ;
+        }
+
+        float a = (float) (color >> 24 & 255) / 255.0F;
+        float r = (float) (color >> 16 & 255) / 255.0F;
+        float g = (float) (color >> 8 & 255) / 255.0F;
+        float b = (float) (color & 255) / 255.0F;
+
+        GL11.glPushMatrix();
+        GL11.glEnable(GL11.GL_BLEND);
+        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GL11.glEnable(GL11.GL_LINE_SMOOTH);
+        GL11.glDisable(GL11.GL_TEXTURE_2D);
+        GL11.glDisable(GL11.GL_DEPTH_TEST);
+        GL11.glDepthMask(false);
+        GL11.glLineWidth(lineWidth);
+        GL11.glColor4f(r, g, b, a);
+        GL11.glBegin(GL11.GL_LINES);
+        GL11.glVertex3d(startX, startY, startZ);
+        GL11.glVertex3d(targetX, targetY, targetZ);
+        GL11.glEnd();
+        GL11.glLineWidth(1.0F);
+        GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+        GL11.glDepthMask(true);
+        GL11.glEnable(GL11.GL_DEPTH_TEST);
+        GL11.glEnable(GL11.GL_TEXTURE_2D);
+        GL11.glDisable(GL11.GL_LINE_SMOOTH);
+        GL11.glDisable(GL11.GL_BLEND);
+        GL11.glPopMatrix();
     }
 
     public static void dGR(int left, int top, int right, int bottom, int startColor, int endColor) {
@@ -1132,5 +1162,123 @@ public class RenderUtils implements IMinecraftInstance {
         GlStateManager.disableBlend();
         GlStateManager.enableAlpha();
         GlStateManager.enableTexture2D();
+    }
+
+    public static void renderItemAndEffectIntoGui3D(ItemStack stack, int xPos, int yPos) {
+        if (stack == null) return;
+
+        GlStateManager.pushMatrix();
+        GlStateManager.enableRescaleNormal();
+        GlStateManager.enableAlpha();
+        GlStateManager.enableBlend();
+        GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
+        GlStateManager.enableDepth();
+        GlStateManager.depthMask(true);
+        GL11.glDepthRange(0, 0);
+        RenderHelper.enableGUIStandardItemLighting();
+        mc.getRenderItem().zLevel = -150.0F;
+        mc.getRenderItem().renderItemAndEffectIntoGUI(stack, xPos, yPos);
+        mc.getRenderItem().zLevel = 0.0F;
+        RenderHelper.disableStandardItemLighting();
+        GL11.glDepthRange(0, 1);
+        GlStateManager.disableRescaleNormal();
+        GlStateManager.disableLighting();
+        GlStateManager.disableDepth();
+        GlStateManager.depthMask(false);
+        GlStateManager.enableTexture2D();
+        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+        GlStateManager.popMatrix();
+    }
+
+    public static void renderItemAndEffectIntoGui2D(ItemStack stack, int xPos, int yPos) {
+        if (stack == null) return;
+
+        GlStateManager.disableAlpha();
+        mc.getRenderItem().zLevel = -150.0F;
+        GlStateManager.enableDepth();
+        RenderHelper.enableGUIStandardItemLighting();
+        mc.getRenderItem().renderItemAndEffectIntoGUI(stack, xPos, yPos - 8);
+        mc.getRenderItem().zLevel = 0.0F;
+        GlStateManager.disableDepth();
+    }
+
+    public static int getDurabilityColor(float ratio) {
+        if (ratio > 0.6F) return 0x00FF00;
+        if (ratio > 0.3F) return 0xFFFF00;
+        return 0xFF0000;
+    }
+
+    public static void drawDurabilityBar(int xPos, int yPos, float durabilityRatio) {
+        int barWidth = (int) (durabilityRatio * 13);
+        int barColor = getDurabilityColor(durabilityRatio);
+
+        GlStateManager.disableTexture2D();
+        Tessellator tess = Tessellator.getInstance();
+        WorldRenderer wr = tess.getWorldRenderer();
+
+        wr.begin(7, DefaultVertexFormats.POSITION_COLOR);
+        wr.pos(xPos + 2, yPos + 15, 0).color(0.0F, 0.0F, 0.0F, 1.0F).endVertex();
+        wr.pos(xPos + 2, yPos + 16, 0).color(0.0F, 0.0F, 0.0F, 1.0F).endVertex();
+        wr.pos(xPos + 15, yPos + 16, 0).color(0.0F, 0.0F, 0.0F, 1.0F).endVertex();
+        wr.pos(xPos + 15, yPos + 15, 0).color(0.0F, 0.0F, 0.0F, 1.0F).endVertex();
+        tess.draw();
+
+        float r = ((barColor >> 16) & 255) / 255.0F;
+        float g = ((barColor >> 8) & 255) / 255.0F;
+        float b = (barColor & 255) / 255.0F;
+        wr.begin(7, DefaultVertexFormats.POSITION_COLOR);
+        wr.pos(xPos + 2, yPos + 15, 0).color(r, g, b, 1.0F).endVertex();
+        wr.pos(xPos + 2, yPos + 16, 0).color(r, g, b, 1.0F).endVertex();
+        wr.pos(xPos + 2 + barWidth, yPos + 16, 0).color(r, g, b, 1.0F).endVertex();
+        wr.pos(xPos + 2 + barWidth, yPos + 15, 0).color(r, g, b, 1.0F).endVertex();
+        tess.draw();
+
+        GlStateManager.enableTexture2D();
+    }
+
+    public static int getEnchantColor(int level) {
+        switch (level) {
+            case 1: return 0xFFFFFF;
+            case 2: return 0x55FFFF;
+            case 3: return 0x00AAAA;
+            case 4: return 0xAA00AA;
+            case 5: return 0xFFAA00;
+            case 10: return 0xFF55FF;
+            default: return level > 5 ? 0xFF55FF : 0xFFFFFF;
+        }
+    }
+
+    public static int drawEnchantWithColor(FontRenderer fr, String letter, int level, int x, int y) {
+        int letterWidth = fr.drawStringWithShadow(letter, x, y, 0xFFFFFF);
+        fr.drawStringWithShadow(String.valueOf(level), letterWidth, y, getEnchantColor(level));
+        return letterWidth;
+    }
+
+    public static String getEnchantmentAbbreviated(int id) {
+        switch (id) {
+            case 0: return "pt";
+            case 1: return "frp";
+            case 2: return "ff";
+            case 3: return "blp";
+            case 4: return "prp";
+            case 5: return "thr";
+            case 6: return "res";
+            case 7: return "aa";
+            case 16: return "sh";
+            case 17: return "smt";
+            case 18: return "ban";
+            case 19: return "kb";
+            case 20: return "fa";
+            case 21: return "lot";
+            case 32: return "eff";
+            case 33: return "sil";
+            case 34: return "ub";
+            case 35: return "for";
+            case 48: return "pow";
+            case 49: return "pun";
+            case 50: return "flm";
+            case 51: return "inf";
+            default: return null;
+        }
     }
 }

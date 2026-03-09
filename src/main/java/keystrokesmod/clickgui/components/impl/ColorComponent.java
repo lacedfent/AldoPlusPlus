@@ -154,13 +154,13 @@ public class ColorComponent extends Component {
         RenderUtils.drawVerticalGradientRect(areaLeft, sqTop, sqRight, sqBottom,
                 0x00000000, 0xFF000000);
 
+        RenderUtils.drawOutline(areaLeft - 1, sqTop - 1, sqRight + 1, sqBottom + 1,
+                1f, 0xFF3C3C46);
+
         float indX = areaLeft + sat * SQUARE_SIZE;
         float indY = sqTop + (1f - bri) * SQUARE_SIZE;
         RenderUtils.drawRect(indX - 2, indY, indX + 3, indY + 1, 0xFFFFFFFF);
         RenderUtils.drawRect(indX, indY - 2, indX + 1, indY + 3, 0xFFFFFFFF);
-
-        RenderUtils.drawOutline(areaLeft - 1, sqTop - 1, sqRight + 1, sqBottom + 1,
-                1f, 0xFF3C3C46);
 
         float hueLeft = sqRight + HUE_GAP;
         float hueRight = hueLeft + HUE_BAR_WIDTH;

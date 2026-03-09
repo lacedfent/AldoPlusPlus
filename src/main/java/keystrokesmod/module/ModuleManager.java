@@ -178,7 +178,9 @@ public class ModuleManager {
         this.addModule(new Indicators());
         this.addModule(new ItemESP());
         this.addModule(new MobESP());
-        this.addModule(new Nametags());
+        // Legacy 2D Nametags module is deprecated in favor of the 3D-based replacement.
+        // this.addModule(new Nametags());
+        this.addModule(new Nametags3D());
         this.addModule(noCameraClip = new NoCameraClip());
         this.addModule(noHurtCam = new NoHurtCam());
         this.addModule(playerESP = new PlayerESP());

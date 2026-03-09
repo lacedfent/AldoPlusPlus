@@ -259,13 +259,7 @@ public class Nametags extends Module {
 
     private void renderItemStack(ItemStack stack, int xPos, int yPos) {
         GlStateManager.pushMatrix();
-        GlStateManager.disableAlpha();
-        mc.getRenderItem().zLevel = -150.0F;
-        GlStateManager.enableDepth();
-        RenderHelper.enableGUIStandardItemLighting();
-        mc.getRenderItem().renderItemAndEffectIntoGUI(stack, xPos, yPos - 8);
-        mc.getRenderItem().zLevel = 0.0F;
-        GlStateManager.disableDepth();
+        RenderUtils.renderItemAndEffectIntoGui2D(stack, xPos, yPos);
         GlStateManager.scale(0.5, 0.5, 0.5);
         GlStateManager.translate(0, -10, 0);
         renderText(stack, xPos, yPos);
@@ -288,7 +282,7 @@ public class Nametags extends Module {
                     int id = nbttaglist.getCompoundTagAt(i).getShort("id");
                     int lvl = nbttaglist.getCompoundTagAt(i).getShort("lvl");
                     if (lvl > 0) {
-                        String abbreviated = getEnchantmentAbbreviated(id);
+                        String abbreviated = RenderUtils.getEnchantmentAbbreviated(id);
                         mc.fontRendererObj.drawString(abbreviated + lvl, (float) (xPos * 2), (float) newYPos, -1, dropShadow.isToggled());
                         newYPos += 8;
                     }
@@ -297,57 +291,6 @@ public class Nametags extends Module {
         }
         if (showStackSize.isToggled() && !(stack.getItem() instanceof ItemSword) && !(stack.getItem() instanceof ItemBow) && !(stack.getItem() instanceof ItemTool) && !(stack.getItem() instanceof ItemArmor)) {
             mc.fontRendererObj.drawString(stack.stackSize + "x", (float) (xPos * 2), (float) yPos, -1, dropShadow.isToggled());
-        }
-    }
-
-    private String getEnchantmentAbbreviated(int id) {
-        switch (id) {
-            case 0:
-                return "pt";   // Protection
-            case 1:
-                return "frp";   // Fire Protection
-            case 2:
-                return "ff";    // Feather Falling
-            case 3:
-                return "blp";   // Blast Protection
-            case 4:
-                return "prp";   // Projectile Protection
-            case 5:
-                return "thr";   // Thorns
-            case 6:
-                return "res";   // Respiration
-            case 7:
-                return "aa";    // Aqua Affinity
-            case 16:
-                return "sh";   // Sharpness
-            case 17:
-                return "smt";   // Smite
-            case 18:
-                return "ban";   // Bane of Arthropods
-            case 19:
-                return "kb";    // Knockback
-            case 20:
-                return "fa";    // Fire Aspect
-            case 21:
-                return "lot";  // Looting
-            case 32:
-                return "eff";   // Efficiency
-            case 33:
-                return "sil";   // Silk Touch
-            case 34:
-                return "ub";   // Unbreaking
-            case 35:
-                return "for";   // Fortune
-            case 48:
-                return "pow";   // Power
-            case 49:
-                return "pun";   // Punch
-            case 50:
-                return "flm";   // Flame
-            case 51:
-                return "inf";   // Infinity
-            default:
-                return null;
         }
     }
 }
