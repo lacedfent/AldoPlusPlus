@@ -353,6 +353,8 @@ public class Nametags3D extends Module {
             GlStateManager.popMatrix();
         }
 
+        GlStateManager.disableDepth();
+
         if (stack.stackSize > 1) {
             String countStr = String.valueOf(stack.stackSize);
             fr.drawStringWithShadow(countStr, xPos + 17 - fr.getStringWidth(countStr), yPos + 9, 0xFFFFFF);
@@ -364,6 +366,8 @@ public class Nametags3D extends Module {
             float durabilityRatio = 1.0F - (float) currentDamage / (float) maxDamage;
             RenderUtils.drawDurabilityBar(xPos, yPos, durabilityRatio);
         }
+
+        GlStateManager.enableDepth();
     }
 
     private void renderEnchantText(ItemStack stack, int xPos, int yPos, FontRenderer fr) {

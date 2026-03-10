@@ -1168,25 +1168,20 @@ public class RenderUtils implements IMinecraftInstance {
         if (stack == null) return;
 
         GlStateManager.pushMatrix();
-        GlStateManager.enableRescaleNormal();
-        GlStateManager.enableAlpha();
-        GlStateManager.enableBlend();
-        GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
-        GlStateManager.enableDepth();
         GlStateManager.depthMask(true);
-        GL11.glDepthRange(0, 0);
+        GlStateManager.clear(GL11.GL_DEPTH_BUFFER_BIT);
         RenderHelper.enableGUIStandardItemLighting();
-        mc.getRenderItem().zLevel = -150.0F;
+        GL11.glDisable(GL11.GL_LIGHTING);
+        GlStateManager.pushMatrix();
+        GlStateManager.scale(1.0f, 1.0f, -0.01f);
+        mc.getRenderItem().zLevel = -150.0f;
         mc.getRenderItem().renderItemAndEffectIntoGUI(stack, xPos, yPos);
-        mc.getRenderItem().zLevel = 0.0F;
+        mc.getRenderItem().zLevel = 0.0f;
+        GlStateManager.popMatrix();
         RenderHelper.disableStandardItemLighting();
-        GL11.glDepthRange(0, 1);
-        GlStateManager.disableRescaleNormal();
-        GlStateManager.disableLighting();
-        GlStateManager.disableDepth();
-        GlStateManager.depthMask(false);
+        GlStateManager.enableAlpha();
+        GlStateManager.disableBlend();
         GlStateManager.enableTexture2D();
-        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
         GlStateManager.popMatrix();
     }
 
