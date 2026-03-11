@@ -2,6 +2,7 @@ package keystrokesmod.utility;
 
 import keystrokesmod.mixin.impl.accessor.IAccessorMinecraft;
 import keystrokesmod.module.impl.player.Freecam;
+
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
@@ -841,6 +842,22 @@ public class RenderUtils implements IMinecraftInstance {
 
     public static boolean needsNewFramebuffer(Framebuffer framebuffer) {
         return framebuffer == null || framebuffer.framebufferWidth != mc.displayWidth || framebuffer.framebufferHeight != mc.displayHeight;
+    }
+
+    public static void drawFramebufferFullscreen(Framebuffer framebuffer) {
+        if (framebuffer == null) return;
+        ScaledResolution sr = new ScaledResolution(mc);
+        GlStateManager.bindTexture(framebuffer.framebufferTexture);
+        GL11.glBegin(GL11.GL_QUADS);
+        GL11.glTexCoord2d(0.0, 1.0);
+        GL11.glVertex2d(0.0, 0.0);
+        GL11.glTexCoord2d(0.0, 0.0);
+        GL11.glVertex2d(0.0, sr.getScaledHeight());
+        GL11.glTexCoord2d(1.0, 0.0);
+        GL11.glVertex2d(sr.getScaledWidth(), sr.getScaledHeight());
+        GL11.glTexCoord2d(1.0, 1.0);
+        GL11.glVertex2d(sr.getScaledWidth(), 0.0);
+        GL11.glEnd();
     }
 
     public static void bindTexture(int texture) {

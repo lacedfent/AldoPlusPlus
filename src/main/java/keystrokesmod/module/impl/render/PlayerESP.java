@@ -13,7 +13,11 @@ import keystrokesmod.module.setting.impl.ColorSetting;
 import keystrokesmod.module.setting.impl.GroupSetting;
 import keystrokesmod.utility.RenderUtils;
 import keystrokesmod.utility.Utils;
+import keystrokesmod.utility.shader.GlowShader;
+import keystrokesmod.utility.shader.OutlineShader;
 import net.minecraft.client.gui.ScaledResolution;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.shader.Framebuffer;
 import net.minecraft.client.model.ModelBiped;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
@@ -49,9 +53,13 @@ public class PlayerESP extends Module {
     public ButtonSetting showInvis;
 
     private static final float RAD_TO_DEG = 57.29578f;
+    public static boolean renderingOutlinePass = false;
 
-    private final Map<EntityLivingBase, Integer> renderAsTwoD = new HashMap<>(); // entity with its rgb
-    // none, outline, box, shaded, 2d, ring
+    private final Map<EntityLivingBase, Integer> renderAsTwoD = new HashMap<>();
+
+    private Framebuffer outlineFramebuffer;
+    private final OutlineShader outlineShader = new OutlineShader();
+    private final GlowShader glowShader = new GlowShader();
 
     public PlayerESP() {
         super("PlayerESP", category.render, 0);
@@ -143,12 +151,52 @@ public class PlayerESP extends Module {
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public void onRenderTwo2D(RenderWorldLastEvent e) {
-        if (!Utils.nullCheck() || !twoD.isToggled()) {
-            return;
+        if (!Utils.nullCheck() || !isEnabled()) return;
+        if (outline.isToggled()) runOutlinePass(e.partialTicks);
+        if (twoD.isToggled()) {
+            for (Map.Entry<EntityLivingBase, Integer> entry : renderAsTwoD.entrySet()) {
+                this.renderTwoD(entry.getKey(), entry.getValue(), 0, e.partialTicks);
+            }
         }
-        for (Map.Entry<EntityLivingBase, Integer> entry : renderAsTwoD.entrySet()) {
-            this.renderTwoD(entry.getKey(), entry.getValue(), 0, e.partialTicks);
+    }
+
+    private void runOutlinePass(float partialTicks) {
+        if (!outlineShader.isValid() || !glowShader.isValid() || renderAsTwoD.isEmpty()) return;
+        outlineFramebuffer = RenderUtils.createFrameBuffer(outlineFramebuffer, false);
+        if (outlineFramebuffer == null) return;
+
+        GlStateManager.pushMatrix();
+        GlStateManager.pushAttrib();
+        outlineFramebuffer.bindFramebuffer(false);
+        ((IAccessorEntityRenderer) mc.entityRenderer).callSetupCameraTransform(partialTicks, 0);
+        boolean shadows = mc.gameSettings.entityShadows;
+        mc.gameSettings.entityShadows = false;
+        renderingOutlinePass = true;
+
+        glowShader.use();
+        for (Map.Entry<EntityLivingBase, Integer> e : renderAsTwoD.entrySet()) {
+            EntityLivingBase ent = e.getKey();
+            int col = redOnDamage.isToggled() && ent.hurtTime != 0 ? 0xFFFF0000 : e.getValue();
+            glowShader.setColor((col >> 16) & 0xFF, (col >> 8) & 0xFF, col & 0xFF, (col >> 24) & 0xFF);
+            boolean invis = ent.isInvisible();
+            if (showInvis.isToggled()) ent.setInvisible(false);
+            mc.getRenderManager().renderEntityStatic(ent, partialTicks, true);
+            ent.setInvisible(invis);
         }
+        glowShader.stop();
+        renderingOutlinePass = false;
+
+        mc.gameSettings.entityShadows = shadows;
+        mc.entityRenderer.disableLightmap();
+        mc.entityRenderer.setupOverlayRendering();
+        mc.getFramebuffer().bindFramebuffer(false);
+        outlineShader.use();
+        RenderUtils.drawFramebufferFullscreen(outlineFramebuffer);
+        outlineShader.stop();
+        outlineFramebuffer.framebufferClear();
+        mc.getFramebuffer().bindFramebuffer(false);
+        GlStateManager.popAttrib();
+        GlStateManager.popMatrix();
     }
 
     public void render(Entity en, int rgb) {

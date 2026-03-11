@@ -298,6 +298,7 @@ public class ModuleComponent extends Component {
                     Raven.currentProfile.getModule().saved = false;
                 }
             }
+            return true;
         }
 
         if (this.overModuleName(x, y) && mouse == 1) {
@@ -321,7 +322,9 @@ public class ModuleComponent extends Component {
         }
 
         for (Component settingComponent : this.settings) {
-            settingComponent.onClick(x, y, mouse);
+            if (settingComponent.onClick(x, y, mouse)) {
+                return true;
+            }
         }
         return false;
     }

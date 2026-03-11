@@ -224,12 +224,20 @@ public class ClickGui extends GuiScreen {
         }
 
         for (CategoryComponent category : inputOrder) {
-            if (category.isOpened() && !category.getModules().isEmpty() && category.overRect(mouseX, mouseY) && !category.overTitle(mouseX, mouseY)) {
+            if (category.isOpened() && !category.getModules().isEmpty() && !category.overTitle(mouseX, mouseY)) {
                 category.lastInteractedTime = System.currentTimeMillis();
+
+                boolean consumed = false;
                 for (ModuleComponent component : category.getModules()) {
-                    component.onClick(mouseX, mouseY, mouseButton);
+                    if (component.onClick(mouseX, mouseY, mouseButton)) {
+                        consumed = true;
+                        break;
+                    }
                 }
-                break;
+
+                if (consumed) {
+                    break;
+                }
             }
         }
 

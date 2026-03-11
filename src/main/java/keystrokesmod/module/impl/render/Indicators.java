@@ -1,5 +1,6 @@
 package keystrokesmod.module.impl.render;
 
+import keystrokesmod.event.PreUpdateEvent;
 import keystrokesmod.mixin.impl.accessor.IAccessorEntityArrow;
 import keystrokesmod.mixin.impl.accessor.IAccessorEntityRenderer;
 import keystrokesmod.mixin.impl.accessor.IAccessorMinecraft;
@@ -7,13 +8,8 @@ import keystrokesmod.module.Module;
 import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.GroupSetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
-import keystrokesmod.utility.BlockUtils;
 import keystrokesmod.utility.RenderUtils;
 import keystrokesmod.utility.Utils;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockAir;
-import net.minecraft.block.BlockFire;
-import net.minecraft.block.BlockLiquid;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.entity.Entity;
@@ -21,9 +17,7 @@ import net.minecraft.entity.item.EntityEnderPearl;
 import net.minecraft.entity.projectile.*;
 import net.minecraft.init.Items;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.BlockPos;
 import net.minecraft.util.Vec3;
-import net.minecraftforge.event.entity.EntityJoinWorldEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 import org.lwjgl.opengl.GL11;
@@ -46,11 +40,11 @@ public class Indicators extends Module {
     private ButtonSetting itemColors;
     private ButtonSetting renderItem;
     private ButtonSetting renderDistance;
-    private ButtonSetting threatsOnly;
+    private ButtonSetting onlyWhenApproaching;
     private ButtonSetting renderOnlyOffScreen;
 
-    private HashSet<Entity> threats = new HashSet<>();
-    private Map<String, String> lastHeldItems = new ConcurrentHashMap<>();
+    private final Map<Entity, Double> previousDistanceSq = new ConcurrentHashMap<>();
+    private final Map<Entity, Double> currentDistanceSq = new ConcurrentHashMap<>();
 
     private String[] arrowTypes = new String[] { "Caret", "Greater than", "Triangle" };
 
@@ -67,13 +61,43 @@ public class Indicators extends Module {
         this.registerSetting(itemColors = new ButtonSetting("Item colors", true));
         this.registerSetting(renderItem = new ButtonSetting("Render item", true));
         this.registerSetting(renderDistance = new ButtonSetting("Render distance", true));
-        this.registerSetting(threatsOnly = new ButtonSetting("Render only threats", true));
+        this.registerSetting(onlyWhenApproaching = new ButtonSetting("Only when approaching", false));
         this.registerSetting(renderOnlyOffScreen = new ButtonSetting("Render only offscreen", false));
     }
 
     public void onDisable() {
-        this.threats.clear();
-        this.lastHeldItems.clear();
+        this.previousDistanceSq.clear();
+        this.currentDistanceSq.clear();
+    }
+
+    @SubscribeEvent
+    public void onPreUpdate(PreUpdateEvent e) {
+        if (!Utils.nullCheck()) {
+            previousDistanceSq.clear();
+            currentDistanceSq.clear();
+            return;
+        }
+        try {
+            java.util.Set<Entity> seen = new HashSet<>();
+            for (Entity en : mc.theWorld.loadedEntityList) {
+                ItemStack itemStack = getTrackedItemStack(en);
+                if (itemStack == null || !canRender(en)) {
+                    continue;
+                }
+                seen.add(en);
+                double newDistanceSq = mc.thePlayer.getDistanceSqToEntity(en);
+                Double lastCurrentDistanceSq = currentDistanceSq.put(en, newDistanceSq);
+                if (lastCurrentDistanceSq != null) {
+                    previousDistanceSq.put(en, lastCurrentDistanceSq);
+                }
+                else {
+                    previousDistanceSq.remove(en);
+                }
+            }
+            currentDistanceSq.keySet().retainAll(seen);
+            previousDistanceSq.keySet().retainAll(seen);
+        }
+        catch (Exception ex) {}
     }
 
     @SubscribeEvent
@@ -89,32 +113,19 @@ public class Indicators extends Module {
                 if (en == null || en == mc.thePlayer) {
                     continue;
                 }
-                ItemStack itemStack = null;
-                if (en instanceof EntityArrow) {
-                    if (((IAccessorEntityArrow) en).getInGround()) {
-                        threats.remove(en);
+                ItemStack itemStack = getTrackedItemStack(en);
+                if (itemStack == null || !canRender(en)) {
+                    continue;
+                }
+                Double currentSq = currentDistanceSq.get(en);
+                if (currentSq == null) {
+                    currentSq = mc.thePlayer.getDistanceSqToEntity(en);
+                }
+                if (onlyWhenApproaching.isToggled()) {
+                    Double prevSq = previousDistanceSq.get(en);
+                    if (prevSq == null || currentSq >= prevSq) {
                         continue;
                     }
-                    itemStack = new ItemStack(Items.arrow);
-                }
-                else if (en instanceof EntityFireball) {
-                    itemStack = new ItemStack(Items.fire_charge);
-                }
-                else if (en instanceof EntityEnderPearl) {
-                    itemStack = new ItemStack(Items.ender_pearl);
-                }
-                else if (en instanceof EntityEgg) {
-                    itemStack = new ItemStack(Items.egg);
-                }
-                else if (en instanceof EntitySnowball) {
-                    itemStack = new ItemStack(Items.snowball);
-                }
-                if (!threats.contains(en)) {
-                    continue;
-                }
-                if (!mc.theWorld.loadedEntityList.contains(en) || !canRender(en)) {
-                    threats.remove(en);
-                    continue;
                 }
                 this.renderIndicatorFor(en, itemStack, event.renderTickTime);
             }
@@ -122,17 +133,29 @@ public class Indicators extends Module {
         catch (Exception e) {}
     }
 
-    @SubscribeEvent
-    public void onEntityJoin(EntityJoinWorldEvent e) {
-        if (!Utils.nullCheck()) {
-            return;
+    private ItemStack getTrackedItemStack(Entity en) {
+        if (en == null) {
+            return null;
         }
-        if (e.entity == mc.thePlayer) {
-            this.threats.clear();
+        if (en instanceof EntityArrow) {
+            if (((IAccessorEntityArrow) en).getInGround()) {
+                return null;
+            }
+            return new ItemStack(Items.arrow);
         }
-        else if (canRender(e.entity) && (mc.thePlayer.getDistanceSqToEntity(e.entity) > 36 || !threatsOnly.isToggled())) {
-            this.threats.add(e.entity);
+        if (en instanceof EntityFireball) {
+            return new ItemStack(Items.fire_charge);
         }
+        if (en instanceof EntityEnderPearl) {
+            return new ItemStack(Items.ender_pearl);
+        }
+        if (en instanceof EntityEgg) {
+            return new ItemStack(Items.egg);
+        }
+        if (en instanceof EntitySnowball) {
+            return new ItemStack(Items.snowball);
+        }
+        return null;
     }
 
     private boolean canRender(Entity entity) {
@@ -308,30 +331,6 @@ public class Indicators extends Module {
     }
 
     private boolean shouldRender(Entity en, ItemStack stack) {
-        if (threatsOnly.isToggled() && stack != null && stack.getItem() == Items.fire_charge) {
-            double x = en.posX;
-            double y = en.posY;
-            double z = en.posZ;
-            final double dx = x - en.lastTickPosX;
-            final double dy = y - en.lastTickPosY;
-            final double dz = z - en.lastTickPosZ;
-            if (dx != 0.0 || dy != 0.0 || dz != 0.0) {
-                for (int i = 0; i < 400.0; ++i) {
-                    final double dist = mc.thePlayer.getDistanceSq(x, y, z);
-                    if (dist <= 36) {
-                        return true;
-                    }
-                    final Block block = BlockUtils.getBlock(new BlockPos(x, y, z));
-                    if (!(block instanceof BlockAir) && !(block instanceof BlockLiquid) && !(block instanceof BlockFire)) {
-                        break;
-                    }
-                    x += dx * 0.5;
-                    y += dy * 0.5;
-                    z += dz * 0.5;
-                }
-            }
-            return false;
-        }
         return true;
     }
 }

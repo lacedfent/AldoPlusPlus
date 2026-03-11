@@ -7,6 +7,7 @@ import keystrokesmod.lag.api.LagRequest;
 import keystrokesmod.lag.timeout.ModuleBackedTimeout;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.setting.impl.ButtonSetting;
+import keystrokesmod.module.setting.impl.SliderSetting;
 import keystrokesmod.utility.RenderUtils;
 import keystrokesmod.utility.Utils;
 import net.minecraft.util.Vec3;
@@ -17,13 +18,16 @@ import java.awt.*;
 
 public class Blink extends Module {
     private ButtonSetting initialPosition;
+    private SliderSetting disableAfterMs;
 
     private Vec3 pos;
     private int color = new Color(0, 255, 0, 120).getRGB();
     private int blinkTicks;
+    private long enableTime;
 
     public Blink() {
         super("Blink", category.player);
+        this.registerSetting(disableAfterMs = new SliderSetting("Disable after", "ms", 500.0, 50.0, 1000.0, 50.0));
         this.registerSetting(initialPosition = new ButtonSetting("Show initial position", true));
     }
 
@@ -31,6 +35,7 @@ public class Blink extends Module {
     public void onEnable() {
         pos = new Vec3(mc.thePlayer.posX, mc.thePlayer.posY, mc.thePlayer.posZ);
         blinkTicks = 0;
+        enableTime = System.currentTimeMillis();
         Raven.lagHandler.requestLag(
                 new LagRequest(
                         EnumLagDirection.ONLY_OUTBOUND,
@@ -47,6 +52,10 @@ public class Blink extends Module {
     @SubscribeEvent
     public void onPreUpdate(PreUpdateEvent e) {
         ++blinkTicks;
+        long elapsed = System.currentTimeMillis() - enableTime;
+        if (elapsed >= (int) disableAfterMs.getInput()) {
+            this.disable();
+        }
     }
 
     // TODO: move this to an external display for all lag system stuff

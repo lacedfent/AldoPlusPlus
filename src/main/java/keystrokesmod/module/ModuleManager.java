@@ -66,6 +66,7 @@ public class ModuleManager {
     public static GhostHand ghostHand;
     public static AntiKnockback antiKnockback;
     public static ExtendCamera extendCamera;
+    public static Freelook freelook;
     public static InvManager invManager;
     public static Tower tower;
     public static NoCameraClip noCameraClip;
@@ -97,6 +98,7 @@ public class ModuleManager {
         this.addModule(killAura = new KillAura());
         this.addModule(piercing = new Piercing());
         this.addModule(ghostHand = new GhostHand());
+        this.addModule(new RawInput());
         this.addModule(reach = new Reach());
         this.addModule(reduce = new Reduce());
         this.addModule(new RodAimbot());
@@ -171,12 +173,16 @@ public class ModuleManager {
         this.addModule(bedESP = new BedESP());
         this.addModule(new BreakProgress());
         this.addModule(chams = new Chams());
+        this.addModule(new DamageTint());
         this.addModule(new ChestESP());
         this.addModule(extendCamera = new ExtendCamera());
+        this.addModule(freelook = new Freelook());
         this.addModule(new FallView());
+        this.addModule(new Holdlook());
         this.addModule(hud = new HUD());
         this.addModule(new Indicators());
         this.addModule(new ItemESP());
+        this.addModule(new ItemPhysics());
         this.addModule(new MobESP());
         // Legacy 2D Nametags module is deprecated in favor of the 3D-based replacement.
         // this.addModule(new Nametags());
@@ -188,6 +194,7 @@ public class ModuleManager {
         this.addModule(new Shaders());
         this.addModule(targetHUD = new TargetHUD());
         this.addModule(new Trajectories());
+        this.addModule(new TNTTimer());
         this.addModule(new Tracers());
         this.addModule(new Xray());
 

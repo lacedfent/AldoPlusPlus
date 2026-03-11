@@ -2,10 +2,13 @@ package keystrokesmod.mixin.impl.client;
 
 import keystrokesmod.event.*;
 import keystrokesmod.helper.RotationHelper;
+import keystrokesmod.module.ModuleManager;
+import keystrokesmod.module.impl.render.Freelook;
 import keystrokesmod.mixin.impl.accessor.IAccessorMinecraft;
 import org.objectweb.asm.Opcodes;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.settings.GameSettings;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraftforge.common.MinecraftForge;
 import org.spongepowered.asm.mixin.Mixin;
@@ -94,6 +97,15 @@ public class MixinMinecraft {
             return;
         }
         inventoryPlayer.changeCurrentItem(slot);
+    }
+
+    @Redirect(method = "runTick", at = @At(value = "FIELD", target = "Lnet/minecraft/client/settings/GameSettings;thirdPersonView:I", opcode = Opcodes.PUTFIELD))
+    private void onSetThirdPersonView(GameSettings gameSettings, int value) {
+        if (ModuleManager.freelook != null && Freelook.perspectiveToggled) {
+            ModuleManager.freelook.resetPerspective();
+        } else {
+            gameSettings.thirdPersonView = value;
+        }
     }
 
     @Redirect(method = "runTick", at = @At(value = "FIELD", target = "Lnet/minecraft/entity/player/InventoryPlayer;currentItem:I", opcode = Opcodes.PUTFIELD))

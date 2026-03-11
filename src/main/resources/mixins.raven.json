@@ -12,6 +12,7 @@
     "network.MixinNetworkManager",
     "entity.MixinEntityPlayer",
     "render.MixinRendererLivingEntity",
+    "render.MixinActiveRenderInfo",
     "render.MixinEntityRenderer",
     "network.MixinModList",
     "client.MixinMovementInputFromOptions",
@@ -23,12 +24,14 @@
     "render.MixinGuiChat",
     "render.MixinGuiScreen",
     "network.MixinNetHandlerPlayClient",
+    "render.MixinRenderEntityItem",
     "render.MixinRenderManager",
     "render.MixinCustomSky",
     "client.MixinPlayerControllerMP",
     "world.MixinBlock",
     "render.MixinRenderPlayer",
     "client.MixinGameSettings",
+    "client.MixinItemStack",
     "accessor.IAccessorEntityPlayerSP",
     "accessor.IAccessorEntityArrow",
     "accessor.IAccessorEntityLivingBase",
@@ -44,6 +47,7 @@
     "accessor.IAccessorS14PacketEntity",
     "accessor.IAccessorRenderManager",
     "accessor.IAccessorNetworkManager",
-    "accessor.IAccessorEntity"
+    "accessor.IAccessorEntity",
+    "accessor.IAccessorMouseHelper"
   ]
 }

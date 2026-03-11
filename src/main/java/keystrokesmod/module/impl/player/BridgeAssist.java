@@ -268,8 +268,7 @@ public class BridgeAssist extends Module {
     }
 
     private TargetResult findTarget(float currentPitch, double reach) {
-        float yawJitter = (float) (Math.random() * 2 - 1) * 0.3f;
-        float yaw = mc.thePlayer.rotationYaw + yawJitter;
+        float yaw = mc.thePlayer.rotationYaw;
 
         AxisAlignedBB bbox = mc.thePlayer.getEntityBoundingBox();
         int standY = MathHelper.floor_double(bbox.minY) - 1;

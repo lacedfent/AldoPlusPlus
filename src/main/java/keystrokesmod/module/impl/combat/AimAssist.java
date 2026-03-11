@@ -34,7 +34,10 @@ public class AimAssist extends Module {
     private ButtonSetting ignoreTeammates;
     private ButtonSetting ignoreBehindWalls;
     private ButtonSetting stopWhenBreaking;
+    private SliderSetting hoverDelay;
     private ButtonSetting weaponOnly;
+
+    private long miningStartTime = -1;
 
     private String[] AIM_MODES = new String[]{"Normal", "Silent"};
     private String[] SORT_MODES = new String[]{"Health", "Angle", "Hurt time", "Distance"};
@@ -54,7 +57,18 @@ public class AimAssist extends Module {
         this.registerSetting(clickAim = new ButtonSetting("Require mouse", true));
         this.registerSetting(ignoreTeammates = new ButtonSetting("Ignore teammates", true));
         this.registerSetting(stopWhenBreaking = new ButtonSetting("Stop when breaking", false));
+        this.registerSetting(hoverDelay = new SliderSetting("Hover delay", " ms", 100, 0, 500, 10));
         this.registerSetting(weaponOnly = new ButtonSetting("Weapon only", false));
+    }
+
+    @Override
+    public void guiUpdate() {
+        hoverDelay.setVisible(stopWhenBreaking.isToggled(), this);
+    }
+
+    @Override
+    public void onDisable() {
+        miningStartTime = -1;
     }
 
     @SubscribeEvent(priority = EventPriority.NORMAL)
@@ -193,7 +207,15 @@ public class AimAssist extends Module {
             return false;
         }
         if (stopWhenBreaking.isToggled() && Utils.isMining()) {
-            return false;
+            if (miningStartTime == -1) {
+                miningStartTime = System.currentTimeMillis();
+            }
+            long elapsed = System.currentTimeMillis() - miningStartTime;
+            if (elapsed >= hoverDelay.getInput()) {
+                return false;
+            }
+        } else {
+            miningStartTime = -1;
         }
         return true;
     }

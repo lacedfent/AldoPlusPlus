@@ -99,13 +99,14 @@ public class GroupComponent extends Component {
     }
 
     public boolean onClick(int x, int y, int b) {
-        if (this.overGroup(x, y) && b == 1 && this.component.isOpened) {
+        if (this.overGroup(x, y) && (b == 0 || b == 1) && this.component.isOpened) {
             float currentProgress = getAnimationProgress();
             this.animationStartProgress = currentProgress;
             this.opened = !this.opened;
             this.animationTargetProgress = this.opened ? 1f : 0f;
             (this.smoothTimer = new Timer(ANIMATION_DURATION)).start();
             this.component.updateSettingPositions();
+            return true;
         }
         return false;
     }

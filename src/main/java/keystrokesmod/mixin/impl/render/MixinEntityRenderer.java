@@ -3,6 +3,7 @@ package keystrokesmod.mixin.impl.render;
 import keystrokesmod.event.PostMouseSelectionEvent;
 import keystrokesmod.helper.RotationHelper;
 import keystrokesmod.module.ModuleManager;
+import keystrokesmod.module.impl.render.Freelook;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.client.renderer.EntityRenderer;
@@ -38,6 +39,43 @@ public class MixinEntityRenderer {
             return ModuleManager.extendCamera != null && ModuleManager.extendCamera.isEnabled() ? ModuleManager.extendCamera.distance.getInput() : 4;
         }
         return raytrace.distanceTo(original);
+    }
+
+    @Redirect(method = "orientCamera", at = @At(value = "FIELD", target = "Lnet/minecraft/entity/Entity;rotationYaw:F"))
+    private float freelookRotationYaw(Entity entity) {
+        if (ModuleManager.freelook != null && ModuleManager.freelook.isEnabled() && Freelook.perspectiveToggled) {
+            return Freelook.cameraYaw;
+        }
+        return entity.rotationYaw;
+    }
+
+    @Redirect(method = "orientCamera", at = @At(value = "FIELD", target = "Lnet/minecraft/entity/Entity;prevRotationYaw:F"))
+    private float freelookPrevRotationYaw(Entity entity) {
+        if (ModuleManager.freelook != null && ModuleManager.freelook.isEnabled() && Freelook.perspectiveToggled) {
+            return Freelook.cameraYaw;
+        }
+        return entity.prevRotationYaw;
+    }
+
+    @Redirect(method = "orientCamera", at = @At(value = "FIELD", target = "Lnet/minecraft/entity/Entity;rotationPitch:F"))
+    private float freelookRotationPitch(Entity entity) {
+        if (ModuleManager.freelook != null && ModuleManager.freelook.isEnabled() && Freelook.perspectiveToggled) {
+            return Freelook.cameraPitch;
+        }
+        return entity.rotationPitch;
+    }
+
+    @Redirect(method = "orientCamera", at = @At(value = "FIELD", target = "Lnet/minecraft/entity/Entity;prevRotationPitch:F"))
+    private float freelookPrevRotationPitch(Entity entity) {
+        if (ModuleManager.freelook != null && ModuleManager.freelook.isEnabled() && Freelook.perspectiveToggled) {
+            return Freelook.cameraPitch;
+        }
+        return entity.prevRotationPitch;
+    }
+
+    @Redirect(method = "updateCameraAndRender", at = @At(value = "FIELD", target = "Lnet/minecraft/client/Minecraft;inGameHasFocus:Z"))
+    private boolean freelookOverrideMouse(Minecraft mc) {
+        return Freelook.overrideMouse(mc);
     }
 
     @Redirect(method = "setupFog", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/EntityLivingBase;isPotionActive(Lnet/minecraft/potion/Potion;)Z"))

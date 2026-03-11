@@ -69,7 +69,8 @@ public class AntiFireball extends Module {
     @SubscribeEvent
     public void onPrePlayerInput(PrePlayerInputEvent e) {
         if (!Utils.nullCheck()) return;
-        if (fireball != null && sneakWhileActive.isToggled()) {
+        if (fireball != null && sneakWhileActive.isToggled() && !mc.thePlayer.isRiding()
+                && !mc.thePlayer.capabilities.isFlying) {
             e.setSneak(true);
         }
     }

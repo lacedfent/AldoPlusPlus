@@ -36,9 +36,9 @@ public class ColorComponent extends Component {
     private static final float SQUARE_SIZE = 50f;
     private static final float HUE_BAR_WIDTH = 10f;
     private static final float HUE_GAP = 4f;
+    private static final float ALPHA_BAR_WIDTH = 10f;
+    private static final float ALPHA_GAP = 4f;
     private static final float SQUARE_TOP_PAD = 2f;
-    private static final float ALPHA_BAR_HEIGHT = 8f;
-    private static final float ALPHA_TOP_PAD = 4f;
     private static final float BOTTOM_PAD = 2f;
     private static final int HUE_STEPS = 20;
     private static final float PREVIEW_BOX_SIZE = 5f;
@@ -54,11 +54,7 @@ public class ColorComponent extends Component {
     }
 
     public float getExpandedHeight() {
-        float h = LABEL_HEIGHT + SQUARE_TOP_PAD + SQUARE_SIZE + BOTTOM_PAD;
-        if (colorSetting.hasAlpha()) {
-            h += ALPHA_TOP_PAD + ALPHA_BAR_HEIGHT;
-        }
-        return h;
+        return LABEL_HEIGHT + SQUARE_TOP_PAD + SQUARE_SIZE + BOTTOM_PAD;
     }
 
     public float getAnimationProgress() {
@@ -88,9 +84,21 @@ public class ColorComponent extends Component {
         float boxY = cy + o + 3f;
         RenderUtils.drawRect(boxX - 0.5, boxY - 0.5,
                 boxX + PREVIEW_BOX_SIZE + 0.5, boxY + PREVIEW_BOX_SIZE + 0.5, 0xFF3C3C46);
+        if (colorSetting.hasAlpha()) {
+            int checkSize = 2;
+            for (float px = boxX; px < boxX + PREVIEW_BOX_SIZE; px += checkSize) {
+                for (float py = boxY; py < boxY + PREVIEW_BOX_SIZE; py += checkSize) {
+                    int col = ((int) ((px - boxX) / checkSize) + (int) ((py - boxY) / checkSize)) % 2 == 0
+                            ? 0xFF666666 : 0xFF999999;
+                    RenderUtils.drawRect(px, py,
+                            Math.min(px + checkSize, boxX + PREVIEW_BOX_SIZE),
+                            Math.min(py + checkSize, boxY + PREVIEW_BOX_SIZE), col);
+                }
+            }
+        }
         RenderUtils.drawRect(boxX, boxY,
                 boxX + PREVIEW_BOX_SIZE, boxY + PREVIEW_BOX_SIZE,
-                colorSetting.getColor() | 0xFF000000);
+                colorSetting.getColor());
 
         GL11.glPushMatrix();
         GL11.glScaled(0.5, 0.5, 0.5);
@@ -174,41 +182,40 @@ public class ColorComponent extends Component {
                     hueRight, sqTop + (i + 1) * stepH, c1, c2);
         }
 
+        RenderUtils.drawOutline(hueLeft - 1, sqTop - 1, hueRight + 1, sqBottom + 1,
+                1f, 0xFF3C3C46);
+
         float hueIndY = sqTop + Math.max(0, Math.min(1, hue)) * SQUARE_SIZE;
         RenderUtils.drawRect(hueLeft - 1, hueIndY - 1,
                 hueRight + 1, hueIndY + 2, 0xFFFFFFFF);
 
-        RenderUtils.drawOutline(hueLeft - 1, sqTop - 1, hueRight + 1, sqBottom + 1,
-                1f, 0xFF3C3C46);
-
         if (colorSetting.hasAlpha()) {
-            float alphaTop = sqBottom + ALPHA_TOP_PAD;
-            float alphaBottom = alphaTop + ALPHA_BAR_HEIGHT;
-            float alphaRight = hueRight;
+            float alphaLeft = hueRight + ALPHA_GAP;
+            float alphaRight = alphaLeft + ALPHA_BAR_WIDTH;
 
             int checkSize = 4;
-            for (float ax = areaLeft; ax < alphaRight; ax += checkSize) {
-                for (float ay = alphaTop; ay < alphaBottom; ay += checkSize) {
-                    int col = ((int) ((ax - areaLeft) / checkSize)
-                            + (int) ((ay - alphaTop) / checkSize)) % 2 == 0
+            for (float ax = alphaLeft; ax < alphaRight; ax += checkSize) {
+                for (float ay = sqTop; ay < sqBottom; ay += checkSize) {
+                    int col = ((int) ((ax - alphaLeft) / checkSize)
+                            + (int) ((ay - sqTop) / checkSize)) % 2 == 0
                             ? 0xFF666666 : 0xFF999999;
                     RenderUtils.drawRect(ax, ay,
                             Math.min(ax + checkSize, alphaRight),
-                            Math.min(ay + checkSize, alphaBottom), col);
+                            Math.min(ay + checkSize, sqBottom), col);
                 }
             }
 
             int rgb = colorSetting.getRGB();
-            RenderUtils.drawHorizontalGradientRect(areaLeft, alphaTop, alphaRight, alphaBottom,
+            RenderUtils.drawVerticalGradientRect(alphaLeft, sqTop, alphaRight, sqBottom,
                     rgb & 0x00FFFFFF, rgb | 0xFF000000);
 
-            float alphaFrac = colorSetting.getAlpha() / 255f;
-            float alphaIndX = areaLeft + alphaFrac * (alphaRight - areaLeft);
-            RenderUtils.drawRect(alphaIndX - 1, alphaTop - 1,
-                    alphaIndX + 2, alphaBottom + 1, 0xFFFFFFFF);
-
-            RenderUtils.drawOutline(areaLeft - 1, alphaTop - 1, alphaRight + 1, alphaBottom + 1,
+            RenderUtils.drawOutline(alphaLeft - 1, sqTop - 1, alphaRight + 1, sqBottom + 1,
                     1f, 0xFF3C3C46);
+
+            float alphaFrac = colorSetting.getAlpha() / 255f;
+            float alphaIndY = sqTop + alphaFrac * SQUARE_SIZE;
+            RenderUtils.drawRect(alphaLeft - 1, alphaIndY - 1,
+                    alphaRight + 1, alphaIndY + 2, 0xFFFFFFFF);
         }
     }
 
@@ -236,8 +243,7 @@ public class ColorComponent extends Component {
             colorSetting.setFromHSB(cachedHue, cachedSat, cachedBri);
             markUnsaved();
         } else if (dragMode == 3 && colorSetting.hasAlpha()) {
-            float alphaW = hueRight - areaLeft;
-            float a = Math.max(0, Math.min(1, (mouseX - areaLeft) / alphaW));
+            float a = Math.max(0, Math.min(1, (mouseY - sqTop) / SQUARE_SIZE));
             colorSetting.setAlpha((int) (a * 255));
             markUnsaved();
         }
@@ -245,7 +251,7 @@ public class ColorComponent extends Component {
 
     @Override
     public boolean onClick(int mouseX, int mouseY, int button) {
-        if (button != 0 || !moduleComponent.isOpened || !moduleComponent.isVisible(this)) {
+        if (!moduleComponent.isOpened || !moduleComponent.isVisible(this)) {
             return false;
         }
 
@@ -253,15 +259,18 @@ public class ColorComponent extends Component {
 
         if (mouseX > this.x && mouseX < this.x + cw
                 && mouseY > this.y && mouseY < this.y + LABEL_HEIGHT) {
-            float currentProgress = getAnimationProgress();
-            this.animationStartProgress = currentProgress;
-            this.expanded = !this.expanded;
-            this.animationTargetProgress = this.expanded ? 1f : 0f;
-            (this.smoothTimer = new Timer(ANIMATION_DURATION)).start();
-            moduleComponent.updateSettingPositions();
-            return true;
+            if (button == 0 || button == 1) {
+                float currentProgress = getAnimationProgress();
+                this.animationStartProgress = currentProgress;
+                this.expanded = !this.expanded;
+                this.animationTargetProgress = this.expanded ? 1f : 0f;
+                (this.smoothTimer = new Timer(ANIMATION_DURATION)).start();
+                moduleComponent.updateSettingPositions();
+                return true;
+            }
         }
 
+        if (button != 0) return false;
         if (getAnimationProgress() < 1f) return false;
 
         float areaLeft = this.x + 4 + (xOffset / 2);
@@ -286,10 +295,10 @@ public class ColorComponent extends Component {
         }
 
         if (colorSetting.hasAlpha()) {
-            float alphaTop = sqBottom + ALPHA_TOP_PAD;
-            float alphaBottom = alphaTop + ALPHA_BAR_HEIGHT;
-            if (mouseX >= areaLeft && mouseX <= hueRight
-                    && mouseY >= alphaTop - 2 && mouseY <= alphaBottom + 2) {
+            float alphaLeft = hueRight + ALPHA_GAP;
+            float alphaRight = alphaLeft + ALPHA_BAR_WIDTH;
+            if (mouseX >= alphaLeft - 2 && mouseX <= alphaRight + 2
+                    && mouseY >= sqTop && mouseY <= sqBottom) {
                 cacheHSB();
                 dragMode = 3;
                 return false;

@@ -3,6 +3,7 @@ package keystrokesmod.module.impl.render;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.impl.world.AntiBot;
 import keystrokesmod.module.setting.impl.ButtonSetting;
+import keystrokesmod.module.setting.impl.ColorSetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
 import keystrokesmod.utility.RenderUtils;
 import keystrokesmod.utility.Utils;
@@ -41,6 +42,8 @@ public class Nametags3D extends Module {
     private ButtonSetting showDurability;
     private ButtonSetting showYourself;
     private ButtonSetting hideVanilla;
+    private ColorSetting friendColor;
+    private ColorSetting enemyColor;
     private final List<NametagRenderTarget> renderTargets = new ArrayList<>();
     private int renderTargetCount = 0;
 
@@ -49,15 +52,13 @@ public class Nametags3D extends Module {
         double x;
         double y;
         double z;
-        float distance;
         double distanceSq;
 
-        void set(EntityPlayer player, double x, double y, double z, float distance, double distanceSq) {
+        void set(EntityPlayer player, double x, double y, double z, double distanceSq) {
             this.player = player;
             this.x = x;
             this.y = y;
             this.z = z;
-            this.distance = distance;
             this.distanceSq = distanceSq;
         }
     }
@@ -79,6 +80,8 @@ public class Nametags3D extends Module {
         this.registerSetting(showDurability = new ButtonSetting("Show Durability", false));
         this.registerSetting(showYourself = new ButtonSetting("Show Yourself", false));
         this.registerSetting(hideVanilla = new ButtonSetting("Hide Vanilla", true));
+        this.registerSetting(friendColor = new ColorSetting("Friend color", 85, 255, 255));
+        this.registerSetting(enemyColor = new ColorSetting("Enemy color", 255, 85, 85));
     }
 
     @SubscribeEvent
@@ -105,27 +108,39 @@ public class Nametags3D extends Module {
         if (fr == null) return;
         renderTargetCount = 0;
 
-        for (EntityPlayer player : mc.theWorld.playerEntities) {
-            if (!shouldRenderNametag(player)) continue;
-            if (!RenderUtils.isInViewFrustum(player)) continue;
+        double vx = rm.viewerPosX;
+        double vy = rm.viewerPosY;
+        double vz = rm.viewerPosZ;
 
-            double x = player.lastTickPosX + (player.posX - player.lastTickPosX) * partialTicks - rm.viewerPosX;
-            double y = player.lastTickPosY + (player.posY - player.lastTickPosY) * partialTicks - rm.viewerPosY;
-            double z = player.lastTickPosZ + (player.posZ - player.lastTickPosZ) * partialTicks - rm.viewerPosZ;
+        for (EntityPlayer player : mc.theWorld.playerEntities) {
+            if (!RenderUtils.isInViewFrustum(player)) continue;
+            if (!shouldRenderNametag(player)) continue;
+
+            double x = player.lastTickPosX + (player.posX - player.lastTickPosX) * partialTicks - vx;
+            double y = player.lastTickPosY + (player.posY - player.lastTickPosY) * partialTicks - vy;
+            double z = player.lastTickPosZ + (player.posZ - player.lastTickPosZ) * partialTicks - vz;
             double distanceSq = x * x + y * y + z * z;
-            float distance = (float) Math.sqrt(distanceSq);
 
             if (renderTargetCount >= renderTargets.size()) {
                 renderTargets.add(new NametagRenderTarget());
             }
-            renderTargets.get(renderTargetCount++).set(player, x, y, z, distance, distanceSq);
+            NametagRenderTarget t = renderTargets.get(renderTargetCount++);
+            t.set(player, x, y, z, distanceSq);
+        }
+
+        if (renderTargetCount == 0) {
+            return;
         }
 
         renderTargets.subList(0, renderTargetCount).sort(FAR_TO_NEAR);
 
+        boolean needDistance = showDistance.isToggled();
+        boolean needScaleByDistance = autoScale.isToggled();
+
         for (int i = 0; i < renderTargetCount; i++) {
             NametagRenderTarget target = renderTargets.get(i);
-            renderCustomName(target.player, target.x, target.y, target.z, target.distance, rm, fr);
+            renderCustomName(target.player, target.x, target.y, target.z, target.distanceSq,
+                    needDistance, needScaleByDistance, rm, fr);
         }
 
         GlStateManager.enableDepth();
@@ -149,8 +164,10 @@ public class Nametags3D extends Module {
         return !AntiBot.isBot(player);
     }
 
-    private void renderCustomName(EntityPlayer entity, double x, double y, double z, float interpolatedDist,
-                                   RenderManager rm, FontRenderer fr) {
+    private void renderCustomName(EntityPlayer entity, double x, double y, double z, double distanceSq,
+                                   boolean showDist, boolean scaleByDist, RenderManager rm, FontRenderer fr) {
+        float interpolatedDist = (showDist || scaleByDist) ? (float) Math.sqrt(distanceSq) : 0.0F;
+
         String name;
         int teamColor = Utils.getColorFromEntity(entity);
 
@@ -166,7 +183,7 @@ public class Nametags3D extends Module {
             name = appendHealth(name, entity);
         }
 
-        if (showDistance.isToggled()) {
+        if (showDist) {
             int dist = (int) interpolatedDist;
             String distColor = dist <= 8 ? "\u00a7c" : (dist <= 15 ? "\u00a76" : (dist <= 25 ? "\u00a7e" : "\u00a77"));
             name = distColor + dist + "m\u00a7r " + name;
@@ -174,7 +191,7 @@ public class Nametags3D extends Module {
 
         float scaleVal = (float) scale.getInput() * 0.02F;
 
-        if (autoScale.isToggled()) {
+        if (scaleByDist) {
             float effectiveDistance = Math.max(1.0F, interpolatedDist);
             float scaledVal = scaleVal * (effectiveDistance / AUTO_SCALE_THRESHOLD);
             scaleVal = Math.max(scaleVal, scaledVal);
@@ -197,17 +214,22 @@ public class Nametags3D extends Module {
         int stringWidth = fr.getStringWidth(name) / 2;
 
         ItemStack heldItem = null;
-        int armorCount = 0;
+        ItemStack slot1 = null, slot2 = null, slot3 = null, slot4 = null;
+        int totalItems = 0;
         if (showArmor.isToggled()) {
             heldItem = entity.getEquipmentInSlot(0);
-            for (int i = 4; i >= 1; i--) {
-                ItemStack stack = entity.getEquipmentInSlot(i);
-                if (stack != null) armorCount++;
-            }
+            if (heldItem != null) totalItems++;
+            slot1 = entity.getEquipmentInSlot(1);
+            if (slot1 != null) totalItems++;
+            slot2 = entity.getEquipmentInSlot(2);
+            if (slot2 != null) totalItems++;
+            slot3 = entity.getEquipmentInSlot(3);
+            if (slot3 != null) totalItems++;
+            slot4 = entity.getEquipmentInSlot(4);
+            if (slot4 != null) totalItems++;
         }
 
-        int totalItems = armorCount + (heldItem != null ? 1 : 0);
-        int itemSpacing = 14;
+        final int itemSpacing = 14;
         int armorTotalWidth = totalItems * itemSpacing;
         int textY = 0;
 
@@ -219,9 +241,9 @@ public class Nametags3D extends Module {
 
         int nameColor = 0xFFFFFFFF;
         if (Utils.isFriended(entity)) {
-            nameColor = 0xFF55FFFF;
+            nameColor = friendColor.getColor();
         } else if (Utils.isEnemy(entity)) {
-            nameColor = 0xFFFF5555;
+            nameColor = enemyColor.getColor();
         }
 
         fr.drawString(name, -stringWidth, textY, nameColor, textShadow.isToggled());
@@ -234,14 +256,10 @@ public class Nametags3D extends Module {
                 renderItemStack(heldItem, iconX, iconY, fr);
                 iconX += itemSpacing;
             }
-
-            for (int i = 4; i >= 1; i--) {
-                ItemStack armorStack = entity.getEquipmentInSlot(i);
-                if (armorStack != null) {
-                    renderItemStack(armorStack, iconX, iconY, fr);
-                    iconX += itemSpacing;
-                }
-            }
+            if (slot4 != null) { renderItemStack(slot4, iconX, iconY, fr); iconX += itemSpacing; }
+            if (slot3 != null) { renderItemStack(slot3, iconX, iconY, fr); iconX += itemSpacing; }
+            if (slot2 != null) { renderItemStack(slot2, iconX, iconY, fr); iconX += itemSpacing; }
+            if (slot1 != null) { renderItemStack(slot1, iconX, iconY, fr); }
         }
 
         GlStateManager.enableDepth();
@@ -280,27 +298,33 @@ public class Nametags3D extends Module {
             }
 
             float borderZ = -0.001F;
+            float l = -stringWidth - 4;
+            float r_ = stringWidth + 4;
+            float t = textY - 4;
+            float b_ = textY + 11;
+            float l2 = -stringWidth - 3;
+            float r2 = stringWidth + 3;
 
             worldRenderer.begin(7, DefaultVertexFormats.POSITION_COLOR);
-            worldRenderer.pos(-stringWidth - 4, textY - 4, borderZ).color(r, g, b, 1.0F).endVertex();
-            worldRenderer.pos(-stringWidth - 4, textY - 3, borderZ).color(r, g, b, 1.0F).endVertex();
-            worldRenderer.pos(stringWidth + 4, textY - 3, borderZ).color(r, g, b, 1.0F).endVertex();
-            worldRenderer.pos(stringWidth + 4, textY - 4, borderZ).color(r, g, b, 1.0F).endVertex();
+            worldRenderer.pos(l, textY - 3, borderZ).color(r, g, b, 1.0F).endVertex();
+            worldRenderer.pos(l, t, borderZ).color(r, g, b, 1.0F).endVertex();
+            worldRenderer.pos(r_, t, borderZ).color(r, g, b, 1.0F).endVertex();
+            worldRenderer.pos(r_, textY - 3, borderZ).color(r, g, b, 1.0F).endVertex();
 
-            worldRenderer.pos(-stringWidth - 4, textY + 10, borderZ).color(r, g, b, 1.0F).endVertex();
-            worldRenderer.pos(-stringWidth - 4, textY + 11, borderZ).color(r, g, b, 1.0F).endVertex();
-            worldRenderer.pos(stringWidth + 4, textY + 11, borderZ).color(r, g, b, 1.0F).endVertex();
-            worldRenderer.pos(stringWidth + 4, textY + 10, borderZ).color(r, g, b, 1.0F).endVertex();
+            worldRenderer.pos(l, b_, borderZ).color(r, g, b, 1.0F).endVertex();
+            worldRenderer.pos(l, textY + 10, borderZ).color(r, g, b, 1.0F).endVertex();
+            worldRenderer.pos(r_, textY + 10, borderZ).color(r, g, b, 1.0F).endVertex();
+            worldRenderer.pos(r_, b_, borderZ).color(r, g, b, 1.0F).endVertex();
 
-            worldRenderer.pos(-stringWidth - 4, textY - 4, borderZ).color(r, g, b, 1.0F).endVertex();
-            worldRenderer.pos(-stringWidth - 4, textY + 11, borderZ).color(r, g, b, 1.0F).endVertex();
-            worldRenderer.pos(-stringWidth - 3, textY + 11, borderZ).color(r, g, b, 1.0F).endVertex();
-            worldRenderer.pos(-stringWidth - 3, textY - 4, borderZ).color(r, g, b, 1.0F).endVertex();
+            worldRenderer.pos(l2, b_, borderZ).color(r, g, b, 1.0F).endVertex();
+            worldRenderer.pos(l, b_, borderZ).color(r, g, b, 1.0F).endVertex();
+            worldRenderer.pos(l, t, borderZ).color(r, g, b, 1.0F).endVertex();
+            worldRenderer.pos(l2, t, borderZ).color(r, g, b, 1.0F).endVertex();
 
-            worldRenderer.pos(stringWidth + 3, textY - 4, borderZ).color(r, g, b, 1.0F).endVertex();
-            worldRenderer.pos(stringWidth + 3, textY + 11, borderZ).color(r, g, b, 1.0F).endVertex();
-            worldRenderer.pos(stringWidth + 4, textY + 11, borderZ).color(r, g, b, 1.0F).endVertex();
-            worldRenderer.pos(stringWidth + 4, textY - 4, borderZ).color(r, g, b, 1.0F).endVertex();
+            worldRenderer.pos(r2, t, borderZ).color(r, g, b, 1.0F).endVertex();
+            worldRenderer.pos(r_, t, borderZ).color(r, g, b, 1.0F).endVertex();
+            worldRenderer.pos(r_, b_, borderZ).color(r, g, b, 1.0F).endVertex();
+            worldRenderer.pos(r2, b_, borderZ).color(r, g, b, 1.0F).endVertex();
             tessellator.draw();
         }
 
@@ -370,45 +394,71 @@ public class Nametags3D extends Module {
         GlStateManager.enableDepth();
     }
 
+    private static final int ENCHANT_LINE_HEIGHT = 8;
+    private static final int ENCHANT_Y_OFFSET = 24;
+
+    /** Enchant ID + abbreviation for display. Order defines draw order. */
+    private static final int[] ARMOR_ENCHANT_IDS = { 0, 7, 34 };
+    private static final String[] ARMOR_ENCHANT_ABBR = { "P", "T", "U" };
+
+    private static final int[] SWORD_ENCHANT_IDS = { 16, 20, 19 };
+    private static final String[] SWORD_ENCHANT_ABBR = { "S", "F", "K" };
+
+    private static final int[] BOW_ENCHANT_IDS = { 48, 49, 50 };
+    private static final String[] BOW_ENCHANT_ABBR = { "Pw", "Pu", "Fl" };
+
+    private static final int[] TOOL_ENCHANT_IDS = { 32, 35, 34 };
+    private static final String[] TOOL_ENCHANT_ABBR = { "E", "Fo", "U" };
+
+    private static final int[] MISC_ENCHANT_IDS = { 19 };
+    private static final String[] MISC_ENCHANT_ABBR = { "K" };
+
     private void renderEnchantText(ItemStack stack, int xPos, int yPos, FontRenderer fr) {
-        int newYPos = yPos - 24;
-        int x = xPos * 2;
-
-        if (stack.getItem() instanceof ItemArmor) {
-            int prot = EnchantmentHelper.getEnchantmentLevel(0, stack);
-            int thorns = EnchantmentHelper.getEnchantmentLevel(7, stack);
-            int unbreak = EnchantmentHelper.getEnchantmentLevel(34, stack);
-
-            if (prot > 0) { RenderUtils.drawEnchantWithColor(fr, "P", prot, x, newYPos); newYPos += 8; }
-            if (thorns > 0) { RenderUtils.drawEnchantWithColor(fr, "T", thorns, x, newYPos); newYPos += 8; }
-            if (unbreak > 0) { RenderUtils.drawEnchantWithColor(fr, "U", unbreak, x, newYPos); }
-        } else if (stack.getItem() instanceof ItemSword) {
-            int sharp = EnchantmentHelper.getEnchantmentLevel(16, stack);
-            int fire = EnchantmentHelper.getEnchantmentLevel(20, stack);
-            int kb = EnchantmentHelper.getEnchantmentLevel(19, stack);
-
-            if (sharp > 0) { RenderUtils.drawEnchantWithColor(fr, "S", sharp, x, newYPos); newYPos += 8; }
-            if (fire > 0) { RenderUtils.drawEnchantWithColor(fr, "F", fire, x, newYPos); newYPos += 8; }
-            if (kb > 0) { RenderUtils.drawEnchantWithColor(fr, "K", kb, x, newYPos); }
-        } else if (stack.getItem() instanceof ItemBow) {
-            int power = EnchantmentHelper.getEnchantmentLevel(48, stack);
-            int punch = EnchantmentHelper.getEnchantmentLevel(49, stack);
-            int flame = EnchantmentHelper.getEnchantmentLevel(50, stack);
-
-            if (power > 0) { RenderUtils.drawEnchantWithColor(fr, "Pw", power, x, newYPos); newYPos += 8; }
-            if (punch > 0) { RenderUtils.drawEnchantWithColor(fr, "Pu", punch, x, newYPos); newYPos += 8; }
-            if (flame > 0) { RenderUtils.drawEnchantWithColor(fr, "Fl", flame, x, newYPos); }
-        } else if (stack.getItem() instanceof ItemTool) {
-            int eff = EnchantmentHelper.getEnchantmentLevel(32, stack);
-            int unbreak = EnchantmentHelper.getEnchantmentLevel(34, stack);
-            int fortune = EnchantmentHelper.getEnchantmentLevel(35, stack);
-
-            if (eff > 0) { RenderUtils.drawEnchantWithColor(fr, "E", eff, x, newYPos); newYPos += 8; }
-            if (fortune > 0) { RenderUtils.drawEnchantWithColor(fr, "Fo", fortune, x, newYPos); newYPos += 8; }
-            if (unbreak > 0) { RenderUtils.drawEnchantWithColor(fr, "U", unbreak, x, newYPos); }
+        int[] ids;
+        String[] abbrs;
+        Item item = stack.getItem();
+        if (item instanceof ItemArmor) {
+            ids = ARMOR_ENCHANT_IDS;
+            abbrs = ARMOR_ENCHANT_ABBR;
+        } else if (item instanceof ItemSword) {
+            ids = SWORD_ENCHANT_IDS;
+            abbrs = SWORD_ENCHANT_ABBR;
+        } else if (item instanceof ItemBow) {
+            ids = BOW_ENCHANT_IDS;
+            abbrs = BOW_ENCHANT_ABBR;
+        } else if (item instanceof ItemTool) {
+            ids = TOOL_ENCHANT_IDS;
+            abbrs = TOOL_ENCHANT_ABBR;
         } else {
-            int kb = EnchantmentHelper.getEnchantmentLevel(19, stack);
-            if (kb > 0) { RenderUtils.drawEnchantWithColor(fr, "K", kb, x, newYPos); }
+            ids = MISC_ENCHANT_IDS;
+            abbrs = MISC_ENCHANT_ABBR;
         }
+
+        int drawX = xPos * 2;
+        int drawY = yPos - ENCHANT_Y_OFFSET;
+
+        for (int i = 0; i < ids.length; i++) {
+            int level = EnchantmentHelper.getEnchantmentLevel(ids[i], stack);
+            if (level <= 0) continue;
+            drawEnchantLine(fr, abbrs[i], level, drawX, drawY);
+            drawY += ENCHANT_LINE_HEIGHT;
+        }
+    }
+
+    private void drawEnchantLine(FontRenderer fr, String abbreviation, int level, int x, int y) {
+        fr.drawStringWithShadow(abbreviation, x, y, 0xFFFFFF);
+        int advance = fr.getStringWidth(abbreviation);
+        fr.drawStringWithShadow(String.valueOf(level), x + advance, y, colorForEnchantLevel(level));
+    }
+
+    private int colorForEnchantLevel(int level) {
+        if (level <= 5) {
+            if (level == 1) return 0xFFFFFF;
+            if (level == 2) return 0x55FFFF;
+            if (level == 3) return 0x00AAAA;
+            if (level == 4) return 0xAA00AA;
+            if (level == 5) return 0xFFAA00;
+        }
+        return 0xFF55FF;
     }
 }

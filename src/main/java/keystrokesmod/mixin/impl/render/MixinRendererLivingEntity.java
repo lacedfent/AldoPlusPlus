@@ -1,6 +1,8 @@
 package keystrokesmod.mixin.impl.render;
 
 import keystrokesmod.module.ModuleManager;
+import keystrokesmod.module.impl.render.DamageTint;
+import keystrokesmod.module.impl.render.PlayerESP;
 import keystrokesmod.module.impl.world.AntiBot;
 import keystrokesmod.utility.Utils;
 import net.minecraft.client.Minecraft;
@@ -19,8 +21,11 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.awt.*;
 
@@ -72,6 +77,10 @@ public abstract class MixinRendererLivingEntity<T extends EntityLivingBase> exte
             i = Color.RED.getRGB();
         }
 
+        if (drawOutline) {
+            return false;
+        }
+
         float f1 = (float)(i >> 16 & 255) / 255.0F;
         float f2 = (float)(i >> 8 & 255) / 255.0F;
         float f = (float)(i & 255) / 255.0F;
@@ -88,5 +97,52 @@ public abstract class MixinRendererLivingEntity<T extends EntityLivingBase> exte
     @ModifyVariable(method = "renderModel", at = @At(value = "STORE"), ordinal = 0)
     private boolean modifyInvisibleFlag(boolean flag) {
         return flag || (this.renderOutlines && shouldRender() && ModuleManager.playerESP.showInvis.isToggled());
+    }
+
+    @Inject(method = "canRenderName(Lnet/minecraft/entity/EntityLivingBase;)Z", at = @At("HEAD"), cancellable = true)
+    private void suppressNameDuringOutlinePass(T entity, CallbackInfoReturnable<Boolean> cir) {
+        if (PlayerESP.renderingOutlinePass) {
+            cir.setReturnValue(false);
+        }
+    }
+
+    @Unique
+    private EntityLivingBase damageTint$entity;
+
+    @Inject(method = "setBrightness", at = @At("HEAD"))
+    private void damageTint$captureEntity(T entitylivingbaseIn, float partialTicks, boolean combineTextures, CallbackInfoReturnable<Boolean> cir) {
+        this.damageTint$entity = entitylivingbaseIn;
+    }
+
+    @ModifyArg(method = "setBrightness", at = @At(value = "INVOKE", target = "Ljava/nio/FloatBuffer;put(F)Ljava/nio/FloatBuffer;", ordinal = 0))
+    private float damageTint$modifyRed(float f) {
+        if (DamageTint.instance != null) {
+            return DamageTint.instance.color.getRed() / 255.0f;
+        }
+        return f;
+    }
+
+    @ModifyArg(method = "setBrightness", at = @At(value = "INVOKE", target = "Ljava/nio/FloatBuffer;put(F)Ljava/nio/FloatBuffer;", ordinal = 1))
+    private float damageTint$modifyGreen(float f) {
+        if (DamageTint.instance != null) {
+            return DamageTint.instance.color.getGreen() / 255.0f;
+        }
+        return f;
+    }
+
+    @ModifyArg(method = "setBrightness", at = @At(value = "INVOKE", target = "Ljava/nio/FloatBuffer;put(F)Ljava/nio/FloatBuffer;", ordinal = 2))
+    private float damageTint$modifyBlue(float f) {
+        if (DamageTint.instance != null) {
+            return DamageTint.instance.color.getBlue() / 255.0f;
+        }
+        return f;
+    }
+
+    @ModifyArg(method = "setBrightness", at = @At(value = "INVOKE", target = "Ljava/nio/FloatBuffer;put(F)Ljava/nio/FloatBuffer;", ordinal = 3))
+    private float damageTint$modifyAlpha(float f) {
+        if (DamageTint.instance != null) {
+            return DamageTint.computeAlpha(this.damageTint$entity);
+        }
+        return f;
     }
 }
