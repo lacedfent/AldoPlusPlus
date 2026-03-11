@@ -256,7 +256,6 @@ public class CategoryComponent {
         float maxScrollY = this.y;
         float minScrollY = computeMinScrollY();
 
-        // Re-clamp destination if bounds changed (e.g. a module was opened/closed)
         scrollAnim.clampTarget(minScrollY, maxScrollY);
 
         // ---- Expo-Out animated scroll position ----
@@ -353,9 +352,6 @@ public class CategoryComponent {
         return this.width;
     }
 
-    /**
-     * @param isTopmostUnderCursor true if this category is the topmost under the cursor (for hover/scroll)
-     */
     public void mousePosition(int mouseX, int mouseY, boolean isTopmostUnderCursor) {
         if (this.dragging) {
             float newX = mouseX - this.xx;

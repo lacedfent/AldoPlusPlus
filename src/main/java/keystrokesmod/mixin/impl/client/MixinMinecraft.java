@@ -179,8 +179,6 @@ public class MixinMinecraft {
         boolean allowUserInput = screen.allowUserInput;
 
         if (!allowUserInput) {
-            // GuiChat-style: vanilla never pumps gameplay KeyBinding when allowUserInput is false.
-            // Just forward raw events to the screen and tick it. No setKeyBindState/onTick.
             while (org.lwjgl.input.Mouse.next()) {
                 try {
                     screen.handleMouseInput();

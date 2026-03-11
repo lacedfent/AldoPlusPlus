@@ -41,26 +41,12 @@ public class Trajectories extends Module {
         this.registerSetting(lineThickness = new SliderSetting("Line thickness", 2.0, 1.0, 5.0, 0.1));
     }
 
-    /**
-     * Matches vanilla ItemBow.onPlayerStoppedUsing():
-     *   int i = maxDuration - timeLeft;
-     *   float f = i / 20.0F;
-     *   f = (f*f + f*2) / 3;  clamp 0..1
-     *   EntityArrow(world, player, f * 2.0F)  -> setThrowableHeading at velocity * 1.5F
-     * So max initial speed = 1.0 * 2.0 * 1.5 = 3.0 blocks/tick.
-     *
-     * We add partialTicks so the curve updates continuously while drawing.
-     */
     private float getBowVelocity(float partialTicks) {
         int timeLeft = mc.thePlayer.getItemInUseCount();
-        // getMaxItemUseDuration = 72000; draw duration = 72000 - timeLeft
-        // interpolate by adding partialTicks for sub-tick smoothness
         float drawTicks = (72000 - timeLeft) + partialTicks;
         float f = drawTicks / 20.0f;
         f = (f * f + f * 2.0f) / 3.0f;
         if (f > 1.0f) f = 1.0f;
-        // vanilla: EntityArrow velocity arg = f * 2.0F
-        // setThrowableHeading multiplies that by 1.5F for final motion magnitude
         return f * 2.0f * 1.5f;
     }
 
@@ -82,7 +68,6 @@ public class Trajectories extends Module {
         float yaw   = (float) Math.toRadians(mc.thePlayer.rotationYaw);
         float pitch = (float) Math.toRadians(mc.thePlayer.rotationPitch);
 
-        // Interpolated spawn position matching EntityArrow constructor
         double posX = mc.thePlayer.lastTickPosX + (mc.thePlayer.posX - mc.thePlayer.lastTickPosX) * partialTicks
                 - MathHelper.cos(yaw) * 0.16f;
         double posY = mc.thePlayer.lastTickPosY + (mc.thePlayer.posY - mc.thePlayer.lastTickPosY) * partialTicks
@@ -90,7 +75,6 @@ public class Trajectories extends Module {
         double posZ = mc.thePlayer.lastTickPosZ + (mc.thePlayer.posZ - mc.thePlayer.lastTickPosZ) * partialTicks
                 - MathHelper.sin(yaw) * 0.16f;
 
-        // Normalized direction
         double motX = -MathHelper.sin(yaw) * MathHelper.cos(pitch);
         double motY = -MathHelper.sin(pitch);
         double motZ =  MathHelper.cos(yaw) * MathHelper.cos(pitch);
@@ -99,17 +83,11 @@ public class Trajectories extends Module {
         motY /= len;
         motZ /= len;
 
-        // Scale to initial velocity
-        // Bow: vanilla setThrowableHeading(dir, velocity=f*2*1.5, inaccuracy=1.0) — we ignore random spread for visual predictor
-        // Throwable: EntityThrowable constructor uses getVelocity()=1.5 * 1.5 = wait, no:
-        //   setThrowableHeading(dx, dy, dz, 1.5F (getVelocity()), 1.0F) -> 1.5 * 1.5 = wait, the scale is:
-        //   normalize dir, scale by velocity arg directly -> final motX = normalizedX * velocity
-        //   EntityThrowable getVelocity() = 1.5F, so initial |motion| = 1.5
         double velocity;
         if (usingBow) {
             velocity = getBowVelocity(partialTicks);
         } else {
-            velocity = 1.5; // vanilla EntityThrowable.getVelocity() * 1.0 (already normalized * velocity)
+            velocity = 1.5;
         }
         motX *= velocity;
         motY *= velocity;
@@ -117,18 +95,13 @@ public class Trajectories extends Module {
 
         double gravity = usingBow ? 0.05 : 0.03;
 
-        // Visual sample points (denser than physics steps for smooth arc)
         List<double[]> renderPoints = new ArrayList<>();
-
         MovingObjectPosition hitBlock  = null;
         Entity               hitEntity = null;
-        AxisAlignedBB        hitEntityBox = null;  // the expanded box used for collision test
+        AxisAlignedBB        hitEntityBox = null;
 
         RenderManager rm = mc.getRenderManager();
-
         final int maxSteps = 750;
-        // Each physics step is one tick. We sample VISUAL_SUBDIVISIONS intermediate points per step
-        // so the arc looks smooth without faking physics.
         final int SUB = 4;
 
         outer:
@@ -140,19 +113,12 @@ public class Trajectories extends Module {
             Vec3 start = new Vec3(posX, posY, posZ);
             Vec3 end   = new Vec3(nextX, nextY, nextZ);
 
-            // --- VANILLA COLLISION ORDER ---
-
-            // 1. Block ray trace first
             MovingObjectPosition blockMop = mc.theWorld.rayTraceBlocks(start, end);
-
-            // 2. Clamp segment end to block hit if found (matching vanilla)
             Vec3 clampedEnd = end;
             if (blockMop != null) {
                 clampedEnd = new Vec3(blockMop.hitVec.xCoord, blockMop.hitVec.yCoord, blockMop.hitVec.zCoord);
             }
 
-            // 3. Gather entity candidates using vanilla AABB: arrow boundingBox.addCoord(motion).expand(1,1,1)
-            //    Arrow size is 0.5 x 0.5 (setSize(0.5F, 0.5F) in constructor), half = 0.25
             double hw = 0.25;
             AxisAlignedBB broadBox = new AxisAlignedBB(
                     posX - hw, posY - hw, posZ - hw,
@@ -162,7 +128,6 @@ public class Trajectories extends Module {
 
             List<Entity> candidates = mc.theWorld.getEntitiesWithinAABBExcludingEntity(mc.getRenderViewEntity(), broadBox);
 
-            // 4. Find nearest entity intercept on this (possibly clamped) segment
             Entity         bestEntity  = null;
             Vec3           bestHitVec  = null;
             AxisAlignedBB  bestBox     = null;
@@ -189,7 +154,6 @@ public class Trajectories extends Module {
             }
 
             if (bestEntity != null) {
-                // Record subdivided points up to the actual hit position on this segment
                 double hitT = Math.sqrt(bestDistSq) / Math.sqrt(motX * motX + motY * motY + motZ * motZ);
                 hitT = Math.max(0, Math.min(1, hitT));
                 int subCount = (int) Math.ceil(hitT * SUB);
@@ -212,7 +176,6 @@ public class Trajectories extends Module {
             }
 
             if (blockMop != null) {
-                // Record subdivided points up to the block hit position on this segment
                 Vec3 hitVec = blockMop.hitVec;
                 double segLenSq = motX * motX + motY * motY + motZ * motZ;
                 double hitDx = hitVec.xCoord - posX;
@@ -238,7 +201,6 @@ public class Trajectories extends Module {
                 break outer;
             }
 
-            // No hit this step: record all SUB intermediate points and advance physics
             for (int s = 0; s < SUB; s++) {
                 double t = (double) s / SUB;
                 renderPoints.add(new double[]{
@@ -248,7 +210,6 @@ public class Trajectories extends Module {
                 });
             }
 
-            // Advance physics
             posX = nextX;
             posY = nextY;
             posZ = nextZ;
@@ -258,7 +219,6 @@ public class Trajectories extends Module {
             motY -= gravity;
         }
 
-        // --- GL setup ---
         GL11.glPushMatrix();
         GL11.glEnable(GL11.GL_LINE_SMOOTH);
         GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
@@ -269,7 +229,6 @@ public class Trajectories extends Module {
 
         float lineW = (float) lineThickness.getInput();
 
-        // --- Draw trajectory line ---
         if (hitEntity != null && highlightEntities.isToggled()) {
             GL11.glColor3f(1.0f, 0.0f, 0.0f);
         } else {
@@ -288,7 +247,6 @@ public class Trajectories extends Module {
         }
         GL11.glEnd();
 
-        // --- Draw impact marker ---
         GL11.glLineWidth(lineW);
 
         if (hitEntity != null && highlightEntities.isToggled() && hitEntityBox != null) {

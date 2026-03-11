@@ -942,7 +942,6 @@ public class Scaffold extends Module {
             yaw += 360;
         }
 
-        // Calculates the difference from the last placed angle and gets the closest one
         float diffClockwise = Math.abs(MathHelper.wrapAngleTo180_float(yaw - getFacingAngle(perpClockwise)));
         float diffCounterClockwise = Math.abs(MathHelper.wrapAngleTo180_float(yaw - getFacingAngle(perpCounterClockwise)));
 

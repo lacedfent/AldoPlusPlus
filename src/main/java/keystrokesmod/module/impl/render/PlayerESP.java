@@ -306,7 +306,6 @@ public class PlayerESP extends Module {
         GL11.glEnable(GL11.GL_LINE_SMOOTH);
         GL11.glLineWidth(1.0F);
 
-        // background outline
         GL11.glColor4f(0.0F, 0.0F, 0.0F, 0.4F);
         GL11.glBegin(GL11.GL_LINE_LOOP);
         GL11.glVertex2d(minX, minY);
@@ -315,7 +314,6 @@ public class PlayerESP extends Module {
         GL11.glVertex2d(minX, maxY);
         GL11.glEnd();
 
-        // second background
         GL11.glColor4f(0.0F, 0.0F, 0.0F, 0.4F);
         GL11.glBegin(GL11.GL_LINE_LOOP);
         GL11.glVertex2d(minX + 1.0, minY + 1.0);
@@ -324,7 +322,6 @@ public class PlayerESP extends Module {
         GL11.glVertex2d(minX + 1.0, maxY - 1.0);
         GL11.glEnd();
 
-        // main outline
         GL11.glColor4f(red, green, blue, 1.0f);
         GL11.glBegin(GL11.GL_LINE_LOOP);
         GL11.glVertex2d(minX + 0.5, minY + 0.5);
@@ -380,7 +377,6 @@ public class PlayerESP extends Module {
         GL11.glRotatef(player.renderYawOffset, 0.0f, -999.0f, 0.0f);
         GL11.glTranslated(-0.15, legHeight, legOffsetZ);
 
-        // Render the right leg
         float rightLegRotX = modelBiped.bipedRightLeg.rotateAngleX * RAD_TO_DEG;
         float rightLegRotY = modelBiped.bipedRightLeg.rotateAngleY * RAD_TO_DEG;
         float rightLegRotZ = modelBiped.bipedRightLeg.rotateAngleZ * RAD_TO_DEG;
@@ -389,12 +385,10 @@ public class PlayerESP extends Module {
         GL11.glRotatef(-rightLegRotZ, 0.0f, 0.0f, 1.0f);
         drawLine(0.0, 0.0, 0.0, 0.0, -legHeight, 0.0);
 
-        // Undo the right leg rotations
         GL11.glRotatef(rightLegRotZ, 0.0f, 0.0f, 1.0f);
         GL11.glRotatef(rightLegRotY, 0.0f, 1.0f, 0.0f);
         GL11.glRotatef(-rightLegRotX, 1.0f, 0.0f, 0.0f);
 
-        // Render left leg
         GL11.glTranslated(0.3, 0.0, 0.0);
         float leftLegRotX = modelBiped.bipedLeftLeg.rotateAngleX * RAD_TO_DEG;
         float leftLegRotY = modelBiped.bipedLeftLeg.rotateAngleY * RAD_TO_DEG;
@@ -404,27 +398,22 @@ public class PlayerESP extends Module {
         GL11.glRotatef(-leftLegRotZ, 0.0f, 0.0f, 1.0f);
         drawLine(0.0, 0.0, 0.0, 0.0, -legHeight, 0.0);
 
-        // Undo the left leg rotations
         GL11.glRotatef(leftLegRotZ, 0.0f, 0.0f, 1.0f);
         GL11.glRotatef(leftLegRotY, 0.0f, 1.0f, 0.0f);
         GL11.glRotatef(-leftLegRotX, 1.0f, 0.0f, 0.0f);
         GL11.glTranslated(-0.15, 0.0, 0.0);
 
-        // Draw a line connecting the legs.
         drawLine(0.15, 0.0, 0.0, -0.15, 0.0, 0.0);
 
-        // Renders the torso
         if (player.isSneaking()) {
             GL11.glRotatef(20.0f, 1.0f, 0.0f, 0.0f);
         }
         drawLine(0.0, 0.0, 0.0, 0.0, 0.65, 0.0);
 
-        // Move to the top of the torso (shoulder level) and draw shoulders.
         GL11.glTranslated(0.0, 0.65, 0.0);
         drawLine(0.35, 0.0, 0.0, -0.35, 0.0, 0.0);
         GL11.glTranslated(-0.35, 0.0, 0.0);
 
-        // Render right arm
         float rightArmRotX = modelBiped.bipedRightArm.rotateAngleX * RAD_TO_DEG;
         float rightArmRotY = modelBiped.bipedRightArm.rotateAngleY * RAD_TO_DEG;
         float rightArmRotZ = modelBiped.bipedRightArm.rotateAngleZ * RAD_TO_DEG;
@@ -432,12 +421,10 @@ public class PlayerESP extends Module {
         GL11.glRotatef(-rightArmRotY, 0.0f, 1.0f, 0.0f);
         GL11.glRotatef(-rightArmRotZ, 0.0f, 0.0f, 1.0f);
         drawLine(0.0, 0.0, 0.0, 0.0, -0.6, 0.0);
-        // Undo the right arm rotations.
         GL11.glRotatef(rightArmRotZ, 0.0f, 0.0f, 1.0f);
         GL11.glRotatef(rightArmRotY, 0.0f, 1.0f, 0.0f);
         GL11.glRotatef(-rightArmRotX, 1.0f, 0.0f, 0.0f);
 
-        // Render left arm
         GL11.glTranslated(0.7, 0.0, 0.0);
         float leftArmRotX = modelBiped.bipedLeftArm.rotateAngleX * RAD_TO_DEG;
         float leftArmRotY = modelBiped.bipedLeftArm.rotateAngleY * RAD_TO_DEG;
@@ -446,14 +433,11 @@ public class PlayerESP extends Module {
         GL11.glRotatef(-leftArmRotY, 0.0f, 1.0f, 0.0f);
         GL11.glRotatef(-leftArmRotZ, 0.0f, 0.0f, 1.0f);
         drawLine(0.0, 0.0, 0.0, 0.0, -0.6, 0.0);
-        // Undo the left arm rotations.
         GL11.glRotatef(leftArmRotZ, 0.0f, 0.0f, 1.0f);
         GL11.glRotatef(leftArmRotY, 0.0f, 1.0f, 0.0f);
         GL11.glRotatef(-leftArmRotX, 1.0f, 0.0f, 0.0f);
         GL11.glTranslated(-0.35, 0.0, 0.0);
 
-        // renders head
-        // undo the torso rotation.
         GL11.glRotatef(-player.renderYawOffset, 0.0f, -999.0f, 0.0f);
         double headHeight = 0.4;
         GL11.glRotated(player.rotationYaw, 0.0, -999.0, 0.0);

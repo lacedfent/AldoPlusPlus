@@ -94,11 +94,6 @@ public class BlockIn extends Module {
         circleProgress = 0;
     }
 
-    // ── Event: ClientRotationEvent (target selection + rotation + queue) ──
-    // Mirrors the script's getRotations() which calls runPrePlayerInteract() at the top,
-    // then does smoothing/validation/queueing. Both phases run in the same event since
-    // ClientRotationEvent fires before PrePlayerInteractEvent in Raven.
-
     @SubscribeEvent
     public void onClientRotation(ClientRotationEvent e) {
         if (!Utils.nullCheck()) return;
