@@ -35,5 +35,9 @@ public abstract class Setting {
         return this.name;
     }
 
+    public String getProfileKey() {
+        return this.name;
+    }
+
     public abstract void loadProfile(JsonObject data);
 }

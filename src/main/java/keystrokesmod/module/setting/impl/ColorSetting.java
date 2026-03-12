@@ -125,10 +125,18 @@ public class ColorSetting extends Setting {
     }
 
     @Override
+    public String getProfileKey() {
+        return groupSetting == null ? getName() : groupSetting.getName() + "." + getName();
+    }
+
+    @Override
     public void loadProfile(JsonObject data) {
-        if (data.has(getName()) && data.get(getName()).isJsonPrimitive()) {
+        String profileKey = getProfileKey();
+        String legacyKey = getName();
+        String key = data.has(profileKey) ? profileKey : legacyKey;
+        if (data.has(key) && data.get(key).isJsonPrimitive()) {
             try {
-                String value = data.getAsJsonPrimitive(getName()).getAsString();
+                String value = data.getAsJsonPrimitive(key).getAsString();
                 String[] parts = value.split(",");
                 if (parts.length >= 3) {
                     this.red = clamp(Integer.parseInt(parts[0].trim()));

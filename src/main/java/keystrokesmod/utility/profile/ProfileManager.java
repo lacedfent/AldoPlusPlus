@@ -115,17 +115,17 @@ public class ProfileManager implements IMinecraftInstance {
         }
         for (Setting setting : module.getSettings()) {
             if (setting instanceof ButtonSetting && !((ButtonSetting) setting).isMethodButton) {
-                moduleInformation.addProperty(setting.getName(), ((ButtonSetting) setting).isToggled());
+                moduleInformation.addProperty(setting.getProfileKey(), ((ButtonSetting) setting).isToggled());
             }
             else if (setting instanceof SliderSetting) {
-                moduleInformation.addProperty(setting.getName(), ((SliderSetting) setting).getInput());
+                moduleInformation.addProperty(setting.getProfileKey(), ((SliderSetting) setting).getInput());
             }
             else if (setting instanceof KeySetting) {
-                moduleInformation.addProperty(setting.getName(), ((KeySetting) setting).getKey());
+                moduleInformation.addProperty(setting.getProfileKey(), ((KeySetting) setting).getKey());
             }
             else if (setting instanceof ColorSetting) {
                 ColorSetting cs = (ColorSetting) setting;
-                moduleInformation.addProperty(setting.getName(),
+                moduleInformation.addProperty(setting.getProfileKey(),
                         cs.getRed() + "," + cs.getGreen() + "," + cs.getBlue() + "," + cs.getAlpha());
             }
         }

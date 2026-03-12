@@ -43,6 +43,11 @@ public class ButtonSetting extends Setting {
         return this.name;
     }
 
+    @Override
+    public String getProfileKey() {
+        return group == null ? getName() : group.getName() + "." + getName();
+    }
+
     public boolean isToggled() {
         return this.isEnabled;
     }
@@ -65,10 +70,13 @@ public class ButtonSetting extends Setting {
 
     @Override
     public void loadProfile(JsonObject data) {
-        if (data.has(getName()) && data.get(getName()).isJsonPrimitive() && !this.isMethodButton) {
+        String profileKey = getProfileKey();
+        String legacyKey = getName();
+        String key = data.has(profileKey) ? profileKey : legacyKey;
+        if (data.has(key) && data.get(key).isJsonPrimitive() && !this.isMethodButton) {
             boolean booleanValue = isEnabled;
             try {
-                booleanValue = data.getAsJsonPrimitive(getName()).getAsBoolean();
+                booleanValue = data.getAsJsonPrimitive(key).getAsBoolean();
             }
             catch (Exception e) {}
             setEnabled(booleanValue);
