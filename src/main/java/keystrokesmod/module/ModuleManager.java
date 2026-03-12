@@ -171,6 +171,7 @@ public class ModuleManager {
         this.addModule(antiShuffle = new AntiShuffle());
         this.addModule(new Arrows());
         this.addModule(bedESP = new BedESP());
+        this.addModule(new BlockOverlay());
         this.addModule(new BreakProgress());
         this.addModule(chams = new Chams());
         this.addModule(new DamageTint());
@@ -191,7 +192,7 @@ public class ModuleManager {
         this.addModule(noHurtCam = new NoHurtCam());
         this.addModule(playerESP = new PlayerESP());
         this.addModule(new Radar());
-        this.addModule(new Shaders());
+        this.addModule(new Saturation());
         this.addModule(targetHUD = new TargetHUD());
         this.addModule(new Trajectories());
         this.addModule(new TNTTimer());

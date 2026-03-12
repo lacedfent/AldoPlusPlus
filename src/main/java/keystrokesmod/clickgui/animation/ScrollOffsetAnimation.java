@@ -1,12 +1,12 @@
-package keystrokesmod.utility;
+package keystrokesmod.clickgui.animation;
 
-public class ScrollAnimation {
+public class ScrollOffsetAnimation {
     private float from;
     private float to;
     private long startMs;
     private final long durationMs;
 
-    public ScrollAnimation(long durationMs) {
+    public ScrollOffsetAnimation(long durationMs) {
         this.durationMs = durationMs;
         this.from = 0f;
         this.to = 0f;
@@ -51,7 +51,9 @@ public class ScrollAnimation {
     }
 
     public boolean isAnimating() {
-        if (startMs == 0L) return false;
+        if (startMs == 0L) {
+            return false;
+        }
         return System.currentTimeMillis() - startMs < durationMs;
     }
 
@@ -60,8 +62,12 @@ public class ScrollAnimation {
     }
 
     private static float expoOut(float t) {
-        if (t <= 0f) return 0f;
-        if (t >= 1f) return 1f;
+        if (t <= 0f) {
+            return 0f;
+        }
+        if (t >= 1f) {
+            return 1f;
+        }
         return 1f - (float) Math.pow(2.0, -10.0 * t);
     }
 }

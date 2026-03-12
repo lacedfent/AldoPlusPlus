@@ -48,6 +48,7 @@
     "accessor.IAccessorRenderManager",
     "accessor.IAccessorNetworkManager",
     "accessor.IAccessorEntity",
-    "accessor.IAccessorMouseHelper"
+    "accessor.IAccessorMouseHelper",
+    "accessor.IAccessorShaderGroup"
   ]
 }

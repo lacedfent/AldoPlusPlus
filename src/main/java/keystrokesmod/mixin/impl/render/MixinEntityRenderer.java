@@ -4,10 +4,13 @@ import keystrokesmod.event.PostMouseSelectionEvent;
 import keystrokesmod.helper.RotationHelper;
 import keystrokesmod.module.ModuleManager;
 import keystrokesmod.module.impl.render.Freelook;
+import keystrokesmod.mixin.interfaces.ISaturationRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.client.renderer.EntityRenderer;
 import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.OpenGlHelper;
+import net.minecraft.client.shader.ShaderGroup;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.potion.Potion;
@@ -16,14 +19,65 @@ import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @SideOnly(Side.CLIENT)
 @Mixin(EntityRenderer.class)
-public class MixinEntityRenderer {
+public class MixinEntityRenderer implements ISaturationRenderer {
+
+    @Shadow
+    private ShaderGroup theShaderGroup;
+
+    @Unique
+    private ShaderGroup raven$saturationShader;
+
+    @Inject(method = "isShaderActive", at = @At("HEAD"), cancellable = true)
+    private void onIsShaderActive(CallbackInfoReturnable<Boolean> cir) {
+        if (raven$saturationShader != null && OpenGlHelper.shadersSupported) {
+            cir.setReturnValue(true);
+        }
+    }
+
+    @Inject(method = "getShaderGroup", at = @At("HEAD"), cancellable = true)
+    private void onGetShaderGroup(CallbackInfoReturnable<ShaderGroup> cir) {
+        if (raven$saturationShader != null && OpenGlHelper.shadersSupported && theShaderGroup == null) {
+            cir.setReturnValue(raven$saturationShader);
+        }
+    }
+
+    @Inject(method = "updateShaderGroupSize", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/RenderGlobal;createBindEntityOutlineFbs(II)V"))
+    private void onUpdateShaderGroupSize(int width, int height, CallbackInfo ci) {
+        if (raven$saturationShader != null) {
+            raven$saturationShader.createBindFramebuffers(width, height);
+        }
+    }
+
+    @Inject(method = "updateCameraAndRender", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/RenderGlobal;renderEntityOutlineFramebuffer()V", shift = At.Shift.AFTER))
+    private void onRenderSaturation(float partialTicks, long nanoTime, CallbackInfo ci) {
+        if (raven$saturationShader != null) {
+            GlStateManager.matrixMode(5890);
+            GlStateManager.pushMatrix();
+            GlStateManager.loadIdentity();
+            raven$saturationShader.loadShaderGroup(partialTicks);
+            GlStateManager.popMatrix();
+        }
+    }
+
+    @Override
+    public ShaderGroup raven$getSaturationShader() {
+        return raven$saturationShader;
+    }
+
+    @Override
+    public void raven$setSaturationShader(ShaderGroup shader) {
+        raven$saturationShader = shader;
+    }
 
     @Redirect(method = "hurtCameraEffect", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/GlStateManager;rotate(FFFF)V"))
     public void injectNoHurtCam(float angle, float x, float y, float z) {

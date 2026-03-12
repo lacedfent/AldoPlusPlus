@@ -18,6 +18,7 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.*;
 import net.minecraftforge.client.event.RenderLivingEvent;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
+import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import org.lwjgl.opengl.GL11;
 
@@ -84,7 +85,7 @@ public class Nametags3D extends Module {
         this.registerSetting(enemyColor = new ColorSetting("Enemy color", 255, 85, 85));
     }
 
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.LOWEST)
     public void onRenderWorldLast(RenderWorldLastEvent e) {
         if (!Utils.nullCheck()) return;
         renderNametags(e.partialTicks);
@@ -397,7 +398,6 @@ public class Nametags3D extends Module {
     private static final int ENCHANT_LINE_HEIGHT = 8;
     private static final int ENCHANT_Y_OFFSET = 24;
 
-    /** Enchant ID + abbreviation for display. Order defines draw order. */
     private static final int[] ARMOR_ENCHANT_IDS = { 0, 7, 34 };
     private static final String[] ARMOR_ENCHANT_ABBR = { "P", "T", "U" };
 

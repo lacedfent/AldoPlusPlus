@@ -1,13 +1,13 @@
 package keystrokesmod.clickgui.components.impl;
 
 import keystrokesmod.Raven;
+import keystrokesmod.clickgui.animation.ScrollOffsetAnimation;
 import keystrokesmod.clickgui.components.Component;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.impl.client.Gui;
 import keystrokesmod.utility.RenderUtils;
-import keystrokesmod.utility.Timer;
-import keystrokesmod.utility.ScrollAnimation;
 import keystrokesmod.utility.Utils;
+import keystrokesmod.utility.Timer;
 import keystrokesmod.utility.profile.Manager;
 import keystrokesmod.utility.profile.Profile;
 import net.minecraft.client.Minecraft;
@@ -61,7 +61,7 @@ public class CategoryComponent {
     private float animationStartHeight;
 
     /** Persistent Expo-Out scroll animation — mirrors OneConfig/PolyUI behaviour. */
-    private final ScrollAnimation scrollAnim = new ScrollAnimation(200);
+    private final ScrollOffsetAnimation scrollAnim = new ScrollOffsetAnimation(200);
 
     /** Time of last user interaction (drag, click, scroll). Used for render/input order. */
     public long lastInteractedTime = 0L;
