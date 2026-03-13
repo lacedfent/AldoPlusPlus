@@ -3,6 +3,7 @@ package keystrokesmod.clickgui;
 import keystrokesmod.Raven;
 import keystrokesmod.clickgui.components.Component;
 import keystrokesmod.clickgui.components.impl.BindComponent;
+import keystrokesmod.clickgui.components.impl.BlockSearchComponent;
 import keystrokesmod.clickgui.components.impl.CategoryComponent;
 import keystrokesmod.clickgui.components.impl.ModuleComponent;
 import keystrokesmod.module.Module;
@@ -266,8 +267,13 @@ public class ClickGui extends GuiScreen {
         super.handleMouseInput();
         int wheelInput = Mouse.getDWheel();
         if (wheelInput != 0) {
+            ScaledResolution sr = new ScaledResolution(mc);
+            int w = sr.getScaledWidth();
+            int h = sr.getScaledHeight();
+            int mouseX = Mouse.getX() * w / mc.displayWidth;
+            int mouseY = h - Mouse.getY() * h / mc.displayHeight - 1;
             for (CategoryComponent category : categories) {
-                category.onScroll(wheelInput);
+                category.onScroll(wheelInput, mouseX, mouseY);
             }
         }
     }
@@ -312,6 +318,17 @@ public class ClickGui extends GuiScreen {
     @Override
     public void keyTyped(char t, int k) {
         if (k == Keyboard.KEY_ESCAPE && !binding()) {
+            for (CategoryComponent category : categories) {
+                if (!category.isOpened()) continue;
+                for (ModuleComponent mod : category.getModules()) {
+                    for (Component comp : mod.settings) {
+                        if (comp instanceof BlockSearchComponent && ((BlockSearchComponent) comp).isSearchFocused()) {
+                            ((BlockSearchComponent) comp).unfocusSearch();
+                            return;
+                        }
+                    }
+                }
+            }
             this.mc.displayGuiScreen(null);
         }
         else {
@@ -368,6 +385,9 @@ public class ClickGui extends GuiScreen {
             for (ModuleComponent m : c.getModules()) {
                 for (Component component : m.settings) {
                     if (component instanceof BindComponent && ((BindComponent) component).isBinding) {
+                        return true;
+                    }
+                    if (component instanceof BlockSearchComponent && ((BlockSearchComponent) component).isSearchFocused()) {
                         return true;
                     }
                 }

@@ -1,6 +1,5 @@
 package keystrokesmod.module.impl.render;
 
-import keystrokesmod.event.PreUpdateEvent;
 import keystrokesmod.mixin.impl.accessor.IAccessorEntityArrow;
 import keystrokesmod.mixin.impl.accessor.IAccessorEntityRenderer;
 import keystrokesmod.mixin.impl.accessor.IAccessorMinecraft;
@@ -23,9 +22,10 @@ import net.minecraftforge.fml.common.gameevent.TickEvent;
 import org.lwjgl.opengl.GL11;
 
 import java.awt.*;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Set;
 
 public class Indicators extends Module {
     private GroupSetting items;
@@ -43,8 +43,11 @@ public class Indicators extends Module {
     private ButtonSetting onlyWhenApproaching;
     private ButtonSetting renderOnlyOffScreen;
 
-    private final Map<Entity, Double> previousDistanceSq = new ConcurrentHashMap<>();
-    private final Map<Entity, Double> currentDistanceSq = new ConcurrentHashMap<>();
+    private static final int APPROACH_INTERVAL_TICKS = 5;
+    private static final double MIN_NET_TOWARD_BLOCKS = 1.0;
+    private int tickCounter;
+    private final Map<Entity, Vec3> lastPosition = new HashMap<>();
+    private final Set<Entity> entitiesToRender = new HashSet<>();
 
     private String[] arrowTypes = new String[] { "Caret", "Greater than", "Triangle" };
 
@@ -66,38 +69,51 @@ public class Indicators extends Module {
     }
 
     public void onDisable() {
-        this.previousDistanceSq.clear();
-        this.currentDistanceSq.clear();
+        lastPosition.clear();
+        entitiesToRender.clear();
     }
 
     @SubscribeEvent
-    public void onPreUpdate(PreUpdateEvent e) {
-        if (!Utils.nullCheck()) {
-            previousDistanceSq.clear();
-            currentDistanceSq.clear();
+    public void onClientTick(TickEvent.ClientTickEvent event) {
+        if (event.phase != TickEvent.Phase.END || !Utils.nullCheck()) {
             return;
         }
-        try {
-            java.util.Set<Entity> seen = new HashSet<>();
-            for (Entity en : mc.theWorld.loadedEntityList) {
-                ItemStack itemStack = getTrackedItemStack(en);
-                if (itemStack == null || !canRender(en)) {
+        tickCounter++;
+        if (tickCounter % APPROACH_INTERVAL_TICKS != 0) {
+            return;
+        }
+        Set<Entity> seen = new HashSet<>();
+        entitiesToRender.clear();
+        double px = mc.thePlayer.posX, py = mc.thePlayer.posY, pz = mc.thePlayer.posZ;
+        for (Entity en : mc.theWorld.loadedEntityList) {
+            if (en == null || en == mc.thePlayer) {
+                continue;
+            }
+            ItemStack itemStack = getTrackedItemStack(en);
+            if (itemStack == null || !canRender(en)) {
+                continue;
+            }
+            seen.add(en);
+            Vec3 posThen = lastPosition.get(en);
+            if (onlyWhenApproaching.isToggled()) {
+                if (posThen == null) {
+                    lastPosition.put(en, new Vec3(en.posX, en.posY, en.posZ));
                     continue;
                 }
-                seen.add(en);
-                double newDistanceSq = mc.thePlayer.getDistanceSqToEntity(en);
-                Double lastCurrentDistanceSq = currentDistanceSq.put(en, newDistanceSq);
-                if (lastCurrentDistanceSq != null) {
-                    previousDistanceSq.put(en, lastCurrentDistanceSq);
-                }
-                else {
-                    previousDistanceSq.remove(en);
+                double distanceThen = Math.sqrt(
+                    (px - posThen.xCoord) * (px - posThen.xCoord) +
+                    (py - posThen.yCoord) * (py - posThen.yCoord) +
+                    (pz - posThen.zCoord) * (pz - posThen.zCoord));
+                double distanceNow = mc.thePlayer.getDistanceToEntity(en);
+                if (distanceThen - distanceNow <= MIN_NET_TOWARD_BLOCKS) {
+                    lastPosition.put(en, new Vec3(en.posX, en.posY, en.posZ));
+                    continue;
                 }
             }
-            currentDistanceSq.keySet().retainAll(seen);
-            previousDistanceSq.keySet().retainAll(seen);
+            entitiesToRender.add(en);
+            lastPosition.put(en, new Vec3(en.posX, en.posY, en.posZ));
         }
-        catch (Exception ex) {}
+        lastPosition.keySet().retainAll(seen);
     }
 
     @SubscribeEvent
@@ -109,23 +125,10 @@ public class Indicators extends Module {
             return;
         }
         try {
-            for (Entity en : mc.theWorld.loadedEntityList) {
-                if (en == null || en == mc.thePlayer) {
-                    continue;
-                }
+            for (Entity en : entitiesToRender) {
                 ItemStack itemStack = getTrackedItemStack(en);
-                if (itemStack == null || !canRender(en)) {
+                if (itemStack == null) {
                     continue;
-                }
-                Double currentSq = currentDistanceSq.get(en);
-                if (currentSq == null) {
-                    currentSq = mc.thePlayer.getDistanceSqToEntity(en);
-                }
-                if (onlyWhenApproaching.isToggled()) {
-                    Double prevSq = previousDistanceSq.get(en);
-                    if (prevSq == null || currentSq >= prevSq) {
-                        continue;
-                    }
                 }
                 this.renderIndicatorFor(en, itemStack, event.renderTickTime);
             }

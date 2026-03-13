@@ -3,6 +3,7 @@ package keystrokesmod.utility;
 import keystrokesmod.mixin.impl.accessor.IAccessorMinecraft;
 import keystrokesmod.module.impl.player.Freecam;
 
+import net.minecraft.block.BlockStairs;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
@@ -26,7 +27,15 @@ import org.lwjgl.opengl.Display;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.util.glu.GLU;
 
+import keystrokesmod.Raven;
+import keystrokesmod.utility.StairsUtils;
+import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.util.ResourceLocation;
+
+import javax.imageio.ImageIO;
 import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.InputStream;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 
@@ -77,12 +86,60 @@ public class RenderUtils implements IMinecraftInstance {
         GL11.glScissor(left, glBottom, scaledWidth, scaledHeight);
     }
 
+    private static final int SCISSOR_PUSH_STACK_DEPTH = 4;
+    private static final IntBuffer SCISSOR_PUSH_BUF = BufferUtils.createIntBuffer(16);
+    private static final int[][] scissorPushStack = new int[SCISSOR_PUSH_STACK_DEPTH][5];
+    private static int scissorPushDepth = 0;
+
+    public static void scissorPushGui(double x, double y, double width, double height) {
+        ScaledResolution sr = new ScaledResolution(mc);
+        int scale = sr.getScaleFactor();
+        double screenH = sr.getScaledHeight();
+        int left = (int) Math.floor(x * scale);
+        int right = (int) Math.ceil((x + width) * scale);
+        int scaledWidth = Math.max(0, right - left);
+        double bottomGui = y + height;
+        int glBottom = (int) Math.floor((screenH - bottomGui) * scale);
+        int glTop = (int) Math.ceil((screenH - y) * scale);
+        int scaledHeight = Math.max(0, glTop - glBottom);
+        boolean wasEnabled = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
+        int[] saved = scissorPushStack[scissorPushDepth++];
+        if (scissorPushDepth > SCISSOR_PUSH_STACK_DEPTH) throw new IllegalStateException("Scissor stack overflow");
+        if (wasEnabled) {
+            SCISSOR_PUSH_BUF.clear();
+            GL11.glGetInteger(GL11.GL_SCISSOR_BOX, SCISSOR_PUSH_BUF);
+            saved[0] = 1;
+            saved[1] = SCISSOR_PUSH_BUF.get(0);
+            saved[2] = SCISSOR_PUSH_BUF.get(1);
+            saved[3] = SCISSOR_PUSH_BUF.get(2);
+            saved[4] = SCISSOR_PUSH_BUF.get(3);
+            int ix = Math.max(saved[1], left);
+            int iy = Math.max(saved[2], glBottom);
+            int iw = Math.max(0, Math.min(saved[1] + saved[3], left + scaledWidth) - ix);
+            int ih = Math.max(0, Math.min(saved[2] + saved[4], glBottom + scaledHeight) - iy);
+            GL11.glScissor(ix, iy, iw, ih);
+        } else {
+            saved[0] = 0;
+            GL11.glEnable(GL11.GL_SCISSOR_TEST);
+            GL11.glScissor(left, glBottom, scaledWidth, scaledHeight);
+        }
+    }
+
+    public static void scissorPop() {
+        int[] saved = scissorPushStack[--scissorPushDepth];
+        if (saved[0] == 1) {
+            GL11.glScissor(saved[1], saved[2], saved[3], saved[4]);
+        } else {
+            GL11.glDisable(GL11.GL_SCISSOR_TEST);
+        }
+    }
 
     public static boolean isInViewFrustum(final Entity entity) {
         return isInViewFrustum(entity.getEntityBoundingBox()) || entity.ignoreFrustumCheck;
     }
 
-    private static boolean isInViewFrustum(final AxisAlignedBB bb) {
+    public static boolean isInViewFrustum(final AxisAlignedBB bb) {
+        if (bb == null) return false;
         frustum.setPosition(mc.getRenderViewEntity().posX, mc.getRenderViewEntity().posY, mc.getRenderViewEntity().posZ);
         return frustum.isBoundingBoxInFrustum(bb);
     }
@@ -190,6 +247,216 @@ public class RenderUtils implements IMinecraftInstance {
             drawBoundingBox(axisAlignedBB, n9, n10, n11);
         }
         GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+        glEnable(3553);
+        glEnable(2929);
+        GL11.glDepthMask(true);
+        GL11.glDisable(3042);
+        glPopMatrix();
+    }
+
+    /**
+     * Renders only the given faces of a full block at pos (no double render when adjacent blocks are also highlighted).
+     * Caller should pass only faces whose neighbor is not in the same highlight set.
+     * Shaded fill uses 0.25f alpha to match drawBoundingBox; outline uses full color.
+     */
+    public static void renderBlockFaces(BlockPos blockPos, int color, boolean outline, boolean shade, java.util.Set<EnumFacing> faces) {
+        if (faces == null || faces.isEmpty()) return;
+        double xPos = blockPos.getX() - mc.getRenderManager().viewerPosX;
+        double yPos = blockPos.getY() - mc.getRenderManager().viewerPosY;
+        double zPos = blockPos.getZ() - mc.getRenderManager().viewerPosZ;
+        double maxX = xPos + 1;
+        double maxY = yPos + 1;
+        double maxZ = zPos + 1;
+        float r = (color >> 16 & 0xFF) / 255.0f;
+        float g = (color >> 8 & 0xFF) / 255.0f;
+        float b = (color & 0xFF) / 255.0f;
+        float outlineA = (color >> 24 & 0xFF) / 255.0f;
+        float shadeA = 0.25f;
+        GL11.glPushMatrix();
+        GL11.glBlendFunc(770, 771);
+        glEnable(3042);
+        GL11.glLineWidth(2.0f);
+        GL11.glDisable(3553);
+        GL11.glDisable(2929);
+        GL11.glDepthMask(false);
+        Tessellator ts = Tessellator.getInstance();
+        WorldRenderer vb = ts.getWorldRenderer();
+        if (shade) {
+            vb.begin(7, DefaultVertexFormats.POSITION_COLOR);
+            if (faces.contains(EnumFacing.DOWN)) {
+                vb.pos(xPos, yPos, zPos).color(r, g, b, shadeA).endVertex();
+                vb.pos(maxX, yPos, zPos).color(r, g, b, shadeA).endVertex();
+                vb.pos(maxX, yPos, maxZ).color(r, g, b, shadeA).endVertex();
+                vb.pos(xPos, yPos, maxZ).color(r, g, b, shadeA).endVertex();
+            }
+            if (faces.contains(EnumFacing.UP)) {
+                vb.pos(xPos, maxY, zPos).color(r, g, b, shadeA).endVertex();
+                vb.pos(xPos, maxY, maxZ).color(r, g, b, shadeA).endVertex();
+                vb.pos(maxX, maxY, maxZ).color(r, g, b, shadeA).endVertex();
+                vb.pos(maxX, maxY, zPos).color(r, g, b, shadeA).endVertex();
+            }
+            if (faces.contains(EnumFacing.NORTH)) {
+                vb.pos(xPos, yPos, zPos).color(r, g, b, shadeA).endVertex();
+                vb.pos(xPos, maxY, zPos).color(r, g, b, shadeA).endVertex();
+                vb.pos(maxX, maxY, zPos).color(r, g, b, shadeA).endVertex();
+                vb.pos(maxX, yPos, zPos).color(r, g, b, shadeA).endVertex();
+            }
+            if (faces.contains(EnumFacing.SOUTH)) {
+                vb.pos(maxX, yPos, maxZ).color(r, g, b, shadeA).endVertex();
+                vb.pos(maxX, maxY, maxZ).color(r, g, b, shadeA).endVertex();
+                vb.pos(xPos, maxY, maxZ).color(r, g, b, shadeA).endVertex();
+                vb.pos(xPos, yPos, maxZ).color(r, g, b, shadeA).endVertex();
+            }
+            if (faces.contains(EnumFacing.WEST)) {
+                vb.pos(xPos, yPos, zPos).color(r, g, b, shadeA).endVertex();
+                vb.pos(xPos, maxY, zPos).color(r, g, b, shadeA).endVertex();
+                vb.pos(xPos, maxY, maxZ).color(r, g, b, shadeA).endVertex();
+                vb.pos(xPos, yPos, maxZ).color(r, g, b, shadeA).endVertex();
+            }
+            if (faces.contains(EnumFacing.EAST)) {
+                vb.pos(maxX, yPos, maxZ).color(r, g, b, shadeA).endVertex();
+                vb.pos(maxX, maxY, maxZ).color(r, g, b, shadeA).endVertex();
+                vb.pos(maxX, maxY, zPos).color(r, g, b, shadeA).endVertex();
+                vb.pos(maxX, yPos, zPos).color(r, g, b, shadeA).endVertex();
+            }
+            ts.draw();
+        }
+        if (outline) {
+            GL11.glColor4f(r, g, b, outlineA);
+            vb.begin(1, DefaultVertexFormats.POSITION);
+            if (faces.contains(EnumFacing.DOWN)) {
+                vb.pos(xPos, yPos, zPos).endVertex(); vb.pos(maxX, yPos, zPos).endVertex();
+                vb.pos(maxX, yPos, zPos).endVertex(); vb.pos(maxX, yPos, maxZ).endVertex();
+                vb.pos(maxX, yPos, maxZ).endVertex(); vb.pos(xPos, yPos, maxZ).endVertex();
+                vb.pos(xPos, yPos, maxZ).endVertex(); vb.pos(xPos, yPos, zPos).endVertex();
+            }
+            if (faces.contains(EnumFacing.UP)) {
+                vb.pos(xPos, maxY, zPos).endVertex(); vb.pos(maxX, maxY, zPos).endVertex();
+                vb.pos(maxX, maxY, zPos).endVertex(); vb.pos(maxX, maxY, maxZ).endVertex();
+                vb.pos(maxX, maxY, maxZ).endVertex(); vb.pos(xPos, maxY, maxZ).endVertex();
+                vb.pos(xPos, maxY, maxZ).endVertex(); vb.pos(xPos, maxY, zPos).endVertex();
+            }
+            if (faces.contains(EnumFacing.NORTH)) {
+                vb.pos(xPos, yPos, zPos).endVertex(); vb.pos(xPos, maxY, zPos).endVertex();
+                vb.pos(xPos, maxY, zPos).endVertex(); vb.pos(maxX, maxY, zPos).endVertex();
+                vb.pos(maxX, maxY, zPos).endVertex(); vb.pos(maxX, yPos, zPos).endVertex();
+                vb.pos(maxX, yPos, zPos).endVertex(); vb.pos(xPos, yPos, zPos).endVertex();
+            }
+            if (faces.contains(EnumFacing.SOUTH)) {
+                vb.pos(xPos, yPos, maxZ).endVertex(); vb.pos(xPos, maxY, maxZ).endVertex();
+                vb.pos(xPos, maxY, maxZ).endVertex(); vb.pos(maxX, maxY, maxZ).endVertex();
+                vb.pos(maxX, maxY, maxZ).endVertex(); vb.pos(maxX, yPos, maxZ).endVertex();
+                vb.pos(maxX, yPos, maxZ).endVertex(); vb.pos(xPos, yPos, maxZ).endVertex();
+            }
+            if (faces.contains(EnumFacing.WEST)) {
+                vb.pos(xPos, yPos, zPos).endVertex(); vb.pos(xPos, maxY, zPos).endVertex();
+                vb.pos(xPos, maxY, zPos).endVertex(); vb.pos(xPos, maxY, maxZ).endVertex();
+                vb.pos(xPos, maxY, maxZ).endVertex(); vb.pos(xPos, yPos, maxZ).endVertex();
+                vb.pos(xPos, yPos, maxZ).endVertex(); vb.pos(xPos, yPos, zPos).endVertex();
+            }
+            if (faces.contains(EnumFacing.EAST)) {
+                vb.pos(maxX, yPos, zPos).endVertex(); vb.pos(maxX, maxY, zPos).endVertex();
+                vb.pos(maxX, maxY, zPos).endVertex(); vb.pos(maxX, maxY, maxZ).endVertex();
+                vb.pos(maxX, maxY, maxZ).endVertex(); vb.pos(maxX, yPos, maxZ).endVertex();
+                vb.pos(maxX, yPos, maxZ).endVertex(); vb.pos(maxX, yPos, zPos).endVertex();
+            }
+            ts.draw();
+        }
+        GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+        glEnable(3553);
+        glEnable(2929);
+        GL11.glDepthMask(true);
+        GL11.glDisable(3042);
+        glPopMatrix();
+    }
+
+    private static void drawBoxFaceVertex(WorldRenderer wr, double x, double y, double z, int color) {
+        wr.pos(x, y, z).color((color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF, (color >> 24) & 0xFF).endVertex();
+    }
+
+    private static void drawBoxFaceVertices(WorldRenderer wr, EnumFacing face, AxisAlignedBB box, int start, int end) {
+        switch (face) {
+            case UP:
+                drawBoxFaceVertex(wr, box.minX, box.maxY, box.maxZ, start);
+                drawBoxFaceVertex(wr, box.maxX, box.maxY, box.maxZ, end);
+                drawBoxFaceVertex(wr, box.maxX, box.maxY, box.minZ, start);
+                drawBoxFaceVertex(wr, box.minX, box.maxY, box.minZ, end);
+                break;
+            case DOWN:
+                drawBoxFaceVertex(wr, box.maxX, box.minY, box.maxZ, start);
+                drawBoxFaceVertex(wr, box.minX, box.minY, box.maxZ, end);
+                drawBoxFaceVertex(wr, box.minX, box.minY, box.minZ, start);
+                drawBoxFaceVertex(wr, box.maxX, box.minY, box.minZ, end);
+                break;
+            case NORTH:
+                drawBoxFaceVertex(wr, box.maxX, box.maxY, box.minZ, start);
+                drawBoxFaceVertex(wr, box.maxX, box.minY, box.minZ, end);
+                drawBoxFaceVertex(wr, box.minX, box.minY, box.minZ, start);
+                drawBoxFaceVertex(wr, box.minX, box.maxY, box.minZ, end);
+                break;
+            case SOUTH:
+                drawBoxFaceVertex(wr, box.minX, box.maxY, box.maxZ, start);
+                drawBoxFaceVertex(wr, box.minX, box.minY, box.maxZ, end);
+                drawBoxFaceVertex(wr, box.maxX, box.minY, box.maxZ, start);
+                drawBoxFaceVertex(wr, box.maxX, box.maxY, box.maxZ, end);
+                break;
+            case EAST:
+                drawBoxFaceVertex(wr, box.maxX, box.maxY, box.minZ, start);
+                drawBoxFaceVertex(wr, box.maxX, box.maxY, box.maxZ, end);
+                drawBoxFaceVertex(wr, box.maxX, box.minY, box.maxZ, start);
+                drawBoxFaceVertex(wr, box.maxX, box.minY, box.minZ, end);
+                break;
+            case WEST:
+                drawBoxFaceVertex(wr, box.minX, box.maxY, box.maxZ, start);
+                drawBoxFaceVertex(wr, box.minX, box.maxY, box.minZ, end);
+                drawBoxFaceVertex(wr, box.minX, box.minY, box.minZ, start);
+                drawBoxFaceVertex(wr, box.minX, box.minY, box.maxZ, end);
+                break;
+        }
+    }
+
+    /**
+     * Draws one face of an AABB (box in current GL space). Caller must have set blend, disabled texture, etc.
+     */
+    public static void drawBoxFace(AxisAlignedBB box, EnumFacing face, int overlayColor, int outlineColor, boolean overlay, boolean outline) {
+        Tessellator ts = Tessellator.getInstance();
+        WorldRenderer wr = ts.getWorldRenderer();
+        if (overlay) {
+            wr.begin(7, DefaultVertexFormats.POSITION_COLOR);
+            drawBoxFaceVertices(wr, face, box, overlayColor, overlayColor);
+            ts.draw();
+        }
+        if (outline) {
+            wr.begin(2, DefaultVertexFormats.POSITION_COLOR);
+            drawBoxFaceVertices(wr, face, box, outlineColor, outlineColor);
+            ts.draw();
+        }
+    }
+
+    public static void renderBlockShape(BlockPos pos, IBlockState state, int color, boolean outline, boolean shade, java.util.Set<EnumFacing> visibleFaces) {
+        AxisAlignedBB box = BlockUtils.getBlockSelectionBox(pos);
+        if (box == null) return;
+        double vx = mc.getRenderManager().viewerPosX, vy = mc.getRenderManager().viewerPosY, vz = mc.getRenderManager().viewerPosZ;
+        int overlayColor = (color & 0x00FFFFFF) | (63 << 24);
+        int outlineColor = color | 0xFF000000;
+
+        GL11.glPushMatrix();
+        GL11.glBlendFunc(770, 771);
+        glEnable(3042);
+        GL11.glLineWidth(2.0f);
+        GL11.glDisable(3553);
+        GL11.glDisable(2929);
+        GL11.glDepthMask(false);
+
+        if (state.getBlock() instanceof BlockStairs) {
+            StairsUtils.drawStairs(pos, state, box, null, vx, vy, vz, overlayColor, outlineColor, outlineColor, outlineColor, shade, outline, (b, face, os, oe, ls, le, ov, ol) -> drawBoxFace(b, face, overlayColor, outlineColor, ov, ol));
+        } else {
+            AxisAlignedBB renderBox = box.offset(-vx, -vy, -vz);
+            for (EnumFacing face : visibleFaces) {
+                drawBoxFace(renderBox, face, overlayColor, outlineColor, shade, outline);
+            }
+        }
+
         glEnable(3553);
         glEnable(2929);
         GL11.glDepthMask(true);
@@ -1291,6 +1558,25 @@ public class RenderUtils implements IMinecraftInstance {
             case 50: return "flm";
             case 51: return "inf";
             default: return null;
+        }
+    }
+
+    public static ResourceLocation buildWhiteMaskedTexture(String resourcePath, String registryName, ResourceLocation fallback) {
+        try (InputStream stream = Raven.class.getResourceAsStream(resourcePath)) {
+            if (stream == null) return fallback;
+            BufferedImage src = ImageIO.read(stream);
+            int w = src.getWidth(), h = src.getHeight();
+            BufferedImage dst = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+            for (int py = 0; py < h; py++) {
+                for (int px = 0; px < w; px++) {
+                    int alpha = (src.getRGB(px, py) >>> 24) & 0xFF;
+                    if (alpha > 0) dst.setRGB(px, py, (alpha << 24) | 0x00FFFFFF);
+                }
+            }
+            return mc.getTextureManager().getDynamicTextureLocation(registryName, new DynamicTexture(dst));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return fallback;
         }
     }
 }

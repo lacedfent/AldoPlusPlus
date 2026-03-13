@@ -13,6 +13,7 @@ import keystrokesmod.module.impl.movement.Sprint;
 import keystrokesmod.module.impl.render.HUD;
 import keystrokesmod.module.impl.render.TargetHUD;
 import keystrokesmod.module.setting.Setting;
+import keystrokesmod.module.setting.impl.BlockListSetting;
 import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.ColorSetting;
 import keystrokesmod.module.setting.impl.KeySetting;
@@ -127,6 +128,9 @@ public class ProfileManager implements IMinecraftInstance {
                 ColorSetting cs = (ColorSetting) setting;
                 moduleInformation.addProperty(setting.getProfileKey(),
                         cs.getRed() + "," + cs.getGreen() + "," + cs.getBlue() + "," + cs.getAlpha());
+            }
+            else if (setting instanceof BlockListSetting) {
+                moduleInformation.add(setting.getProfileKey(), ((BlockListSetting) setting).toJsonArray());
             }
         }
         return moduleInformation;

@@ -171,6 +171,7 @@ public class ModuleManager {
         this.addModule(antiShuffle = new AntiShuffle());
         this.addModule(new Arrows());
         this.addModule(bedESP = new BedESP());
+        this.addModule(new BlockESP());
         this.addModule(new BlockOverlay());
         this.addModule(new BreakProgress());
         this.addModule(chams = new Chams());

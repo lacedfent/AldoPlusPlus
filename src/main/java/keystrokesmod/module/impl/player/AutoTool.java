@@ -6,10 +6,13 @@ import keystrokesmod.event.SlotUpdateEvent;
 import keystrokesmod.mixin.impl.accessor.IAccessorPlayerControllerMP;
 import keystrokesmod.mixin.interfaces.IMixinItemRenderer;
 import keystrokesmod.module.Module;
+import keystrokesmod.module.setting.impl.BlockListSetting;
 import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
 import keystrokesmod.utility.BlockUtils;
 import keystrokesmod.utility.Utils;
+import net.minecraft.block.Block;
+import net.minecraft.block.state.IBlockState;
 import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.MovingObjectPosition;
@@ -28,6 +31,8 @@ public class AutoTool extends Module {
     public ButtonSetting spoofItem;
     private ButtonSetting swapBack;
     private ButtonSetting overrideSwapBack;
+    private ButtonSetting blockWhitelistToggle;
+    private BlockListSetting blockWhitelist;
 
     private boolean hasSwapped = false;
     private int swapDelayTick = 0;
@@ -46,7 +51,14 @@ public class AutoTool extends Module {
         this.registerSetting(spoofItem = new ButtonSetting("Spoof item", false));
         this.registerSetting(swapBack = new ButtonSetting("Swap to previous slot", true));
         this.registerSetting(overrideSwapBack = new ButtonSetting("Override swap back", false));
+        this.registerSetting(blockWhitelistToggle = new ButtonSetting("Block whitelist", false));
+        this.registerSetting(blockWhitelist = new BlockListSetting("Blocks"));
         this.closetModule = true;
+    }
+
+    @Override
+    public void guiUpdate() {
+        blockWhitelist.setVisible(blockWhitelistToggle.isToggled(), this);
     }
 
     @Override
@@ -106,6 +118,23 @@ public class AutoTool extends Module {
         if (over == null || over.typeOfHit != MovingObjectPosition.MovingObjectType.BLOCK || over.getBlockPos() == null) {
             resetVariables(false);
             return;
+        }
+        if (blockWhitelistToggle.isToggled() && !blockWhitelist.getBlocks().isEmpty()) {
+            IBlockState state = BlockUtils.getBlockState(over.getBlockPos());
+            Block hoveredBlock = state.getBlock();
+            String registryId = hoveredBlock != null && Block.blockRegistry.getNameForObject(hoveredBlock) != null
+                    ? Block.blockRegistry.getNameForObject(hoveredBlock).toString() : "";
+            if (!registryId.isEmpty()) {
+                int meta = hoveredBlock.getMetaFromState(state);
+                String storageId = meta != 0 ? registryId + ":" + meta : registryId;
+                if (!blockWhitelist.contains(storageId) && !blockWhitelist.contains(registryId)) {
+                    resetVariables(false);
+                    return;
+                }
+            } else {
+                resetVariables(false);
+                return;
+            }
         }
         int slot = Utils.getTool(BlockUtils.getBlock(over.getBlockPos()));
         if (slot == -1) {

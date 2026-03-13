@@ -93,9 +93,31 @@ public class ModuleComponent extends Component {
                     this.settings.add(cc);
                     y += 12;
                 }
+                else if (v instanceof keystrokesmod.module.setting.impl.BlockListSetting) {
+                    keystrokesmod.module.setting.impl.BlockListSetting bls = (keystrokesmod.module.setting.impl.BlockListSetting) v;
+                    BlockSearchComponent bsc = new BlockSearchComponent(bls, this, y);
+                    this.settings.add(bsc);
+                    y += 12;
+                }
             }
         }
         this.settings.add(new BindComponent(this, y));
+    }
+
+    public void updateAnimationState() {
+        if (smoothTimer != null) {
+            if (System.currentTimeMillis() - smoothTimer.last >= 280) {
+                smoothTimer = null;
+                smoothingY = animationTargetY;
+                animationStartY = animationTargetY;
+            } else {
+                smoothingY = smoothTimer.getValueFloat(animationStartY, animationTargetY, 1);
+                if (smoothingY == animationTargetY) {
+                    smoothTimer = null;
+                    animationStartY = animationTargetY;
+                }
+            }
+        }
     }
 
     public void updateHeight(float newY) {
@@ -139,6 +161,8 @@ public class ModuleComponent extends Component {
                         ((BindComponent) child).xOffset = GROUP_CHILD_INDENT;
                     } else if (child instanceof ColorComponent) {
                         ((ColorComponent) child).xOffset = GROUP_CHILD_INDENT;
+                    } else if (child instanceof BlockSearchComponent) {
+                        ((BlockSearchComponent) child).xOffset = GROUP_CHILD_INDENT;
                     }
                     idx++;
                 }
@@ -158,6 +182,8 @@ public class ModuleComponent extends Component {
                     ((BindComponent) co).xOffset = indent;
                 } else if (co instanceof ColorComponent) {
                     ((ColorComponent) co).xOffset = indent;
+                } else if (co instanceof BlockSearchComponent) {
+                    ((BlockSearchComponent) co).xOffset = indent;
                 }
 
                 y += getBaseComponentHeightF(co);
@@ -182,23 +208,7 @@ public class ModuleComponent extends Component {
             button_rgb = UNSAVED_COLOR;
         }
 
-        // Update smoothingY using float arithmetic each frame
         boolean scissorRequired = smoothTimer != null;
-        if (smoothTimer != null) {
-            if (System.currentTimeMillis() - smoothTimer.last >= 280) {
-                smoothTimer = null;
-                smoothingY = animationTargetY;
-                animationStartY = animationTargetY;
-                scissorRequired = false;
-            } else {
-                smoothingY = smoothTimer.getValueFloat(animationStartY, animationTargetY, 1);
-                if (smoothingY == animationTargetY) {
-                    smoothTimer = null;
-                    animationStartY = animationTargetY;
-                    scissorRequired = false;
-                }
-            }
-        }
 
         Minecraft.getMinecraft().fontRendererObj.drawStringWithShadow(this.mod.getName(), (float) (this.categoryComponent.getX() + this.categoryComponent.getWidth() / 2 - Minecraft.getMinecraft().fontRendererObj.getStringWidth(this.mod.getName()) / 2), (float) (this.categoryComponent.getY() + this.yPos + 4), button_rgb);
         if (scissorRequired) {
@@ -416,6 +426,9 @@ public class ModuleComponent extends Component {
             ColorComponent cc = (ColorComponent) component;
             float progress = cc.getAnimationProgress();
             return 12f + (cc.getExpandedHeight() - 12f) * progress;
+        }
+        if (component instanceof BlockSearchComponent) {
+            return ((BlockSearchComponent) component).getCurrentHeight();
         }
         return 12f;
     }

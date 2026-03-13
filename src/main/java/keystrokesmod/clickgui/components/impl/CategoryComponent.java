@@ -3,6 +3,7 @@ package keystrokesmod.clickgui.components.impl;
 import keystrokesmod.Raven;
 import keystrokesmod.clickgui.animation.ScrollOffsetAnimation;
 import keystrokesmod.clickgui.components.Component;
+import keystrokesmod.clickgui.components.impl.BlockSearchComponent;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.impl.client.Gui;
 import keystrokesmod.utility.RenderUtils;
@@ -163,31 +164,38 @@ public class CategoryComponent {
     }
 
     public void onScroll(int mouseScrollInput) {
-        for (Component component : this.modules) {
-            component.onScroll(mouseScrollInput);
+        onScroll(mouseScrollInput, Float.NaN, Float.NaN);
+    }
+
+    public void onScroll(int mouseScrollInput, float mouseX, float mouseY) {
+        for (ModuleComponent mod : this.modules) {
+            mod.onScroll(mouseScrollInput);
         }
         if (!hoveringOverCategory || !this.opened) {
             return;
+        }
+        if (!Float.isNaN(mouseX) && !Float.isNaN(mouseY)) {
+            for (ModuleComponent mod : this.modules) {
+                for (Component comp : mod.settings) {
+                    if (comp instanceof BlockSearchComponent) {
+                        BlockSearchComponent bsc = (BlockSearchComponent) comp;
+                        if (bsc.isMouseOverDropdown(mouseX, mouseY) || bsc.isMouseOverSelectedList(mouseX, mouseY))
+                            return;
+                    }
+                }
+            }
         }
         this.lastInteractedTime = System.currentTimeMillis();
         float scrollSpeed = (float) Gui.scrollSpeed.getInput();
         float minScrollY = computeMinScrollY();
         float maxScrollY = this.y;
-
-        // Scale by wheel delta so multiple scroll notches = proportionally more movement
         float delta = scrollSpeed * (mouseScrollInput / 120f);
         if (delta != 0f) {
             scrollAnim.extend(delta);
         }
-        // Clamp destination into valid scroll range
         scrollAnim.clampTarget(minScrollY, maxScrollY);
     }
 
-    // ---------------------------------------------------------------------------
-    //  Float viewport and scroll-bound helpers
-    // ---------------------------------------------------------------------------
-
-    /** Sum of full scroll-extent heights for all modules. */
     private float getTotalScrollExtentHeightF() {
         float total = 0f;
         for (ModuleComponent c : this.modules) {
@@ -196,12 +204,6 @@ public class CategoryComponent {
         return total;
     }
 
-    /**
-     * Visible viewport height: the smaller of (max allowed) and (total content height).
-     * This is the height of the window through which content scrolls.
-     */
-
-    /** Compute the lowest moduleY target (most-scrolled-down position). */
     private float computeMinScrollY() {
         if (this.modules.isEmpty() || (!this.opened && smoothTimer == null)) {
             return this.y;
@@ -216,14 +218,9 @@ public class CategoryComponent {
         return this.y;
     }
 
-    // ---------------------------------------------------------------------------
-    //  render
-    // ---------------------------------------------------------------------------
-
     public void render(FontRenderer renderer) {
         this.width = 92;
 
-        // ---- Expire timers first so all subsequent logic sees consistent state ----
         if (smoothTimer != null && System.currentTimeMillis() - smoothTimer.last >= 280) {
             smoothTimer = null;
         }
@@ -231,7 +228,10 @@ public class CategoryComponent {
             textTimer = null;
         }
 
-        // ---- Compute big (visible content height) using float child heights ----
+        for (ModuleComponent c : this.modules) {
+            c.updateAnimationState();
+        }
+
         if (!this.modules.isEmpty() && (this.opened || smoothTimer != null)) {
             float maxModulesHeight = (this.screenHeight * 0.9f) - this.titleHeight - 4;
             float accumulated = 0f;
@@ -252,17 +252,14 @@ public class CategoryComponent {
             big = 0f;
         }
 
-        // ---- Scroll bounds ----
         float maxScrollY = this.y;
         float minScrollY = computeMinScrollY();
 
         scrollAnim.clampTarget(minScrollY, maxScrollY);
 
-        // ---- Expo-Out animated scroll position ----
         moduleY = scrollAnim.getValue();
         moduleY = Math.max(minScrollY, Math.min(maxScrollY, moduleY));
 
-        // ---- Layout pass ---- (uses category anchor y = this.y, NOT moduleY)
         if (smoothTimer != null || this.opened) {
             this.updateHeight();
         }
@@ -294,13 +291,11 @@ public class CategoryComponent {
 
         GL11.glPushMatrix();
 
-        // Draw background, border, icon, and title WITHOUT scissor
         RenderUtils.drawRoundedGradientOutlinedRectangle(this.x - 2, this.y, this.x + this.width + 2, extra, 10, TRANSLUCENT_BACKGROUND,
                 ((opened || hovering) && Gui.rainBowOutlines.isToggled()) ? RenderUtils.setAlpha(Utils.getChroma(2, 0), 0.5) : REGULAR_OUTLINE, ((opened || hovering) && Gui.rainBowOutlines.isToggled()) ? RenderUtils.setAlpha(Utils.getChroma(2, 700), 0.5) : REGULAR_OUTLINE2);
         renderItemForCategory(this.category, (int) (this.x + 1), (int) (this.y + 4), opened || hovering);
         renderer.drawString(this.category.name(), namePos, this.y + 4, CATEGORY_NAME_COLOR, false);
 
-        // Scissor ONLY the module content area (settings, text) - not background or border
         float moduleAreaTop = this.y + this.titleHeight + 3;
         float scissorBottom = extra - 2f;
         float moduleAreaHeight = Math.max(0f, scissorBottom - moduleAreaTop);
@@ -323,11 +318,6 @@ public class CategoryComponent {
         GL11.glPopMatrix();
     }
 
-    /**
-     * Layout pass: assign yPos to each module using float accumulation.
-     * Always uses the category anchor y (this.y), NOT moduleY.
-     * The scroll translation in render() handles the visual offset.
-     */
     public void updateHeight() {
         float y = this.titleHeight + 3;
         for (Component component : this.modules) {
@@ -441,7 +431,8 @@ public class CategoryComponent {
             }
             RenderHelper.enableGUIStandardItemLighting();
             GlStateManager.disableBlend();
-            renderItem.renderItemAndEffectIntoGUI(itemStack, (int) (x / scale), (int) (y / scale));
+            GlStateManager.translate((float) (x / scale), (float) (y / scale), 0);
+            renderItem.renderItemAndEffectIntoGUI(itemStack, 0, 0);
             GlStateManager.enableBlend();
             RenderHelper.disableStandardItemLighting();
         }

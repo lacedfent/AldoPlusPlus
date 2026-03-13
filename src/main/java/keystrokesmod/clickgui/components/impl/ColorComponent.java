@@ -6,12 +6,9 @@ import keystrokesmod.module.setting.impl.ColorSetting;
 import keystrokesmod.utility.RenderUtils;
 import keystrokesmod.utility.Timer;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.ScaledResolution;
-import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
 
 import java.awt.Color;
-import java.nio.IntBuffer;
 
 public class ColorComponent extends Component {
     public ColorSetting colorSetting;
@@ -42,7 +39,6 @@ public class ColorComponent extends Component {
     private static final float BOTTOM_PAD = 2f;
     private static final int HUE_STEPS = 20;
     private static final float PREVIEW_BOX_SIZE = 5f;
-    private static final IntBuffer SCISSOR_BUF = BufferUtils.createIntBuffer(16);
 
     public ColorComponent(ColorSetting colorSetting, ModuleComponent moduleComponent, float o) {
         this.colorSetting = colorSetting;
@@ -117,32 +113,9 @@ public class ColorComponent extends Component {
         float scrollOffset = moduleComponent.categoryComponent.moduleY - cy;
         float contentTopScreen = cy + o + LABEL_HEIGHT + scrollOffset;
         float revealH = (getExpandedHeight() - LABEL_HEIGHT) * progress;
-
-        ScaledResolution sr = new ScaledResolution(Minecraft.getMinecraft());
-        int sf = sr.getScaleFactor();
-        double screenH = sr.getScaledHeight();
-
-        int newLeft = (int) Math.floor(cx * sf);
-        int newRight = (int) Math.ceil((cx + cw) * sf);
-        int newW = Math.max(0, newRight - newLeft);
-        int newGlBottom = (int) Math.floor((screenH - (contentTopScreen + revealH)) * sf);
-        int newGlTop = (int) Math.ceil((screenH - contentTopScreen) * sf);
-        int newH = Math.max(0, newGlTop - newGlBottom);
-
-        SCISSOR_BUF.clear();
-        GL11.glGetInteger(GL11.GL_SCISSOR_BOX, SCISSOR_BUF);
-        int px = SCISSOR_BUF.get(0), py = SCISSOR_BUF.get(1);
-        int pw = SCISSOR_BUF.get(2), ph = SCISSOR_BUF.get(3);
-
-        int ix = Math.max(px, newLeft);
-        int iy = Math.max(py, newGlBottom);
-        int iw = Math.max(0, Math.min(px + pw, newLeft + newW) - ix);
-        int ih = Math.max(0, Math.min(py + ph, newGlBottom + newH) - iy);
-        GL11.glScissor(ix, iy, iw, ih);
-
+        RenderUtils.scissorPushGui(cx, contentTopScreen, cw, revealH);
         renderPickerContent(cx, cy);
-
-        GL11.glScissor(px, py, pw, ph);
+        RenderUtils.scissorPop();
     }
 
     private void renderPickerContent(float cx, float cy) {

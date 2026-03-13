@@ -133,10 +133,6 @@ public class BlockUtils implements IMinecraftInstance {
         return mc.theWorld.getBlockState(blockPos);
     }
 
-    /**
-     * Returns the vanilla selection bounding box for a block (used for outline rendering).
-     * Calls setBlockBoundsBasedOnState then getSelectedBoundingBox. Falls back to full block if null.
-     */
     public static AxisAlignedBB getBlockSelectionBox(BlockPos pos) {
         if (mc.theWorld == null || pos == null) return null;
         IBlockState state = mc.theWorld.getBlockState(pos);
@@ -275,10 +271,6 @@ public class BlockUtils implements IMinecraftInstance {
         return false;
     }
 
-    /**
-     * Vanilla-style block cell traversal along a ray. Returns the first block that matches
-     * the predicate (bed/adjacent when enabled), or the first collidable block as fallback.
-     */
     public static MovingObjectPosition traverseBlocksAlongRay(Vec3 start, Vec3 end,
             boolean wantBed, boolean wantAdjacent) {
         if (mc.theWorld == null) return null;

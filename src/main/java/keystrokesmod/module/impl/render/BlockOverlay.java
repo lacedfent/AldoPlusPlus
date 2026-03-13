@@ -24,8 +24,6 @@ import net.minecraft.util.BlockPos;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.MovingObjectPosition;
 import net.minecraftforge.client.event.DrawBlockHighlightEvent;
-import net.minecraftforge.client.event.RenderWorldLastEvent;
-import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import org.lwjgl.opengl.GL11;
 
@@ -102,13 +100,14 @@ public class BlockOverlay extends Module {
 
     @SubscribeEvent
     public void onDrawBlockHighlight(DrawBlockHighlightEvent e) {
-        if ((int) renderMode.getInput() != 1) e.setCanceled(true);
-    }
-
-    @SubscribeEvent
-    public void onRenderWorld(RenderWorldLastEvent e) {
         int mode = (int) renderMode.getInput();
-        if (mode < 2) return;
+        if (mode == 0) {
+            e.setCanceled(true);
+            return;
+        }
+        if (mode == 1) {
+            return;
+        }
         if (!Utils.nullCheck()) return;
         if (!persistence.isToggled() && mc.thePlayer.isSpectator()) return;
         BlockPos pos = getFocusedBlock();
@@ -117,12 +116,17 @@ public class BlockOverlay extends Module {
         boolean showOutline = outlineVisible.isToggled();
         if (!showOverlay && !showOutline) return;
 
+        e.setCanceled(true);
+        EnumFacing side = (mode == 2) ? mc.objectMouseOver.sideHit : null;
+        renderCustomBlockOverlay(pos, side, showOverlay, showOutline);
+    }
+
+    private void renderCustomBlockOverlay(BlockPos pos, EnumFacing side, boolean showOverlay, boolean showOutline) {
         AxisAlignedBB box = BlockUtils.getBlockSelectionBox(pos);
         if (box == null) return;
         box = box.expand(PADDING, PADDING, PADDING);
         double vx = mc.getRenderManager().viewerPosX, vy = mc.getRenderManager().viewerPosY, vz = mc.getRenderManager().viewerPosZ;
         AxisAlignedBB renderBox = box.offset(-vx, -vy, -vz);
-        EnumFacing side = (mode == 2) ? mc.objectMouseOver.sideHit : null;
 
         int overlayStart = 0, overlayEnd = 0, outlineStart = 0, outlineEnd = 0;
         if (showOverlay) {
@@ -140,34 +144,37 @@ public class BlockOverlay extends Module {
         GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
         GlStateManager.disableTexture2D();
         GlStateManager.depthMask(false);
-        if (depthless.isToggled()) GlStateManager.disableDepth();
+        boolean depthDisabled = depthless.isToggled();
+        if (depthDisabled) GlStateManager.disableDepth();
         GL11.glEnable(GL11.GL_LINE_SMOOTH);
         GL11.glHint(GL11.GL_LINE_SMOOTH_HINT, GL11.GL_NICEST);
         if (showOutline) GL11.glLineWidth((float) thickness.getInput());
         GL11.glShadeModel(GL11.GL_SMOOTH);
 
-        IBlockState state = mc.theWorld.getBlockState(pos);
-        if (state.getBlock() instanceof BlockStairs) {
-            StairsUtils.drawStairs(pos, state, box, side, vx, vy, vz, overlayStart, overlayEnd, outlineStart, outlineEnd, showOverlay, showOutline, BlockOverlay::drawFace);
-        } else {
-            if (side != null) {
-                drawFace(renderBox, side, overlayStart, overlayEnd, outlineStart, outlineEnd, showOverlay, showOutline);
+        try {
+            IBlockState state = mc.theWorld.getBlockState(pos);
+            if (state.getBlock() instanceof BlockStairs) {
+                StairsUtils.drawStairs(pos, state, box, side, vx, vy, vz, overlayStart, overlayEnd, outlineStart, outlineEnd, showOverlay, showOutline, BlockOverlay::drawFace);
             } else {
-                for (EnumFacing face : EnumFacing.values()) {
-                    drawFace(renderBox, face, overlayStart, overlayEnd, outlineStart, outlineEnd, showOverlay, showOutline);
+                if (side != null) {
+                    drawFace(renderBox, side, overlayStart, overlayEnd, outlineStart, outlineEnd, showOverlay, showOutline);
+                } else {
+                    for (EnumFacing face : EnumFacing.values()) {
+                        drawFace(renderBox, face, overlayStart, overlayEnd, outlineStart, outlineEnd, showOverlay, showOutline);
+                    }
                 }
             }
+        } finally {
+            GL11.glShadeModel(GL11.GL_FLAT);
+            GL11.glLineWidth(2.0f);
+            GL11.glDisable(GL11.GL_LINE_SMOOTH);
+            if (depthDisabled) GlStateManager.enableDepth();
+            GlStateManager.depthMask(true);
+            GlStateManager.enableTexture2D();
+            GlStateManager.enableCull();
+            GlStateManager.disableBlend();
+            GL11.glPopMatrix();
         }
-
-        GL11.glShadeModel(GL11.GL_FLAT);
-        GL11.glLineWidth(2.0f);
-        GL11.glDisable(GL11.GL_LINE_SMOOTH);
-        GlStateManager.enableDepth();
-        GlStateManager.depthMask(true);
-        GlStateManager.enableTexture2D();
-        GlStateManager.enableCull();
-        GlStateManager.disableBlend();
-        GL11.glPopMatrix();
     }
 
     private BlockPos getFocusedBlock() {
