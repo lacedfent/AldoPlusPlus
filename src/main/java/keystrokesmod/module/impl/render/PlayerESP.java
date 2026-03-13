@@ -9,11 +9,15 @@ import keystrokesmod.module.impl.client.Settings;
 import keystrokesmod.module.impl.player.Freecam;
 import keystrokesmod.module.impl.world.AntiBot;
 import keystrokesmod.module.setting.impl.ButtonSetting;
+import keystrokesmod.module.setting.impl.ColorSetting;
 import keystrokesmod.module.setting.impl.GroupSetting;
-import keystrokesmod.module.setting.impl.SliderSetting;
 import keystrokesmod.utility.RenderUtils;
 import keystrokesmod.utility.Utils;
+import keystrokesmod.utility.shader.GlowShader;
+import keystrokesmod.utility.shader.OutlineShader;
 import net.minecraft.client.gui.ScaledResolution;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.shader.Framebuffer;
 import net.minecraft.client.model.ModelBiped;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
@@ -26,14 +30,11 @@ import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import org.lwjgl.opengl.GL11;
 
-import java.awt.*;
 import java.util.HashMap;
 import java.util.Map;
 
 public class PlayerESP extends Module {
-    public SliderSetting red;
-    public SliderSetting green;
-    public SliderSetting blue;
+    public ColorSetting color;
 
     public ButtonSetting teamColor;
     public ButtonSetting rainbow;
@@ -51,11 +52,14 @@ public class PlayerESP extends Module {
     public ButtonSetting renderSelf;
     public ButtonSetting showInvis;
 
-    private int rgbInput = 0;
     private static final float RAD_TO_DEG = 57.29578f;
+    public static boolean renderingOutlinePass = false;
 
-    private final Map<EntityLivingBase, Integer> renderAsTwoD = new HashMap<>(); // entity with its rgb
-    // none, outline, box, shaded, 2d, ring
+    private final Map<EntityLivingBase, Integer> renderAsTwoD = new HashMap<>();
+
+    private Framebuffer outlineFramebuffer;
+    private final OutlineShader outlineShader = new OutlineShader();
+    private final GlowShader glowShader = new GlowShader();
 
     public PlayerESP() {
         super("PlayerESP", category.render, 0);
@@ -66,9 +70,7 @@ public class PlayerESP extends Module {
         this.registerSetting(ring = new ButtonSetting(espTypes, "Ring", false));
         this.registerSetting(shaded = new ButtonSetting(espTypes, "Shaded", false));
         this.registerSetting(skeleton = new ButtonSetting(espTypes, "Skeleton", false));
-        this.registerSetting(red = new SliderSetting("Red", 0.0D, 0.0D, 255.0D, 1.0D));
-        this.registerSetting(green = new SliderSetting("Green", 255.0D, 0.0D, 255.0D, 1.0D));
-        this.registerSetting(blue = new SliderSetting("Blue", 0.0D, 0.0D, 255.0D, 1.0D));
+        this.registerSetting(color = new ColorSetting("Color", 0, 255, 0));
         this.registerSetting(rainbow = new ButtonSetting("Rainbow", false));
         this.registerSetting(healthBar = new ButtonSetting("Health bar", true));
         this.registerSetting(redOnDamage = new ButtonSetting("Red on damage", true));
@@ -77,9 +79,8 @@ public class PlayerESP extends Module {
         this.registerSetting(showInvis = new ButtonSetting("Show invis", true));
     }
 
-    @Override
-    public void guiUpdate() {
-        this.rgbInput = (new Color((int) red.getInput(), (int) green.getInput(), (int) blue.getInput())).getRGB();
+    private int getColorRGB() {
+        return rainbow.isToggled() ? Utils.getChroma(2L, 0L) : color.getColor();
     }
 
     @SubscribeEvent
@@ -96,7 +97,7 @@ public class PlayerESP extends Module {
                 if (mc.thePlayer != player && AntiBot.isBot(player)) {
                     return;
                 }
-                int rgb = rainbow.isToggled() ? Utils.getChroma(2L, 0L) : this.rgbInput;
+                int rgb = getColorRGB();
                 if (teamColor.isToggled()) {
                     rgb = Utils.getColorFromEntity(player);
                 }
@@ -111,7 +112,7 @@ public class PlayerESP extends Module {
         if (!Utils.nullCheck()) {
             return;
         }
-        int rgb = rainbow.isToggled() ? Utils.getChroma(2L, 0L) : this.rgbInput;
+        int rgb = getColorRGB();
         if (Raven.DEBUG) {
             for (final Entity entity : mc.theWorld.loadedEntityList) {
                 if (entity instanceof EntityLivingBase && entity != mc.thePlayer) {
@@ -150,12 +151,52 @@ public class PlayerESP extends Module {
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public void onRenderTwo2D(RenderWorldLastEvent e) {
-        if (!Utils.nullCheck() || !twoD.isToggled()) {
-            return;
+        if (!Utils.nullCheck() || !isEnabled()) return;
+        if (outline.isToggled()) runOutlinePass(e.partialTicks);
+        if (twoD.isToggled()) {
+            for (Map.Entry<EntityLivingBase, Integer> entry : renderAsTwoD.entrySet()) {
+                this.renderTwoD(entry.getKey(), entry.getValue(), 0, e.partialTicks);
+            }
         }
-        for (Map.Entry<EntityLivingBase, Integer> entry : renderAsTwoD.entrySet()) {
-            this.renderTwoD(entry.getKey(), entry.getValue(), 0, e.partialTicks);
+    }
+
+    private void runOutlinePass(float partialTicks) {
+        if (!outlineShader.isValid() || !glowShader.isValid() || renderAsTwoD.isEmpty()) return;
+        outlineFramebuffer = RenderUtils.createFrameBuffer(outlineFramebuffer, false);
+        if (outlineFramebuffer == null) return;
+
+        GlStateManager.pushMatrix();
+        GlStateManager.pushAttrib();
+        outlineFramebuffer.bindFramebuffer(false);
+        ((IAccessorEntityRenderer) mc.entityRenderer).callSetupCameraTransform(partialTicks, 0);
+        boolean shadows = mc.gameSettings.entityShadows;
+        mc.gameSettings.entityShadows = false;
+        renderingOutlinePass = true;
+
+        glowShader.use();
+        for (Map.Entry<EntityLivingBase, Integer> e : renderAsTwoD.entrySet()) {
+            EntityLivingBase ent = e.getKey();
+            int col = redOnDamage.isToggled() && ent.hurtTime != 0 ? 0xFFFF0000 : e.getValue();
+            glowShader.setColor((col >> 16) & 0xFF, (col >> 8) & 0xFF, col & 0xFF, (col >> 24) & 0xFF);
+            boolean invis = ent.isInvisible();
+            if (showInvis.isToggled()) ent.setInvisible(false);
+            mc.getRenderManager().renderEntityStatic(ent, partialTicks, true);
+            ent.setInvisible(invis);
         }
+        glowShader.stop();
+        renderingOutlinePass = false;
+
+        mc.gameSettings.entityShadows = shadows;
+        mc.entityRenderer.disableLightmap();
+        mc.entityRenderer.setupOverlayRendering();
+        mc.getFramebuffer().bindFramebuffer(false);
+        outlineShader.use();
+        RenderUtils.drawFramebufferFullscreen(outlineFramebuffer);
+        outlineShader.stop();
+        outlineFramebuffer.framebufferClear();
+        mc.getFramebuffer().bindFramebuffer(false);
+        GlStateManager.popAttrib();
+        GlStateManager.popMatrix();
     }
 
     public void render(Entity en, int rgb) {
@@ -265,7 +306,6 @@ public class PlayerESP extends Module {
         GL11.glEnable(GL11.GL_LINE_SMOOTH);
         GL11.glLineWidth(1.0F);
 
-        // background outline
         GL11.glColor4f(0.0F, 0.0F, 0.0F, 0.4F);
         GL11.glBegin(GL11.GL_LINE_LOOP);
         GL11.glVertex2d(minX, minY);
@@ -274,7 +314,6 @@ public class PlayerESP extends Module {
         GL11.glVertex2d(minX, maxY);
         GL11.glEnd();
 
-        // second background
         GL11.glColor4f(0.0F, 0.0F, 0.0F, 0.4F);
         GL11.glBegin(GL11.GL_LINE_LOOP);
         GL11.glVertex2d(minX + 1.0, minY + 1.0);
@@ -283,7 +322,6 @@ public class PlayerESP extends Module {
         GL11.glVertex2d(minX + 1.0, maxY - 1.0);
         GL11.glEnd();
 
-        // main outline
         GL11.glColor4f(red, green, blue, 1.0f);
         GL11.glBegin(GL11.GL_LINE_LOOP);
         GL11.glVertex2d(minX + 0.5, minY + 0.5);
@@ -339,7 +377,6 @@ public class PlayerESP extends Module {
         GL11.glRotatef(player.renderYawOffset, 0.0f, -999.0f, 0.0f);
         GL11.glTranslated(-0.15, legHeight, legOffsetZ);
 
-        // Render the right leg
         float rightLegRotX = modelBiped.bipedRightLeg.rotateAngleX * RAD_TO_DEG;
         float rightLegRotY = modelBiped.bipedRightLeg.rotateAngleY * RAD_TO_DEG;
         float rightLegRotZ = modelBiped.bipedRightLeg.rotateAngleZ * RAD_TO_DEG;
@@ -348,12 +385,10 @@ public class PlayerESP extends Module {
         GL11.glRotatef(-rightLegRotZ, 0.0f, 0.0f, 1.0f);
         drawLine(0.0, 0.0, 0.0, 0.0, -legHeight, 0.0);
 
-        // Undo the right leg rotations
         GL11.glRotatef(rightLegRotZ, 0.0f, 0.0f, 1.0f);
         GL11.glRotatef(rightLegRotY, 0.0f, 1.0f, 0.0f);
         GL11.glRotatef(-rightLegRotX, 1.0f, 0.0f, 0.0f);
 
-        // Render left leg
         GL11.glTranslated(0.3, 0.0, 0.0);
         float leftLegRotX = modelBiped.bipedLeftLeg.rotateAngleX * RAD_TO_DEG;
         float leftLegRotY = modelBiped.bipedLeftLeg.rotateAngleY * RAD_TO_DEG;
@@ -363,27 +398,22 @@ public class PlayerESP extends Module {
         GL11.glRotatef(-leftLegRotZ, 0.0f, 0.0f, 1.0f);
         drawLine(0.0, 0.0, 0.0, 0.0, -legHeight, 0.0);
 
-        // Undo the left leg rotations
         GL11.glRotatef(leftLegRotZ, 0.0f, 0.0f, 1.0f);
         GL11.glRotatef(leftLegRotY, 0.0f, 1.0f, 0.0f);
         GL11.glRotatef(-leftLegRotX, 1.0f, 0.0f, 0.0f);
         GL11.glTranslated(-0.15, 0.0, 0.0);
 
-        // Draw a line connecting the legs.
         drawLine(0.15, 0.0, 0.0, -0.15, 0.0, 0.0);
 
-        // Renders the torso
         if (player.isSneaking()) {
             GL11.glRotatef(20.0f, 1.0f, 0.0f, 0.0f);
         }
         drawLine(0.0, 0.0, 0.0, 0.0, 0.65, 0.0);
 
-        // Move to the top of the torso (shoulder level) and draw shoulders.
         GL11.glTranslated(0.0, 0.65, 0.0);
         drawLine(0.35, 0.0, 0.0, -0.35, 0.0, 0.0);
         GL11.glTranslated(-0.35, 0.0, 0.0);
 
-        // Render right arm
         float rightArmRotX = modelBiped.bipedRightArm.rotateAngleX * RAD_TO_DEG;
         float rightArmRotY = modelBiped.bipedRightArm.rotateAngleY * RAD_TO_DEG;
         float rightArmRotZ = modelBiped.bipedRightArm.rotateAngleZ * RAD_TO_DEG;
@@ -391,12 +421,10 @@ public class PlayerESP extends Module {
         GL11.glRotatef(-rightArmRotY, 0.0f, 1.0f, 0.0f);
         GL11.glRotatef(-rightArmRotZ, 0.0f, 0.0f, 1.0f);
         drawLine(0.0, 0.0, 0.0, 0.0, -0.6, 0.0);
-        // Undo the right arm rotations.
         GL11.glRotatef(rightArmRotZ, 0.0f, 0.0f, 1.0f);
         GL11.glRotatef(rightArmRotY, 0.0f, 1.0f, 0.0f);
         GL11.glRotatef(-rightArmRotX, 1.0f, 0.0f, 0.0f);
 
-        // Render left arm
         GL11.glTranslated(0.7, 0.0, 0.0);
         float leftArmRotX = modelBiped.bipedLeftArm.rotateAngleX * RAD_TO_DEG;
         float leftArmRotY = modelBiped.bipedLeftArm.rotateAngleY * RAD_TO_DEG;
@@ -405,14 +433,11 @@ public class PlayerESP extends Module {
         GL11.glRotatef(-leftArmRotY, 0.0f, 1.0f, 0.0f);
         GL11.glRotatef(-leftArmRotZ, 0.0f, 0.0f, 1.0f);
         drawLine(0.0, 0.0, 0.0, 0.0, -0.6, 0.0);
-        // Undo the left arm rotations.
         GL11.glRotatef(leftArmRotZ, 0.0f, 0.0f, 1.0f);
         GL11.glRotatef(leftArmRotY, 0.0f, 1.0f, 0.0f);
         GL11.glRotatef(-leftArmRotX, 1.0f, 0.0f, 0.0f);
         GL11.glTranslated(-0.35, 0.0, 0.0);
 
-        // renders head
-        // undo the torso rotation.
         GL11.glRotatef(-player.renderYawOffset, 0.0f, -999.0f, 0.0f);
         double headHeight = 0.4;
         GL11.glRotated(player.rotationYaw, 0.0, -999.0, 0.0);

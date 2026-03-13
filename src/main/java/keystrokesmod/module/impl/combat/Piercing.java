@@ -23,7 +23,9 @@ public class Piercing extends Module {
     private ButtonSetting weaponOnly;
     private ButtonSetting insideHitboxOnly;
 
-    private String[] sortModes = new String[] { "Hurttime", "Health" };
+    private int lastMouseOverTick = -1;
+
+    private String[] sortModes = new String[] { "Hurt time", "Health" };
 
     public Piercing() {
         super("Piercing", category.combat);
@@ -35,12 +37,15 @@ public class Piercing extends Module {
         this.registerSetting(insideHitboxOnly = new ButtonSetting("Inside hitbox only", false));
     }
 
-    @SubscribeEvent
-    public void onPreInteract(PrePlayerInteractEvent e) {
-        this.keystrokesmod$modifyMouseOver(1.0F);
+    public void modifyMouseOverFromGetMouseOver(float partialTicks) {
+        if (mc == null || mc.thePlayer == null) return;
+        /* int tick = mc.thePlayer.ticksExisted;
+        if (lastMouseOverTick == tick) return;
+        lastMouseOverTick = tick; */
+        keystrokesmod$modifyMouseOverVanillaLook(partialTicks);
     }
 
-    public void keystrokesmod$modifyMouseOver(final float partialTicks) {
+    private void keystrokesmod$modifyMouseOverVanillaLook(final float partialTicks) {
         if (!this.isEnabled()) {
             return;
         }

@@ -2,12 +2,16 @@ package keystrokesmod.helper;
 
 import keystrokesmod.event.*;
 import keystrokesmod.module.impl.client.Settings;
+import keystrokesmod.utility.RotationUtils;
 import keystrokesmod.utility.Utils;
 import net.minecraft.client.Minecraft;
+import net.minecraft.entity.Entity;
 import net.minecraft.util.MathHelper;
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.common.gameevent.TickEvent;
 
 public class RotationHelper {
 
@@ -16,26 +20,179 @@ public class RotationHelper {
     private Float serverYaw = null;
     private Float serverPitch = null;
 
-    private boolean setRotations = false; // When set to true will tell the client that it will need to apply rotation and fixes in the current tick
+    private boolean setRotations = false;
 
     public boolean forceMovementFix = false;
 
+    // Tick-scoped swap state for temporarily overriding entity rotations
+    private float savedYaw, savedPitch;
+    private float savedPrevYaw, savedPrevPitch;
+    public boolean swappedForMouseOver;
+
+    private boolean rotationsUpdatedThisTick = false;
+
+    private boolean needsArmYawUpdate = false;
+
     private Minecraft mc = Minecraft.getMinecraft();
 
-    @SubscribeEvent(priority = EventPriority.HIGHEST)
-    public void onPreUpdate(PreUpdateEvent e) {
+    /**
+     * Returns yaw expressed in the same angular "branch" as prevYaw (avoids modulo jumps).
+     * Port from KillAura.
+     */
+    public static float unwrapYaw(float yaw, float prevYaw) {
+        return prevYaw + ((((yaw - prevYaw + 180f) % 360f) + 360f) % 360f - 180f);
+    }
+
+    /**
+     * Returns rotations to look at target, using event values or server rotations as base.
+     * Applies unwrap (via fixRotation) and optional smoothing. Use in ClientRotationEvent handlers.
+     */
+    public float[] getRotationsToTarget(Entity target, ClientRotationEvent e, float smoothingFactor) {
+        if (target == null || mc.thePlayer == null) return null;
+        float baseYaw = e.yaw != null ? e.yaw : RotationUtils.serverRotations[0];
+        float basePitch = e.pitch != null ? e.pitch : RotationUtils.serverRotations[1];
+        float[] rot = RotationUtils.getRotations(target, baseYaw, basePitch);
+        if (rot == null) return null;
+        float factor = Math.max(1f, smoothingFactor);
+        float yaw = baseYaw + MathHelper.wrapAngleTo180_float(rot[0] - baseYaw) / factor;
+        float pitch = basePitch + (rot[1] - basePitch) / factor;
+        return new float[] { yaw, pitch };
+    }
+
+    /**
+     * Returns rotations to look at target, using player rotation as base.
+     * Applies smoothing. Use for Normal (non-silent) mode.
+     */
+    public float[] getRotationsToTarget(Entity target, float smoothingFactor) {
+        if (target == null || mc.thePlayer == null) return null;
+        float baseYaw = mc.thePlayer.rotationYaw;
+        float basePitch = mc.thePlayer.rotationPitch;
+        float[] rot = RotationUtils.getRotations(target, baseYaw, basePitch);
+        if (rot == null) return null;
+        float factor = Math.max(1f, smoothingFactor);
+        float yaw = baseYaw + MathHelper.wrapAngleTo180_float(rot[0] - baseYaw) / factor;
+        float pitch = basePitch + (rot[1] - basePitch) / factor;
+        return new float[] { yaw, pitch };
+    }
+
+    /**
+     * Returns rotations to look at target with speed (0-30).
+     * Uses event values or server rotations as base. For ClientRotationEvent handlers.
+     */
+    public float[] getRotationsToTarget(Entity target, ClientRotationEvent e, int speed) {
+        return getRotationsToTarget(target, e, speed, 0.0, 0.0, 0f);
+    }
+
+    /**
+     * Returns rotations to look at target with speed (0-30), multipoint (0-100%), and randomization (0-100%).
+     * Uses event values or server rotations as base. For ClientRotationEvent handlers.
+     */
+    public float[] getRotationsToTarget(Entity target, ClientRotationEvent e, int speed, double horizontalMultipoint, double verticalMultipoint, float randomizationPercent) {
+        return getRotationsToTarget(target, e, speed, horizontalMultipoint, verticalMultipoint, randomizationPercent, false, 10.0);
+    }
+
+    /**
+     * Same as above with useBackupPoints and range. When useBackupPoints true, uses raycast fallback; range used for raycasts.
+     */
+    public float[] getRotationsToTarget(Entity target, ClientRotationEvent e, int speed, double horizontalMultipoint, double verticalMultipoint, float randomizationPercent, boolean useBackupPoints, double range) {
+        if (target == null || mc.thePlayer == null) return null;
+        float baseYaw = e.yaw != null ? e.yaw : RotationUtils.serverRotations[0];
+        float basePitch = e.pitch != null ? e.pitch : RotationUtils.serverRotations[1];
+        float[] rot = useBackupPoints
+                ? RotationUtils.getRotationsWithBackup(target, horizontalMultipoint, verticalMultipoint, baseYaw, basePitch, range)
+                : RotationUtils.getRotations(target, horizontalMultipoint, verticalMultipoint, baseYaw, basePitch);
+        if (rot == null) return null;
+        return RotationUtils.smoothRotation(baseYaw, basePitch, rot[0], rot[1], speed, randomizationPercent);
+    }
+
+    /**
+     * Returns rotations to look at target with speed (0-30).
+     * Uses player rotation as base. For Normal (non-silent) mode.
+     */
+    public float[] getRotationsToTarget(Entity target, int speed) {
+        return getRotationsToTarget(target, speed, 0.0, 0.0, 0f);
+    }
+
+    /**
+     * Returns rotations to look at target with speed (0-30), multipoint (0-100%), and randomization (0-100%).
+     * Uses player rotation as base. For Normal (non-silent) mode.
+     */
+    public float[] getRotationsToTarget(Entity target, int speed, double horizontalMultipoint, double verticalMultipoint, float randomizationPercent) {
+        return getRotationsToTarget(target, speed, horizontalMultipoint, verticalMultipoint, randomizationPercent, false, 10.0);
+    }
+
+    /**
+     * Same as above with useBackupPoints and range. When useBackupPoints true, uses raycast fallback; range used for raycasts.
+     */
+    public float[] getRotationsToTarget(Entity target, int speed, double horizontalMultipoint, double verticalMultipoint, float randomizationPercent, boolean useBackupPoints, double range) {
+        if (target == null || mc.thePlayer == null) return null;
+        float baseYaw = mc.thePlayer.rotationYaw;
+        float basePitch = mc.thePlayer.rotationPitch;
+        float[] rot = useBackupPoints
+                ? RotationUtils.getRotationsWithBackup(target, horizontalMultipoint, verticalMultipoint, baseYaw, basePitch, range)
+                : RotationUtils.getRotations(target, horizontalMultipoint, verticalMultipoint, baseYaw, basePitch);
+        if (rot == null) return null;
+        return RotationUtils.smoothRotation(baseYaw, basePitch, rot[0], rot[1], speed, randomizationPercent);
+    }
+
+    /**
+     * Gathers server rotations via ClientRotationEvent once per tick.
+     * Called early in runTick (before getMouseOver) so that objectMouseOver
+     * uses server rotations, and also as a fallback from onPreUpdate.
+     * Guard uses rotationsUpdatedThisTick (reset at GameTickEvent) because
+     * ticksExisted only increments during updateEntities, which runs after getMouseOver.
+     */
+    public void updateServerRotations() {
+        if (mc.thePlayer == null) {
+            return;
+        }
+        if (rotationsUpdatedThisTick) {
+            return;
+        }
+        rotationsUpdatedThisTick = true;
+
         ClientRotationEvent event = new ClientRotationEvent(this.serverYaw, this.serverPitch);
 
         MinecraftForge.EVENT_BUS.post(event);
 
-        if (event.yaw != null && !event.yaw.isNaN()) {
-            this.serverYaw = event.yaw;
+        this.serverYaw = event.yaw;
+        this.serverPitch = event.pitch;
+
+        if (this.serverYaw == null && this.serverPitch == null) {
+            return;
+        }
+
+        if (this.serverYaw != null){
+            if (Math.abs(this.serverYaw - mc.thePlayer.rotationYaw) >= 1.0f) {
+                final int randomFactor = (int) Settings.randomYawFactor.getInput();
+                if (randomFactor != 0) {
+                    final int n13 = randomFactor * 100 + Utils.randomizeInt(-30, 30);
+                    this.serverYaw += Utils.randomizeInt(-n13, n13) / 100.0f;
+                }
+            }
+        }
+
+        float[] fixed = RotationUtils.fixRotation(
+                this.serverYaw == null ? mc.thePlayer.rotationYaw : this.serverYaw,
+                this.serverPitch == null ? mc.thePlayer.rotationPitch : this.serverPitch,
+                RotationUtils.serverRotations[0],
+                RotationUtils.serverRotations[1]
+        );
+        this.serverYaw = fixed[0];
+        this.serverPitch = fixed[1];
+
+        if (this.serverYaw != mc.thePlayer.rotationYaw && (event.yaw == null || !event.yaw.isNaN())) {
             this.setRotations = true;
         }
-        if (event.pitch != null && !event.pitch.isNaN()) {
-            this.serverPitch = event.pitch;
+
+        if (this.serverPitch != mc.thePlayer.rotationPitch && (event.pitch == null || !event.pitch.isNaN())) {
             this.setRotations = true;
         }
+    }
+
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public void onPreUpdate(PreUpdateEvent e) {
+        updateServerRotations();
     }
 
     @SubscribeEvent
@@ -49,8 +206,58 @@ public class RotationHelper {
 
     @SubscribeEvent
     public void onRunTick(GameTickEvent e) {
+        if (this.setRotations && this.serverYaw != null && mc.thePlayer != null) {
+            float serverYawVal = RotationUtils.serverRotations[0];
+            float unwrapped = unwrapYaw(MathHelper.wrapAngleTo180_float(mc.thePlayer.rotationYaw), serverYawVal);
+            mc.thePlayer.rotationYaw = unwrapped;
+            mc.thePlayer.prevRotationYaw = unwrapped;
+        }
         this.serverYaw = this.serverPitch = null;
         this.setRotations = this.forceMovementFix = false;
+        this.rotationsUpdatedThisTick = false;
+        this.swappedForMouseOver = false;
+    }
+
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public void onRenderWorld(RenderWorldLastEvent e) {
+        if (this.setRotations && mc.thePlayer != null) {
+            mc.thePlayer.prevRenderArmYaw = mc.thePlayer.rotationYaw;
+            mc.thePlayer.renderArmYaw = mc.thePlayer.rotationYaw;
+        }
+    }
+
+    public boolean isActive() {
+        return this.setRotations && (this.serverYaw != null || this.serverPitch != null);
+    }
+
+    /**
+     * Temporarily overrides an entity's rotation fields for raytrace or movement math.
+     * Saves all four fields so endSwap can fully restore them.
+     * Sets prev = current to prevent interpolation artifacts in getLook(partialTicks).
+     */
+    public void beginSwap(Entity e, float yaw, float pitch, boolean swapPitch) {
+        this.savedYaw = e.rotationYaw;
+        this.savedPrevYaw = e.prevRotationYaw;
+        this.savedPitch = e.rotationPitch;
+        this.savedPrevPitch = e.prevRotationPitch;
+
+        e.rotationYaw = yaw;
+        e.prevRotationYaw = yaw;
+
+        if (swapPitch) {
+            e.rotationPitch = pitch;
+            e.prevRotationPitch = pitch;
+        }
+    }
+
+    /**
+     * Restores the entity's rotation fields saved by beginSwap.
+     */
+    public void endSwap(Entity e) {
+        e.rotationYaw = this.savedYaw;
+        e.prevRotationYaw = this.savedPrevYaw;
+        e.rotationPitch = this.savedPitch;
+        e.prevRotationPitch = this.savedPrevPitch;
     }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
@@ -111,7 +318,7 @@ public class RotationHelper {
         }
     }
 
-    private boolean fixMovement() {
+    public boolean fixMovement() {
         return ((Settings.movementFix != null && Settings.movementFix.isToggled()) || this.forceMovementFix) && this.setRotations;
     }
 

@@ -200,7 +200,7 @@ public class Module {
         } else {
             this.enable();
         }
-        if (Raven.currentProfile != null) {
+        if (Raven.currentProfile != null && !(this instanceof keystrokesmod.module.impl.client.Gui)) {
             Raven.currentProfile.getModule().saved = false;
         }
     }

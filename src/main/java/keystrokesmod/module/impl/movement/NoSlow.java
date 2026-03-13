@@ -1,19 +1,20 @@
 package keystrokesmod.module.impl.movement;
 
-import keystrokesmod.Raven;
-import keystrokesmod.event.*;
+import keystrokesmod.event.PostPlayerInputEvent;
+import keystrokesmod.event.PreUpdateEvent;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.ModuleManager;
 import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.DescriptionSetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
-import keystrokesmod.utility.BlockUtils;
 import keystrokesmod.utility.Utils;
-import net.minecraft.item.*;
-import net.minecraft.network.play.client.*;
+import net.minecraft.item.ItemBow;
+import net.minecraft.item.ItemPotion;
+import net.minecraft.item.ItemSword;
+import net.minecraft.network.play.client.C07PacketPlayerDigging;
+import net.minecraft.network.play.client.C09PacketHeldItemChange;
 import net.minecraft.util.BlockPos;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import org.lwjgl.input.Mouse;
 
 import static net.minecraft.util.EnumFacing.DOWN;
 
@@ -24,13 +25,9 @@ public class NoSlow extends Module {
     public static ButtonSetting disablePotions;
     public static ButtonSetting swordOnly;
     public static ButtonSetting vanillaSword;
-    public ButtonSetting preventStepping;
 
-    private final String[] NOSLOW_MODES = new String[] { "Vanilla", "Pre", "Post", "Alpha", "Beta", "Float" };
+    private final String[] NOSLOW_MODES = new String[] { "Vanilla", "Beta" };
 
-    private boolean postPlace;
-    private boolean canFloat;
-    private boolean reSendConsume;
     public boolean noSlowing;
     private boolean setJump;
 
@@ -43,28 +40,15 @@ public class NoSlow extends Module {
         this.registerSetting(disablePotions = new ButtonSetting("Disable potions", false));
         this.registerSetting(swordOnly = new ButtonSetting("Sword only", false));
         this.registerSetting(vanillaSword = new ButtonSetting("Vanilla sword", false));
-        this.registerSetting(preventStepping = new ButtonSetting("Prevent stepping", false));
     }
 
     @Override
     public void onDisable() {
-        resetFloat();
         noSlowing = false;
     }
 
     @SubscribeEvent
-    public void onStepHeightEvent(StepHeightEvent e) {
-        if (e.entity == mc.thePlayer && this.canFloat && preventStepping.isToggled()) {
-            e.stepHeight = 0.f;
-        }
-    }
-
-    @SubscribeEvent
     public void onPreUpdate(PreUpdateEvent e) {
-        if (ModuleManager.bedAura.stopAutoblock) {
-            return;
-        }
-        postPlace = false;
         if (vanillaSword.isToggled() && Utils.holdingSword()) {
             return;
         }
@@ -73,89 +57,11 @@ public class NoSlow extends Module {
             return;
         }
         switch ((int) mode.getInput()) {
-            case 1: // Pre
-                if (mc.thePlayer.ticksExisted % 3 == 0 && !Raven.packetsHandler.C07.sentCurrentTick.get()) {
-                    mc.thePlayer.sendQueue.addToSendQueue(new C08PacketPlayerBlockPlacement(mc.thePlayer.getHeldItem()));
-                }
-                break;
-            case 2: // Post
-                postPlace = true;
-                break;
-            case 3: // Alpha
-                if (mc.thePlayer.ticksExisted % 3 == 0 && !Raven.packetsHandler.C07.sentCurrentTick.get()) {
-                    mc.thePlayer.sendQueue.addToSendQueue(new C08PacketPlayerBlockPlacement(new BlockPos(-1, -1, -1), 1, null, 0, 0, 0));
-                }
-                break;
-            case 4: // Beta
+            case 1: // Beta
                 mc.thePlayer.sendQueue.addToSendQueue(new C09PacketHeldItemChange(mc.thePlayer.inventory.currentItem % 8 + 1));
                 mc.thePlayer.sendQueue.addToSendQueue(new C09PacketHeldItemChange(mc.thePlayer.inventory.currentItem));
                 mc.thePlayer.sendQueue.addToSendQueue(new C07PacketPlayerDigging(C07PacketPlayerDigging.Action.RELEASE_USE_ITEM, BlockPos.ORIGIN, DOWN));
-            case 5: // Float
-                if (reSendConsume) {
-                    if (mc.thePlayer.onGround) {
-                        setJump = true;
-                        break;
-                    }
-                    mc.playerController.sendUseItem(mc.thePlayer, mc.theWorld, mc.thePlayer.getHeldItem());
-                    canFloat = true;
-                    reSendConsume = false;
-                }
                 break;
-        }
-    }
-
-    @SubscribeEvent
-    public void onPostMotion(PostMotionEvent e) {
-        if (postPlace && mode.getInput() == 2) { // Post
-            if (mc.thePlayer.ticksExisted % 3 == 0 && !Raven.packetsHandler.C07.sentCurrentTick.get()) {
-                mc.thePlayer.sendQueue.addToSendQueue(new C08PacketPlayerBlockPlacement(mc.thePlayer.getHeldItem()));
-            }
-            postPlace = false;
-        }
-    }
-
-    @SubscribeEvent
-    public void onPreMotion(PreMotionEvent e) {
-        if (ModuleManager.bedAura.stopAutoblock || mode.getInput() != 5) { // Is not float noslow
-            resetFloat();
-            return;
-        }
-        postPlace = false;
-        if (!mc.gameSettings.keyBindUseItem.isKeyDown()) {
-            resetFloat();
-            noSlowing = false;
-            return;
-        }
-        if (vanillaSword.isToggled() && Utils.holdingSword()) {
-            resetFloat();
-            return;
-        }
-        boolean apply = getSlowed() != 0.2f;
-        if (!apply || !mc.thePlayer.isUsingItem()) {
-            resetFloat();
-            return;
-        }
-        if ((canFloat && canFloat() && mc.thePlayer.onGround)) {
-            e.setPosY(e.getPosY() + 1E-12);
-            noSlowing = true;
-        }
-    }
-
-    @SubscribeEvent
-    public void onPacketSend(SendPacketEvent e) {
-        if (e.getPacket() instanceof C08PacketPlayerBlockPlacement && mode.getInput() == 5 && getSlowed() != 0.2f && holdingUsable(((C08PacketPlayerBlockPlacement) e.getPacket()).getStack()) && !BlockUtils.isInteractable(mc.objectMouseOver) && Utils.holdingEdible(((C08PacketPlayerBlockPlacement) e.getPacket()).getStack())) {
-            if (((C08PacketPlayerBlockPlacement) e.getPacket()).getStack().getItem() instanceof ItemFood && mc.thePlayer.capabilities.isCreativeMode) {
-                return;
-            }
-            if (!mc.thePlayer.onGround) {
-                canFloat = true;
-            }
-            else {
-                setJump = true;
-                reSendConsume = true;
-                canFloat = false;
-                e.setCanceled(true);
-            }
         }
     }
 
@@ -182,8 +88,7 @@ public class NoSlow extends Module {
                 return 0.2f;
             }
         }
-        float val = (100.0F - (float) slowed.getInput()) / 100.0F;
-        return val;
+        return (100.0F - (float) slowed.getInput()) / 100.0F;
     }
 
     @Override
@@ -191,24 +96,4 @@ public class NoSlow extends Module {
         return NOSLOW_MODES[(int) mode.getInput()];
     }
 
-    private void resetFloat() {
-        reSendConsume = false;
-        canFloat = false;
-        setJump = false;
-    }
-
-    private boolean holdingUsable(ItemStack itemStack) {
-        Item heldItem = itemStack.getItem();
-        if (heldItem instanceof ItemFood || heldItem instanceof ItemBucketMilk || (heldItem instanceof ItemBow && Utils.hasArrows(itemStack)) || (heldItem instanceof ItemPotion && !ItemPotion.isSplash(mc.thePlayer.getHeldItem().getItemDamage())) || (heldItem instanceof ItemSword && !vanillaSword.isToggled())) {
-            return true;
-        }
-        return false;
-    }
-
-    private boolean canFloat() {
-        if (mc.thePlayer.isOnLadder() || mc.thePlayer.isInLava() || mc.thePlayer.isInWater()) {
-            return false;
-        }
-        return true;
-    }
 }

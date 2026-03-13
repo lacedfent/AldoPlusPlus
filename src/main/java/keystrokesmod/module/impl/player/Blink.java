@@ -2,85 +2,63 @@ package keystrokesmod.module.impl.player;
 
 import keystrokesmod.Raven;
 import keystrokesmod.event.PreUpdateEvent;
-import keystrokesmod.event.SendPacketEvent;
+import keystrokesmod.lag.api.EnumLagDirection;
+import keystrokesmod.lag.api.LagRequest;
+import keystrokesmod.lag.timeout.ModuleBackedTimeout;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.setting.impl.ButtonSetting;
-import keystrokesmod.utility.PacketUtils;
+import keystrokesmod.module.setting.impl.SliderSetting;
 import keystrokesmod.utility.RenderUtils;
 import keystrokesmod.utility.Utils;
-import net.minecraft.network.Packet;
-import net.minecraft.network.handshake.client.C00Handshake;
-import net.minecraft.network.login.client.C00PacketLoginStart;
-import net.minecraft.network.login.client.C01PacketEncryptionResponse;
-import net.minecraft.network.play.client.C00PacketKeepAlive;
-import net.minecraft.network.play.client.C0FPacketConfirmTransaction;
-import net.minecraft.network.status.client.C00PacketServerQuery;
-import net.minecraft.network.status.client.C01PacketPing;
 import net.minecraft.util.Vec3;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
 import java.awt.*;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class Blink extends Module {
     private ButtonSetting initialPosition;
-    private ConcurrentLinkedQueue<Packet<?>> blinkedPackets = new ConcurrentLinkedQueue<>();
+    private SliderSetting disableAfterMs;
 
     private Vec3 pos;
     private int color = new Color(0, 255, 0, 120).getRGB();
     private int blinkTicks;
+    private long enableTime;
 
     public Blink() {
         super("Blink", category.player);
+        this.registerSetting(disableAfterMs = new SliderSetting("Disable after", "ms", 500.0, 50.0, 1000.0, 50.0));
         this.registerSetting(initialPosition = new ButtonSetting("Show initial position", true));
     }
 
     @Override
     public void onEnable() {
-        blinkedPackets.clear();
         pos = new Vec3(mc.thePlayer.posX, mc.thePlayer.posY, mc.thePlayer.posZ);
-    }
-
-    public void onDisable() {
-        synchronized (blinkedPackets) {
-            for (Packet packet : blinkedPackets) {
-                Raven.packetsHandler.handlePacket(packet);
-                PacketUtils.sendPacketNoEvent(packet);
-            }
-        }
-        blinkedPackets.clear();
-        pos = null;
         blinkTicks = 0;
-    }
-
-    @SubscribeEvent
-    public void onSendPacket(SendPacketEvent e) {
-        if (!Utils.nullCheck()) {
-            this.disable();
-            return;
-        }
-        Packet packet = e.getPacket();
-        if (packet.getClass().getSimpleName().startsWith("S")) {
-            return;
-        }
-        if (packet instanceof C00Handshake || packet instanceof C00PacketLoginStart || packet instanceof C00PacketServerQuery || packet instanceof C01PacketPing || packet instanceof C01PacketEncryptionResponse || packet instanceof C00PacketKeepAlive || packet instanceof C0FPacketConfirmTransaction) {
-            return;
-        }
-        blinkedPackets.add(packet);
-        e.setCanceled(true);
+        enableTime = System.currentTimeMillis();
+        Raven.lagHandler.requestLag(
+                new LagRequest(
+                        EnumLagDirection.ONLY_OUTBOUND,
+                        new ModuleBackedTimeout(this)
+                )
+        );
     }
 
     @Override
     public String getInfo() {
-        return blinkTicks + "";
+        return String.valueOf(blinkTicks);
     }
 
     @SubscribeEvent
     public void onPreUpdate(PreUpdateEvent e) {
         ++blinkTicks;
+        long elapsed = System.currentTimeMillis() - enableTime;
+        if (elapsed >= (int) disableAfterMs.getInput()) {
+            this.disable();
+        }
     }
 
+    // TODO: move this to an external display for all lag system stuff
     @SubscribeEvent
     public void onRenderWorld(RenderWorldLastEvent e) {
         if (!Utils.nullCheck() || pos == null || !initialPosition.isToggled()) {
@@ -89,4 +67,3 @@ public class Blink extends Module {
         RenderUtils.drawPlayerBoundingBox(pos, color);
     }
 }
-

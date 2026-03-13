@@ -99,6 +99,11 @@ public class SliderSetting extends Setting {
         return this.settingName;
     }
 
+    @Override
+    public String getProfileKey() {
+        return groupSetting == null ? getName() : groupSetting.getName() + "." + getName();
+    }
+
     public double getInput() {
         return roundToInterval(this.defaultValue, 4);
     }
@@ -154,10 +159,13 @@ public class SliderSetting extends Setting {
 
     @Override
     public void loadProfile(JsonObject data) {
-        if (data.has(getName()) && data.get(getName()).isJsonPrimitive()) {
+        String profileKey = getProfileKey();
+        String legacyKey = getName();
+        String key = data.has(profileKey) ? profileKey : legacyKey;
+        if (data.has(key) && data.get(key).isJsonPrimitive()) {
             double newValue = defaultValue;
             try {
-                newValue = data.getAsJsonPrimitive(getName()).getAsDouble();
+                newValue = data.getAsJsonPrimitive(key).getAsDouble();
             }
             catch (Exception e) {
 

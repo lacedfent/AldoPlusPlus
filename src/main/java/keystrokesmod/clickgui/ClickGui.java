@@ -3,6 +3,7 @@ package keystrokesmod.clickgui;
 import keystrokesmod.Raven;
 import keystrokesmod.clickgui.components.Component;
 import keystrokesmod.clickgui.components.impl.BindComponent;
+import keystrokesmod.clickgui.components.impl.BlockSearchComponent;
 import keystrokesmod.clickgui.components.impl.CategoryComponent;
 import keystrokesmod.clickgui.components.impl.ModuleComponent;
 import keystrokesmod.module.Module;
@@ -30,7 +31,8 @@ import org.lwjgl.opengl.GL11;
 import java.awt.*;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.Comparator;
+import java.util.List;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -93,6 +95,22 @@ public class ClickGui extends GuiScreen {
         this.previousScale = (int) Gui.guiScale.getInput();
     }
 
+    /** Categories in render order: least recently interacted first (so most recent drawn on top). */
+    private List<CategoryComponent> getCategoriesInRenderOrder() {
+        categories.sort(Comparator.comparingLong(c -> c.lastInteractedTime));
+        return categories;
+    }
+
+    /** Returns the topmost CategoryComponent under the cursor, or null. */
+    private CategoryComponent getTopmostUnderCursor(int x, int y) {
+        for (int i = categories.size() - 1; i >= 0; i--) {
+            if (categories.get(i).overRect(x, y)) {
+                return categories.get(i);
+            }
+        }
+        return null;
+    }
+
     public void drawScreen(int x, int y, float p) {
         if (Gui.backgroundBlur.getInput() != 0) {
             BlurUtils.prepareBlur();
@@ -123,9 +141,11 @@ public class ClickGui extends GuiScreen {
             }
         }
 
-        for (CategoryComponent c : categories) {
+        List<CategoryComponent> renderOrder = getCategoriesInRenderOrder();
+        CategoryComponent topmostUnderCursor = getTopmostUnderCursor(x, y);
+        for (CategoryComponent c : renderOrder) {
             c.render(this.fontRendererObj);
-            c.mousePosition(x, y);
+            c.mousePosition(x, y, c == topmostUnderCursor);
 
             for (Component m : c.getModules()) {
                 m.drawScreen(x, y);
@@ -173,41 +193,51 @@ public class ClickGui extends GuiScreen {
     }
 
     public void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException {
+        // categories is sorted ascending by lastInteractedTime after drawScreen;
+        // iterate in reverse for input priority (most recently interacted = last drawn = topmost)
+        List<CategoryComponent> inputOrder = new ArrayList<>(categories);
+        inputOrder.sort((a, b) -> Long.compare(b.lastInteractedTime, a.lastInteractedTime));
+
         if (mouseButton == 0) {
-            boolean draggingAssigned = false;
-            for (int i = categories.size() - 1; i >= 0; i--) {
-                CategoryComponent category = categories.get(i);
-                if (!draggingAssigned && category.draggable(mouseX, mouseY)) {
+            for (CategoryComponent category : categories) {
+                category.overTitle(false);
+            }
+            for (CategoryComponent category : inputOrder) {
+                if (category.draggable(mouseX, mouseY)) {
+                    category.lastInteractedTime = System.currentTimeMillis();
                     category.overTitle(true);
                     category.xx = mouseX - category.getX();
                     category.yy = mouseY - category.getY();
                     category.dragging = true;
-                    draggingAssigned = true;
-                }
-                else {
-                    category.overTitle(false);
+                    break;
                 }
             }
         }
 
         if (mouseButton == 1) {
-            boolean toggled = false;
-            for (int i = categories.size() - 1; i >= 0; i--) {
-                CategoryComponent category = categories.get(i);
-                if (!toggled && category.overTitle(mouseX, mouseY)) {
+            for (CategoryComponent category : inputOrder) {
+                if (category.overTitle(mouseX, mouseY)) {
+                    category.lastInteractedTime = System.currentTimeMillis();
                     category.mouseClicked(!category.isOpened());
-                    toggled = true;
+                    break;
                 }
             }
         }
 
-        for (CategoryComponent category : categories) {
-            // Only process module clicks if not clicking on the category title
-            if (category.isOpened() && !category.getModules().isEmpty() && category.overRect(mouseX, mouseY) && !category.overTitle(mouseX, mouseY)) {
+        for (CategoryComponent category : inputOrder) {
+            if (category.isOpened() && !category.getModules().isEmpty() && !category.overTitle(mouseX, mouseY)) {
+                category.lastInteractedTime = System.currentTimeMillis();
+
+                boolean consumed = false;
                 for (ModuleComponent component : category.getModules()) {
                     if (component.onClick(mouseX, mouseY, mouseButton)) {
-                        category.openModule(component);
+                        consumed = true;
+                        break;
                     }
+                }
+
+                if (consumed) {
+                    break;
                 }
             }
         }
@@ -221,9 +251,7 @@ public class ClickGui extends GuiScreen {
 
     public void mouseReleased(int x, int y, int button) {
         if (button == 0) {
-            Iterator<CategoryComponent> iterator = categories.iterator();
-            while (iterator.hasNext()) {
-                CategoryComponent category = iterator.next();
+            for (CategoryComponent category : categories) {
                 category.overTitle(false);
                 if (category.isOpened() && !category.getModules().isEmpty()) {
                     for (Component module : category.getModules()) {
@@ -239,10 +267,35 @@ public class ClickGui extends GuiScreen {
         super.handleMouseInput();
         int wheelInput = Mouse.getDWheel();
         if (wheelInput != 0) {
+            ScaledResolution sr = new ScaledResolution(mc);
+            int w = sr.getScaledWidth();
+            int h = sr.getScaledHeight();
+            int mouseX = Mouse.getX() * w / mc.displayWidth;
+            int mouseY = h - Mouse.getY() * h / mc.displayHeight - 1;
             for (CategoryComponent category : categories) {
-                category.onScroll(wheelInput);
+                category.onScroll(wheelInput, mouseX, mouseY);
             }
         }
+    }
+
+    /**
+     * Refreshes the ClickGui for the newly loaded profile's Gui scale. Call after
+     * all module settings (including Gui.guiScale) are loaded. Applies the new scale,
+     * recomputes resolution, and reinitializes. If the GUI is currently open, it
+     * updates in place.
+     */
+    public void refreshAfterProfileLoad() {
+        if (mc == null) {
+            mc = Minecraft.getMinecraft();
+        }
+        originalScale = mc.gameSettings.guiScale;
+        mc.gameSettings.guiScale = (int) Gui.guiScale.getInput() + 1;
+        this.sr = new ScaledResolution(mc);
+        this.width = this.sr.getScaledWidth();
+        this.height = this.sr.getScaledHeight();
+        this.previousScale = (int) Gui.guiScale.getInput();
+        this.buttonList.clear();
+        initGui();
     }
 
     @Override
@@ -265,13 +318,21 @@ public class ClickGui extends GuiScreen {
     @Override
     public void keyTyped(char t, int k) {
         if (k == Keyboard.KEY_ESCAPE && !binding()) {
+            for (CategoryComponent category : categories) {
+                if (!category.isOpened()) continue;
+                for (ModuleComponent mod : category.getModules()) {
+                    for (Component comp : mod.settings) {
+                        if (comp instanceof BlockSearchComponent && ((BlockSearchComponent) comp).isSearchFocused()) {
+                            ((BlockSearchComponent) comp).unfocusSearch();
+                            return;
+                        }
+                    }
+                }
+            }
             this.mc.displayGuiScreen(null);
         }
         else {
-            Iterator<CategoryComponent> iterator = categories.iterator();
-            while (iterator.hasNext()) {
-                CategoryComponent category = iterator.next();
-
+            for (CategoryComponent category : categories) {
                 if (category.isOpened() && !category.getModules().isEmpty()) {
                     for (Component module : category.getModules()) {
                         module.keyTyped(t, k);
@@ -324,6 +385,9 @@ public class ClickGui extends GuiScreen {
             for (ModuleComponent m : c.getModules()) {
                 for (Component component : m.settings) {
                     if (component instanceof BindComponent && ((BindComponent) component).isBinding) {
+                        return true;
+                    }
+                    if (component instanceof BlockSearchComponent && ((BlockSearchComponent) component).isSearchFocused()) {
                         return true;
                     }
                 }

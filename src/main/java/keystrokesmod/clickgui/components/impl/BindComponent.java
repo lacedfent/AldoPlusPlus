@@ -5,13 +5,24 @@ import keystrokesmod.clickgui.components.Component;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.impl.client.Gui;
 import keystrokesmod.module.setting.impl.KeySetting;
+import keystrokesmod.utility.RenderUtils;
 import keystrokesmod.utility.Theme;
 import keystrokesmod.utility.profile.ProfileModule;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.util.ResourceLocation;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.opengl.GL11;
 
+import java.awt.*;
+
 public class BindComponent extends Component {
+    private static final ResourceLocation EYE_ICON = new ResourceLocation("keystrokesmod", "textures/gui/eye.png");
+    private static final ResourceLocation EYE_OFF_ICON = new ResourceLocation("keystrokesmod", "textures/gui/eye_off.png");
+    private static final int EYE_ICON_PADDING = 2;
+    private static ResourceLocation processedEye;
+    private static ResourceLocation processedEyeOff;
+
     public boolean isBinding;
     public ModuleComponent moduleComponent;
     public float o;
@@ -39,132 +50,179 @@ public class BindComponent extends Component {
         this.o = n;
     }
 
+    @Override public float getOffset() { return o; }
+    @Override public boolean isBaseVisible() { return keySetting == null || keySetting.visible; }
+
     public void render() {
         GL11.glPushMatrix();
         GL11.glScaled(0.5D, 0.5D, 0.5D);
         if (keySetting == null) {
-            this.drawString(!this.moduleComponent.mod.canBeEnabled() && this.moduleComponent.mod.script == null ? "Module cannot be bound." : this.isBinding ? "Press a key..." : "Current bind: '§e" + getKeyAsStr(false) + "§r'");
+            this.drawString(!this.moduleComponent.mod.canBeEnabled() && this.moduleComponent.mod.script == null ? "Module cannot be bound." : this.isBinding ? "Press a key..." : "Current bind: '\u00a7e" + getKeyAsStr(false) + "\u00a7r'");
         }
         else {
-            Minecraft.getMinecraft().fontRendererObj.drawStringWithShadow(this.isBinding ? "Press a key..." : this.keySetting.getName() + ": '§e" + getKeyAsStr(true) + "§r'", (float) ((this.moduleComponent.categoryComponent.getX() + 4) * 2) + xOffset, (float) ((this.moduleComponent.categoryComponent.getY() + this.o + (this.keySetting == null ? 3 : 4)) * 2), Theme.getGradient(Theme.descriptor[0], Theme.descriptor[1], 0));
+            Minecraft.getMinecraft().fontRendererObj.drawStringWithShadow(this.isBinding ? "Press a key..." : this.keySetting.getName() + ": '\u00a7e" + getKeyAsStr(true) + "\u00a7r'", (float) ((this.moduleComponent.categoryComponent.getX() + 4) * 2) + xOffset, (float) ((this.moduleComponent.categoryComponent.getY() + this.o + (this.keySetting == null ? 3 : 4)) * 2), Theme.getGradient(Theme.descriptor[0], Theme.descriptor[1], 0));
         }
         GL11.glPopMatrix();
+
+        if (keySetting == null && moduleComponent.mod.moduleCategory() != Module.category.profiles) {
+            ensureProcessedTextures();
+            int iconSize = getEyeIconSize();
+            float iconX = getEyeIconX(iconSize);
+            float textHeight = Minecraft.getMinecraft().fontRendererObj.FONT_HEIGHT * 0.5f;
+            float iconY = getRenderTextY() + (textHeight - iconSize) / 2f;
+
+            int themeColor = !moduleComponent.mod.hidden
+                    ? Theme.getGradient(Theme.descriptor[0], Theme.descriptor[1], 0)
+                    : Theme.getGradient(Theme.hiddenBind[0], Theme.hiddenBind[1], 0);
+            Color c = new Color(themeColor, true);
+            Minecraft.getMinecraft().getTextureManager().bindTexture(moduleComponent.mod.isHidden() ? processedEyeOff : processedEye);
+            GlStateManager.enableBlend();
+            GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
+            GlStateManager.color(c.getRed() / 255f, c.getGreen() / 255f, c.getBlue() / 255f, c.getAlpha() / 255f);
+
+            GL11.glPushMatrix();
+            GL11.glTranslatef(iconX, iconY, 0);
+            net.minecraft.client.gui.Gui.drawModalRectWithCustomSizedTexture(0, 0, 0, 0, iconSize, iconSize, iconSize, iconSize);
+            GL11.glPopMatrix();
+
+            GlStateManager.color(1f, 1f, 1f, 1f);
+            GlStateManager.disableBlend();
+        }
     }
 
     public void drawScreen(int x, int y) {
-        this.y = this.moduleComponent.categoryComponent.getModuleY() + this.o;
-        this.x = this.moduleComponent.categoryComponent.getX();
+        this.y = moduleComponent.categoryComponent.getModuleY() + o;
+        this.x = moduleComponent.categoryComponent.getX();
     }
 
     public boolean onClick(int x, int y, int button) {
-        if (this.overSetting(x, y) && this.moduleComponent.isOpened && this.moduleComponent.mod.canBeEnabled() && this.moduleComponent.isVisible(this)) {
-            if (button == 0) {
-                this.isBinding = !this.isBinding;
-            }
-            else if (button == 1 && this.moduleComponent.mod.moduleCategory() != Module.category.profiles && this.keySetting == null) {
-                this.moduleComponent.mod.setHidden(!this.moduleComponent.mod.isHidden());
-                if (Raven.currentProfile != null) {
-                    Raven.currentProfile.getModule().saved = false;
-                }
-            }
-            else if (button > 1) {
-                if (this.isBinding) {
-                    if (this.keySetting != null) {
-                        this.keySetting.setKey(button + 1000);
-                    }
-                    else {
-                        this.moduleComponent.mod.setBind(button + 1000);
-                    }
-                    if (Raven.currentProfile != null) {
-                        Raven.currentProfile.getModule().saved = false;
-                    }
-                    this.isBinding = false;
-                }
-            }
+        if (!overSetting(x, y) || !moduleComponent.isOpened || !moduleComponent.isVisible(this)) return false;
+        if (button == 0 && moduleComponent.mod.moduleCategory() != Module.category.profiles && overEyeIcon(x, y)) {
+            moduleComponent.mod.setHidden(!moduleComponent.mod.isHidden());
+            if (Raven.currentProfile != null) Raven.currentProfile.getModule().saved = false;
+            return true;
+        }
+        if (moduleComponent.mod.canBeEnabled() && button == 0 && overBindText(x, y)) {
+            isBinding = !isBinding;
+            return true;
+        }
+        if (moduleComponent.mod.canBeEnabled() && button > 1 && isBinding) {
+            if (keySetting != null) keySetting.setKey(button + 1000);
+            else moduleComponent.mod.setBind(button + 1000);
+            if (Raven.currentProfile != null) Raven.currentProfile.getModule().saved = false;
+            isBinding = false;
+            return true;
         }
         return false;
     }
 
+    private boolean overEyeIcon(int x, int y) {
+        int iconSize = getEyeIconSize();
+        float iconX = getEyeIconX(iconSize);
+        float iconY = getEyeIconY(iconSize);
+        return x >= iconX && x < iconX + iconSize && y >= iconY && y < iconY + iconSize;
+    }
+
+    private float getBindTextX() {
+        return moduleComponent.categoryComponent.getX() + 4f + (xOffset * 0.5f);
+    }
+
+    private float getBindTextY() {
+        return moduleComponent.categoryComponent.getModuleY() + o + (keySetting == null ? 3f : 4f);
+    }
+
+    private float getRenderTextY() {
+        return moduleComponent.categoryComponent.getY() + o + (keySetting == null ? 3f : 4f);
+    }
+
+    private String getBindDisplayString() {
+        if (keySetting == null)
+            return !moduleComponent.mod.canBeEnabled() && moduleComponent.mod.script == null ? "Module cannot be bound."
+                    : isBinding ? "Press a key..." : "Current bind: '\u00a7e" + getKeyAsStr(false) + "\u00a7r'";
+        return isBinding ? "Press a key..." : keySetting.getName() + ": '\u00a7e" + getKeyAsStr(true) + "\u00a7r'";
+    }
+
+    private boolean overBindText(int mouseX, int mouseY) {
+        Minecraft mc = Minecraft.getMinecraft();
+        String text = getBindDisplayString();
+
+        float left = getBindTextX();
+        float top = getBindTextY();
+        float width = mc.fontRendererObj.getStringWidth(text) * 0.5f;
+        float height = mc.fontRendererObj.FONT_HEIGHT * 0.5f;
+
+        return mouseX >= left && mouseX < left + width
+                && mouseY >= top && mouseY < top + height;
+    }
+
+    private int getEyeIconSize() {
+        int fontH = Minecraft.getMinecraft().fontRendererObj.FONT_HEIGHT;
+        return Math.max(6, fontH - 1);
+    }
+
+    private float getEyeIconX(int iconSize) {
+        return moduleComponent.categoryComponent.getX() + moduleComponent.categoryComponent.getWidth() - iconSize - EYE_ICON_PADDING;
+    }
+
+    private float getEyeIconY(int iconSize) {
+        float textY = getBindTextY();
+        float textHeight = Minecraft.getMinecraft().fontRendererObj.FONT_HEIGHT * 0.5f;
+        return textY + (textHeight - iconSize) / 2f;
+    }
+
     public void onScroll(int scroll) {
-        if (this.isBinding && scroll != 0) {
-            if (this.keySetting != null) {
-                this.keySetting.setKey(scroll > 0 ? 1069 : 1070); // 1069 for up, 1070 for down
-            }
-            else {
-                this.moduleComponent.mod.setBind(scroll > 0 ? 1069 : 1070); // might cause issues if your mouse has more than 69 buttons for some reason???
-            }
-            if (Raven.currentProfile != null) {
-                Raven.currentProfile.getModule().saved = false;
-            }
-            this.isBinding = false;
-        }
+        if (!isBinding || scroll == 0) return;
+        if (keySetting != null) keySetting.setKey(scroll > 0 ? 1069 : 1070);
+        else moduleComponent.mod.setBind(scroll > 0 ? 1069 : 1070);
+        if (Raven.currentProfile != null) Raven.currentProfile.getModule().saved = false;
+        isBinding = false;
     }
 
     public void keyTyped(char t, int keybind) {
-        if (this.isBinding) {
-            if (keybind == Keyboard.KEY_0 || keybind == Keyboard.KEY_ESCAPE) {
-                if (this.moduleComponent.mod instanceof Gui) {
-                    this.moduleComponent.mod.setBind(54);
-                }
-                else {
-                    if (this.keySetting != null) {
-                        this.keySetting.setKey(0);
-                    }
-                    else {
-                        this.moduleComponent.mod.setBind(0);
-                    }
-                }
-                if (Raven.currentProfile != null) {
-                    Raven.currentProfile.getModule().saved = false;
-                }
-            }
-            else {
-                if (Raven.currentProfile != null) {
-                    Raven.currentProfile.getModule().saved = false;
-                }
-                if (this.keySetting != null) {
-                    this.keySetting.setKey(keybind);
-                }
-                else {
-                    this.moduleComponent.mod.setBind(keybind);
-                }
-            }
-
-            this.isBinding = false;
+        if (!isBinding) return;
+        if (keybind == Keyboard.KEY_0 || keybind == Keyboard.KEY_ESCAPE) {
+            if (moduleComponent.mod instanceof Gui) moduleComponent.mod.setBind(54);
+            else if (keySetting != null) keySetting.setKey(0);
+            else moduleComponent.mod.setBind(0);
+        } else {
+            if (keySetting != null) keySetting.setKey(keybind);
+            else moduleComponent.mod.setBind(keybind);
         }
+        if (Raven.currentProfile != null) Raven.currentProfile.getModule().saved = false;
+        isBinding = false;
     }
 
-    public boolean overSetting(int x, int y) {
-        return x > this.x && x < this.x + this.moduleComponent.categoryComponent.getWidth() && y > this.y - 1 && y < this.y + 12;
+    public boolean overSetting(int mouseX, int mouseY) {
+        float rowX = moduleComponent.categoryComponent.getX();
+        float rowY = moduleComponent.categoryComponent.getModuleY() + o;
+        float rowW = moduleComponent.categoryComponent.getWidth();
+        return mouseX > rowX && mouseX < rowX + rowW && mouseY > rowY - 1 && mouseY < rowY + 12;
     }
 
     public String getKeyAsStr(boolean isKey) {
-        int key = isKey ? this.keySetting.getKey() : this.moduleComponent.mod.getKeycode();
-        return (key >= 1000 ? ((key == 1069 || key == 1070) ? getScroll(key) : "M" + (key - 1000)) : Keyboard.getKeyName(key));
+        int key = isKey ? keySetting.getKey() : moduleComponent.mod.getKeycode();
+        return key >= 1000 ? ((key == 1069 || key == 1070) ? getScroll(key) : "M" + (key - 1000)) : Keyboard.getKeyName(key);
     }
 
     public String getScroll(int key) {
-        if (key == 1069) {
-            return "MScrollUp";
-        }
-        else if (key == 1070) {
-            return "MScrollDown";
-        }
+        if (key == 1069) return "MScrollUp";
+        if (key == 1070) return "MScrollDown";
         return "&cERROR";
     }
 
-    public int getHeight() {
-        if (this.keySetting != null) {
-            return 0;
-        }
-        return 16;
-    }
+    @Override public float getHeightF() { return keySetting != null ? 0f : 16f; }
+    @Override public int getHeight() { return Math.round(getHeightF()); }
 
     private void drawString(String s) {
-        Minecraft.getMinecraft().fontRendererObj.drawStringWithShadow(s, (float) ((this.moduleComponent.categoryComponent.getX() + 4) * 2) + xOffset, (float) ((this.moduleComponent.categoryComponent.getY() + this.o + (this.keySetting == null ? 3 : 4)) * 2), !this.moduleComponent.mod.hidden ? Theme.getGradient(Theme.descriptor[0], Theme.descriptor[1], 0) : Theme.getGradient(Theme.hiddenBind[0], Theme.hiddenBind[1], 0));
+        Minecraft.getMinecraft().fontRendererObj.drawStringWithShadow(s, (float) ((this.moduleComponent.categoryComponent.getX() + 4) * 2) + xOffset, (float) ((this.moduleComponent.categoryComponent.getY() + this.o + (this.keySetting == null ? 3 : 4)) * 2), Theme.getGradient(Theme.descriptor[0], Theme.descriptor[1], 0));
     }
 
-    public void onGuiClosed() {
-        this.isBinding = false;
+    public void onGuiClosed() { isBinding = false; }
+
+    private static void ensureProcessedTextures() {
+        if (processedEye == null)
+            processedEye = RenderUtils.buildWhiteMaskedTexture("/assets/keystrokesmod/textures/gui/eye.png", "raven_eye_white", EYE_ICON);
+        if (processedEyeOff == null)
+            processedEyeOff = RenderUtils.buildWhiteMaskedTexture("/assets/keystrokesmod/textures/gui/eye_off.png", "raven_eye_off_white", EYE_OFF_ICON);
     }
 }

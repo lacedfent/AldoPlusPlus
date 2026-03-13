@@ -1,12 +1,14 @@
 package keystrokesmod.clickgui.components.impl;
 
 import keystrokesmod.Raven;
+import keystrokesmod.clickgui.animation.ScrollOffsetAnimation;
 import keystrokesmod.clickgui.components.Component;
+import keystrokesmod.clickgui.components.impl.BlockSearchComponent;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.impl.client.Gui;
 import keystrokesmod.utility.RenderUtils;
-import keystrokesmod.utility.Timer;
 import keystrokesmod.utility.Utils;
+import keystrokesmod.utility.Timer;
 import keystrokesmod.utility.profile.Manager;
 import keystrokesmod.utility.profile.Profile;
 import net.minecraft.client.Minecraft;
@@ -42,22 +44,28 @@ public class CategoryComponent {
     public boolean hoveringOverCategory = false;
     public Timer smoothTimer;
     private Timer textTimer;
-    public Timer smoothScrollTimer;
-    public ScaledResolution scale;
+    /** Visible content height (float). Used for overCategory hit-testing. */
     public float big;
 
-    private final int translucentBackground = new Color(0, 0, 0, 110).getRGB();
-    private final int regularOutline = new Color(81, 99, 149).getRGB();
-    private final int regularOutline2 = new Color(97, 67, 133).getRGB();
-    private final int categoryNameColor = new Color(220, 220, 220).getRGB();
-    
+    private static final int TRANSLUCENT_BACKGROUND = new Color(0, 0, 0, 110).getRGB();
+    private static final int REGULAR_OUTLINE = new Color(81, 99, 149).getRGB();
+    private static final int REGULAR_OUTLINE2 = new Color(97, 67, 133).getRGB();
+    private static final int CATEGORY_NAME_COLOR = new Color(220, 220, 220).getRGB();
+
     private float lastHeight;
+    private float lastNamePos;
+    private float animationStartNamePos;
+    /** Current animated scroll position (float). Driven by scrollAnim each frame. */
     public float moduleY;
-    private float lastModuleY;
     private float screenHeight;
-    private boolean scrolled;
-    private float targetModuleY;
+    private float screenWidth;
     private float animationStartHeight;
+
+    /** Persistent Expo-Out scroll animation — mirrors OneConfig/PolyUI behaviour. */
+    private final ScrollOffsetAnimation scrollAnim = new ScrollOffsetAnimation(200);
+
+    /** Time of last user interaction (drag, click, scroll). Used for render/input order. */
+    public long lastInteractedTime = 0L;
 
     public CategoryComponent(Module.category category) {
         this.category = category;
@@ -65,14 +73,8 @@ public class CategoryComponent {
         this.x = 5;
         this.moduleY = this.y = 5;
         this.titleHeight = 13;
-        this.smoothTimer = null;
-        this.textTimer = null;
-        this.xx = 0;
-        this.opened = false;
-        this.dragging = false;
         float moduleRenderY = this.titleHeight + 3;
-        this.scale = new ScaledResolution(Minecraft.getMinecraft());
-        this.targetModuleY = this.moduleY;
+        scrollAnim.reset(this.moduleY);
 
         this.lastHeight = this.y + this.titleHeight + 4;
         this.animationStartHeight = this.lastHeight;
@@ -122,29 +124,24 @@ public class CategoryComponent {
 
     public void setX(float newX, boolean limit) {
         if (limit) {
-            ScaledResolution sr = new ScaledResolution(Minecraft.getMinecraft());
-            float screenW = sr.getScaledWidth();
             newX = Math.max(newX, 2);
-            newX = Math.min(newX, screenW - this.width - 4);
+            newX = Math.min(newX, screenWidth - this.width - 4);
         }
         this.x = newX;
     }
 
     public void setY(float y, boolean limit) {
         if (limit) {
-            ScaledResolution sr = new ScaledResolution(Minecraft.getMinecraft());
-            float screenH = sr.getScaledHeight();
-            float catHeight = this.titleHeight;
-
             y = Math.max(y, 1);
-            float maxY = screenH - catHeight - 5;
+            float maxY = screenHeight - this.titleHeight - 5;
             y = Math.min(y, maxY);
         }
 
-        float scrollOffset = this.targetModuleY - this.y;
+        float scrollOffset = scrollAnim.getTarget() - this.y;
         this.y = y;
-        this.moduleY = y + scrollOffset;
-        this.targetModuleY = y + scrollOffset;
+        float newTarget = y + scrollOffset;
+        this.moduleY = newTarget;
+        scrollAnim.reset(newTarget);
     }
 
     public void overTitle(boolean d) {
@@ -156,205 +153,176 @@ public class CategoryComponent {
     }
 
     public void mouseClicked(boolean on) {
-        float currentActualHeight = this.lastHeight > 0 ? this.lastHeight : (this.y + this.titleHeight + 4);
-        if (this.lastHeight <= 0 && !this.modules.isEmpty() && this.opened) {
-            int currentModulesHeight = 0;
-            for (ModuleComponent c : this.modules) {
-                currentModulesHeight += c.getHeight();
-            }
-            currentActualHeight += currentModulesHeight;
-        }
+        this.animationStartHeight = getCurrentAnimatedCategoryHeight();
+        this.animationStartNamePos = getCurrentAnimatedNamePos();
 
         float animationDuration = 250.0f;
-        
-        this.animationStartHeight = currentActualHeight;
-        
+
         this.opened = on;
         (this.smoothTimer = new Timer(animationDuration)).start();
         (this.textTimer = new Timer(animationDuration)).start();
     }
 
-    public void openModule(ModuleComponent component) {
-        float currentBottom = this.lastHeight > 0 ? this.lastHeight : (this.y + this.titleHeight + 4);
-        if (this.lastHeight <= 0 && !this.modules.isEmpty() && this.opened) {
-            int currentModulesHeight = 0;
-            for (ModuleComponent c : this.modules) {
-                currentModulesHeight += c.getHeight();
-            }
-            currentBottom = this.y + this.titleHeight + currentModulesHeight + 4;
-        }
-
-        this.animationStartHeight = currentBottom;
-        (this.smoothTimer = new Timer(250)).start();
+    public void onScroll(int mouseScrollInput) {
+        onScroll(mouseScrollInput, Float.NaN, Float.NaN);
     }
 
-    public void onScroll(int mouseScrollInput) {
-        for (Component component : this.modules) {
-            component.onScroll(mouseScrollInput);
+    public void onScroll(int mouseScrollInput, float mouseX, float mouseY) {
+        for (ModuleComponent mod : this.modules) {
+            mod.onScroll(mouseScrollInput);
         }
         if (!hoveringOverCategory || !this.opened) {
             return;
         }
-        int scrollSpeed = (int) Gui.scrollSpeed.getInput();
+        if (!Float.isNaN(mouseX) && !Float.isNaN(mouseY)) {
+            for (ModuleComponent mod : this.modules) {
+                for (Component comp : mod.settings) {
+                    if (comp instanceof BlockSearchComponent) {
+                        BlockSearchComponent bsc = (BlockSearchComponent) comp;
+                        if (bsc.isMouseOverDropdown(mouseX, mouseY) || bsc.isMouseOverSelectedList(mouseX, mouseY))
+                            return;
+                    }
+                }
+            }
+        }
+        this.lastInteractedTime = System.currentTimeMillis();
+        float scrollSpeed = (float) Gui.scrollSpeed.getInput();
+        float minScrollY = computeMinScrollY();
+        float maxScrollY = this.y;
+        float delta = scrollSpeed * (mouseScrollInput / 120f);
+        if (delta != 0f) {
+            scrollAnim.extend(delta);
+        }
+        scrollAnim.clampTarget(minScrollY, maxScrollY);
+    }
 
-        if (this.smoothScrollTimer == null) {
-            this.smoothScrollTimer = new Timer(200.0f);
-            this.smoothScrollTimer.start();
+    private float getTotalScrollExtentHeightF() {
+        float total = 0f;
+        for (ModuleComponent c : this.modules) {
+            total += c.getScrollExtentHeightF();
         }
+        return total;
+    }
 
-        if (mouseScrollInput > 0) {
-            this.targetModuleY += scrollSpeed;
+    private float computeMinScrollY() {
+        if (this.modules.isEmpty() || (!this.opened && smoothTimer == null)) {
+            return this.y;
         }
-        else if (mouseScrollInput < 0) {
-            this.targetModuleY -= scrollSpeed;
+        float total = getTotalScrollExtentHeightF();
+        float maxModulesHeight = (this.screenHeight * 0.9f) - this.titleHeight - 4;
+        float viewport = Math.min(maxModulesHeight, total);
+        float overflow = total - viewport;
+        if (overflow > 0f) {
+            return this.y - overflow;
         }
-        scrolled = true;
+        return this.y;
     }
 
     public void render(FontRenderer renderer) {
         this.width = 92;
-        int modulesHeight = 0;
+
+        if (smoothTimer != null && System.currentTimeMillis() - smoothTimer.last >= 280) {
+            smoothTimer = null;
+        }
+        if (textTimer != null && System.currentTimeMillis() - textTimer.last >= 280) {
+            textTimer = null;
+        }
+
+        for (ModuleComponent c : this.modules) {
+            c.updateAnimationState();
+        }
 
         if (!this.modules.isEmpty() && (this.opened || smoothTimer != null)) {
-            float maxCategoryHeight = this.screenHeight * 0.9f;
-            float maxModulesHeight = maxCategoryHeight - this.titleHeight - 4;
-            
+            float maxModulesHeight = (this.screenHeight * 0.9f) - this.titleHeight - 4;
+            float accumulated = 0f;
             for (ModuleComponent c : this.modules) {
-                int moduleHeight = c.getHeight();
-
-                if (modulesHeight + moduleHeight > maxModulesHeight) {
-                    float remainingHeight = maxModulesHeight - modulesHeight;
-                    if (remainingHeight > 0) {
-                        modulesHeight += (int) remainingHeight;
+                float moduleHeight = c.getHeightF();
+                if (accumulated + moduleHeight > maxModulesHeight) {
+                    float remaining = maxModulesHeight - accumulated;
+                    if (remaining > 0f) {
+                        accumulated += remaining;
                     }
                     break;
                 }
-                modulesHeight += moduleHeight;
+                accumulated += moduleHeight;
             }
-            big = modulesHeight;
+            big = accumulated;
         }
         else if (!this.opened && smoothTimer == null) {
-            big = 0;
+            big = 0f;
         }
 
         float maxScrollY = this.y;
-        float minScrollY = this.y;
-        
-        if (!this.modules.isEmpty() && (this.opened || smoothTimer != null)) {
-            int totalModulesHeight = 0;
-            for (ModuleComponent c : this.modules) {
-                totalModulesHeight += c.getHeight();
-            }
+        float minScrollY = computeMinScrollY();
 
-            float visibleHeight = big;
+        scrollAnim.clampTarget(minScrollY, maxScrollY);
 
-            if (totalModulesHeight > visibleHeight && visibleHeight > 0) {
-                minScrollY = this.y - (totalModulesHeight - visibleHeight);
-            }
-        }
-
-        this.targetModuleY = Math.max(minScrollY, Math.min(maxScrollY, this.targetModuleY));
-
-        if (scrolled && smoothScrollTimer != null) {
-            moduleY = Math.max(minScrollY, Math.min(maxScrollY, moduleY));
-        }
+        moduleY = scrollAnim.getValue();
+        moduleY = Math.max(minScrollY, Math.min(maxScrollY, moduleY));
 
         if (smoothTimer != null || this.opened) {
             this.updateHeight();
         }
 
         float middlePos = this.x + this.width / 2 - Minecraft.getMinecraft().fontRendererObj.getStringWidth(this.category.name()) / 2;
-        float xPos = opened ? middlePos : this.x + 12;
 
-        float maxCategoryBottom = this.y + (this.screenHeight * 0.9f);
+        float contentBottom = getCurrentCategoryBottomFromContent();
 
-        float targetHeight = this.opened ? Math.min(this.y + this.titleHeight + modulesHeight + 4, maxCategoryBottom) : (this.y + this.titleHeight + 4);
-        float extra = targetHeight;
-
-        if (smoothTimer != null && System.currentTimeMillis() - smoothTimer.last >= 280) {
-            smoothTimer = null;
-        }
-        
-        if (textTimer != null && System.currentTimeMillis() - textTimer.last >= 280) {
-            textTimer = null;
-        }
-
+        float extra;
         if (smoothTimer != null) {
-            boolean anyModuleAnimating = false;
-            for (ModuleComponent c : this.modules) {
-                int moduleHeight = c.getHeight();
-                int fullHeight = c.isOpened ? c.getModuleHeight() : 16;
-                if (moduleHeight != fullHeight) {
-                    anyModuleAnimating = true;
-                    break;
-                }
-            }
-
-            if (anyModuleAnimating) {
+            float targetHeight = this.opened ? contentBottom : (this.y + this.titleHeight + 4);
+            extra = smoothTimer.getValueFloat(animationStartHeight, targetHeight, 1);
+            if ((this.opened && extra > targetHeight) || (!this.opened && extra < targetHeight)) {
                 extra = targetHeight;
             }
-            else {
-                extra = smoothTimer.getValueFloat(animationStartHeight, targetHeight, 1);
-                if ((this.opened && extra > targetHeight) || (!this.opened && extra < targetHeight)) {
-                    extra = targetHeight;
-                }
-            }
+        } else {
+            extra = contentBottom;
         }
 
-        float namePos = textTimer == null ? xPos : textTimer.getValueFloat(this.x + 12, middlePos, 1);
-        if (!this.opened) {
-            namePos = textTimer == null ? xPos : middlePos - textTimer.getValueFloat(0, this.width / 2 - Minecraft.getMinecraft().fontRendererObj.getStringWidth(this.category.name()) / 2 - 12, 1);
+        float targetNamePos = this.opened ? middlePos : (this.x + 12);
+        float namePos;
+        if (textTimer == null) {
+            namePos = targetNamePos;
+        } else {
+            namePos = textTimer.getValueFloat(animationStartNamePos, targetNamePos, 1);
         }
+        this.lastNamePos = namePos;
+        this.lastHeight = extra;
 
-        if (scrolled && smoothScrollTimer != null) {
-            long elapsed = System.currentTimeMillis() - smoothScrollTimer.last;
-            if (elapsed <= 250) {
-                float interpolated = smoothScrollTimer.getValueFloat(lastModuleY, targetModuleY, 4);
-                moduleY = (int) Math.max(minScrollY, Math.min(maxScrollY, interpolated));
-            }
-            else {
-                moduleY = (int) targetModuleY;
-                scrolled = false;
-                smoothScrollTimer = null;
-            }
-        }
-        else {
-            moduleY = (int) targetModuleY;
-        }
-        lastModuleY = moduleY;
-
-        lastHeight = extra;
         GL11.glPushMatrix();
-        GL11.glEnable(GL11.GL_SCISSOR_TEST);
-        float scissorHeight = extra - this.y + 4;
-        RenderUtils.scissor(0, this.y - 2, this.x + this.width + 4, scissorHeight);
-        RenderUtils.drawRoundedGradientOutlinedRectangle(this.x - 2, this.y, this.x + this.width + 2, extra, 10, translucentBackground,
-                ((opened || hovering) && Gui.rainBowOutlines.isToggled()) ? RenderUtils.setAlpha(Utils.getChroma(2, 0), 0.5) : regularOutline, ((opened || hovering) && Gui.rainBowOutlines.isToggled()) ? RenderUtils.setAlpha(Utils.getChroma(2, 700), 0.5) : regularOutline2);
-        renderItemForCategory(this.category, (int) (this.x + 1), (int) (this.y + 4), opened || hovering);
-        renderer.drawString(this.category.name(), namePos, this.y + 4, categoryNameColor, false);
-        float moduleAreaTop = this.y + this.titleHeight + 3;
-        float moduleAreaHeight = Math.max(0, extra - moduleAreaTop);
-        RenderUtils.scissor(0, (int)moduleAreaTop, this.x + this.width + 4, (int)moduleAreaHeight);
 
-        float prevY = this.y;
-        this.y = this.moduleY;
+        RenderUtils.drawRoundedGradientOutlinedRectangle(this.x - 2, this.y, this.x + this.width + 2, extra, 10, TRANSLUCENT_BACKGROUND,
+                ((opened || hovering) && Gui.rainBowOutlines.isToggled()) ? RenderUtils.setAlpha(Utils.getChroma(2, 0), 0.5) : REGULAR_OUTLINE, ((opened || hovering) && Gui.rainBowOutlines.isToggled()) ? RenderUtils.setAlpha(Utils.getChroma(2, 700), 0.5) : REGULAR_OUTLINE2);
+        renderItemForCategory(this.category, (int) (this.x + 1), (int) (this.y + 4), opened || hovering);
+        renderer.drawString(this.category.name(), namePos, this.y + 4, CATEGORY_NAME_COLOR, false);
+
+        float moduleAreaTop = this.y + this.titleHeight + 3;
+        float scissorBottom = extra - 2f;
+        float moduleAreaHeight = Math.max(0f, scissorBottom - moduleAreaTop);
 
         if (this.opened || smoothTimer != null) {
+            GL11.glEnable(GL11.GL_SCISSOR_TEST);
+            RenderUtils.scissor(0, moduleAreaTop, this.x + this.width + 4, moduleAreaHeight);
+
+            float scrollOffset = moduleY - this.y;
+            GL11.glPushMatrix();
+            GL11.glTranslatef(0f, scrollOffset, 0f);
             for (Component c2 : this.modules) {
                 c2.render();
             }
+            GL11.glPopMatrix();
+
+            GL11.glDisable(GL11.GL_SCISSOR_TEST);
         }
-        this.y = prevY;
-        GL11.glDisable(GL11.GL_SCISSOR_TEST);
+
         GL11.glPopMatrix();
     }
 
     public void updateHeight() {
         float y = this.titleHeight + 3;
-
         for (Component component : this.modules) {
             component.updateHeight(y);
-            y += component.getHeight();
+            y += component.getHeightF();
         }
     }
 
@@ -374,23 +342,17 @@ public class CategoryComponent {
         return this.width;
     }
 
-    public void mousePosition(int mouseX, int mouseY) {
+    public void mousePosition(int mouseX, int mouseY, boolean isTopmostUnderCursor) {
         if (this.dragging) {
             float newX = mouseX - this.xx;
             float newY = mouseY - this.yy;
 
             if (Gui.limitToScreen.isToggled()) {
-                ScaledResolution sr = new ScaledResolution(Minecraft.getMinecraft());
-                int screenW = sr.getScaledWidth();
-                int screenH = sr.getScaledHeight();
-
-                float catHeight = this.titleHeight;
-
                 newX = Math.max(newX, 2);
-                newX = Math.min(newX, screenW - this.width - 4);
+                newX = Math.min(newX, screenWidth - this.width - 4);
 
                 newY = Math.max(newY, 1);
-                int maxY = (int) (screenH - catHeight - 5);
+                int maxY = (int) (screenHeight - this.titleHeight - 5);
                 newY = Math.min(newY, maxY);
             }
 
@@ -398,8 +360,8 @@ public class CategoryComponent {
             this.setY(newY, false);
         }
 
-        hoveringOverCategory = overCategory(mouseX, mouseY);
-        hovering = overTitle(mouseX, mouseY);
+        hoveringOverCategory = isTopmostUnderCursor && overCategory(mouseX, mouseY);
+        hovering = isTopmostUnderCursor && overTitle(mouseX, mouseY);
     }
 
     public boolean overTitle(int x, int y) {
@@ -469,7 +431,8 @@ public class CategoryComponent {
             }
             RenderHelper.enableGUIStandardItemLighting();
             GlStateManager.disableBlend();
-            renderItem.renderItemAndEffectIntoGUI(itemStack, (int) (x / scale), (int) (y / scale));
+            GlStateManager.translate((float) (x / scale), (float) (y / scale), 0);
+            renderItem.renderItemAndEffectIntoGUI(itemStack, 0, 0);
             GlStateManager.enableBlend();
             RenderHelper.disableStandardItemLighting();
         }
@@ -477,8 +440,40 @@ public class CategoryComponent {
         GlStateManager.popMatrix();
     }
 
+    private float getCurrentCategoryBottomFromContent() {
+        if (!this.modules.isEmpty() && (this.opened || smoothTimer != null)) {
+            float maxBottom = this.y + (this.screenHeight * 0.9f);
+            return Math.min(this.y + this.titleHeight + big + 4, maxBottom);
+        }
+        return this.y + this.titleHeight + 4;
+    }
+
+    private float getCurrentAnimatedNamePos() {
+        if (textTimer != null) {
+            return lastNamePos;
+        }
+        float middlePos = this.x + this.width / 2 - Minecraft.getMinecraft().fontRendererObj.getStringWidth(this.category.name()) / 2;
+        return this.opened ? middlePos : (this.x + 12);
+    }
+
+    private float getCurrentAnimatedCategoryHeight() {
+        if (this.lastHeight > 0) {
+            return this.lastHeight;
+        }
+        if (!this.modules.isEmpty() && (this.opened || this.smoothTimer != null)) {
+            float modulesHeight = 0f;
+            for (ModuleComponent c : this.modules) {
+                modulesHeight += c.getHeightF();
+            }
+            return this.y + this.titleHeight + modulesHeight + 4;
+        }
+        return this.y + this.titleHeight + 4;
+    }
+
     public void setScreenHeight(int screenHeight) {
         this.screenHeight = screenHeight;
+        ScaledResolution sr = new ScaledResolution(Minecraft.getMinecraft());
+        this.screenWidth = sr.getScaledWidth();
     }
 
     public void limitPositions() {
@@ -486,13 +481,49 @@ public class CategoryComponent {
         setY(this.y, true);
     }
 
+    public void applySavedState(float x, float y, boolean opened, boolean clampToScreen) {
+        if (clampToScreen) {
+            setX(x, true);
+            setY(y, true);
+        } else {
+            float scrollOffset = scrollAnim.getTarget() - this.y;
+            this.x = x;
+            this.y = y;
+            float newTarget = y + scrollOffset;
+            this.moduleY = newTarget;
+            scrollAnim.reset(newTarget);
+        }
+        this.opened = opened;
+        smoothTimer = null;
+        textTimer = null;
+        if (opened && !this.modules.isEmpty()) {
+            updateHeight();
+            float maxModulesHeight = (this.screenHeight * 0.9f) - this.titleHeight - 4;
+            float accumulated = 0f;
+            for (Component c : this.modules) {
+                float h = c.getHeightF();
+                if (accumulated + h > maxModulesHeight) {
+                    float remaining = maxModulesHeight - accumulated;
+                    if (remaining > 0f) accumulated += remaining;
+                    break;
+                }
+                accumulated += h;
+            }
+            this.lastHeight = Math.min(this.y + this.titleHeight + accumulated + 4, this.y + this.screenHeight * 0.9f);
+        } else {
+            this.lastHeight = this.y + this.titleHeight + 4;
+        }
+        this.moduleY = this.y;
+        scrollAnim.reset(this.y);
+    }
+
     public void onGuiClosed() {
         if (smoothTimer != null || textTimer != null) {
             float finalHeight = this.y + this.titleHeight;
             if (this.opened && !this.modules.isEmpty()) {
-                int modulesHeight = 0;
+                float modulesHeight = 0f;
                 for (ModuleComponent c : this.modules) {
-                    modulesHeight += c.getHeight();
+                    modulesHeight += c.getHeightF();
                 }
                 finalHeight += modulesHeight + 4;
             } else {
@@ -500,12 +531,10 @@ public class CategoryComponent {
             }
             this.lastHeight = finalHeight;
         }
-        
+
         smoothTimer = null;
         textTimer = null;
-        smoothScrollTimer = null;
-        scrolled = false;
-        moduleY = targetModuleY;
-        lastModuleY = moduleY;
+        moduleY = scrollAnim.getTarget();
+        scrollAnim.reset(moduleY);
     }
 }

@@ -11,7 +11,7 @@ import org.lwjgl.opengl.GL11;
 import java.awt.*;
 
 public class ButtonComponent extends Component {
-    private final int enabledColor = (new Color(20, 255, 0)).getRGB();
+    private static final int ENABLED_COLOR = new Color(20, 255, 0).getRGB();
 
     private Module mod;
     public ButtonSetting buttonSetting;
@@ -21,7 +21,6 @@ public class ButtonComponent extends Component {
     public float x;
     private float y;
     public float xOffset;
-    public boolean renderLine;
 
     public ButtonComponent(Module mod, ButtonSetting op, ModuleComponent b, float o) {
         this.mod = mod;
@@ -35,16 +34,23 @@ public class ButtonComponent extends Component {
     public void render() {
         GL11.glPushMatrix();
         GL11.glScaled(0.5D, 0.5D, 0.5D);
-        Minecraft.getMinecraft().fontRendererObj.drawString((this.buttonSetting.isMethodButton ? "[=]  " : (this.buttonSetting.isToggled() ? "[+]  " : "[-]  ")) + this.buttonSetting.getName(), (float) ((this.moduleComponent.categoryComponent.getX() + 4) * 2) + xOffset, (float) ((this.moduleComponent.categoryComponent.getY() + this.o + 4) * 2), this.buttonSetting.isToggled() ? this.enabledColor : -1, false);
+        Minecraft.getMinecraft().fontRendererObj.drawString((this.buttonSetting.isMethodButton ? "[=]  " : (this.buttonSetting.isToggled() ? "[+]  " : "[-]  ")) + this.buttonSetting.getName(), (float) ((this.moduleComponent.categoryComponent.getX() + 4) * 2) + xOffset, (float) ((this.moduleComponent.categoryComponent.getY() + this.o + 4) * 2), this.buttonSetting.isToggled() ? ENABLED_COLOR : -1, false);
         GL11.glScaled(1, 1, 1);
-        if (renderLine) {
-            //RenderUtils.drawRectangleGL((float) ((this.p.categoryComponent.getX() + 4) * 2), (float) ((this.p.categoryComponent.getY() + this.o) * 2), (float) ((this.p.categoryComponent.getX() + 4) * 2) + 1, (float) ((this.p.categoryComponent.getY() + this.o + 4) * 2) + 16, new Color(192, 192, 192).getRGB());
-        }
         GL11.glPopMatrix();
     }
 
     public void updateHeight(float n) {
         this.o = n;
+    }
+
+    @Override
+    public float getOffset() {
+        return this.o;
+    }
+
+    @Override
+    public boolean isBaseVisible() {
+        return this.buttonSetting.visible;
     }
 
     public void drawScreen(int x, int y) {

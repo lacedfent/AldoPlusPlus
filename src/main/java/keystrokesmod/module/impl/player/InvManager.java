@@ -601,7 +601,6 @@ public class InvManager extends Module {
             int id = Item.getIdFromItem(item);
             return playerData.uniqueSingles.contains(id);
         }
-        // stackable but not whitelisted (e.g. sticks, seeds) -> skip
         return true;
     }
 

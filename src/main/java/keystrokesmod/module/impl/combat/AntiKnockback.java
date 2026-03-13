@@ -109,7 +109,7 @@ public class AntiKnockback extends Module {
     }
 
     private boolean cancel() {
-        return (vertical.getInput() == 0 && horizontal.getInput() == 0) || ModuleManager.bedAura.cancelKnockback();
+        return (vertical.getInput() == 0 && horizontal.getInput() == 0);
     }
 
     @Override

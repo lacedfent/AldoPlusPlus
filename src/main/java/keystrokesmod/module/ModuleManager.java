@@ -63,8 +63,10 @@ public class ModuleManager {
     public static SafeWalk safeWalk;
     public static KeepSprint keepSprint;
     public static Piercing piercing;
+    public static GhostHand ghostHand;
     public static AntiKnockback antiKnockback;
     public static ExtendCamera extendCamera;
+    public static Freelook freelook;
     public static InvManager invManager;
     public static Tower tower;
     public static NoCameraClip noCameraClip;
@@ -76,6 +78,7 @@ public class ModuleManager {
     public static Sprint sprint;
     public static Weather weather;
     public static ChatCommands chatCommands;
+    public static BlockIn blockIn;
 
     public void register() {
         this.addModule(chatCommands = new ChatCommands());
@@ -86,12 +89,16 @@ public class ModuleManager {
         this.addModule(new AimAssist());
         this.addModule(antiKnockback = new AntiKnockback());
         this.addModule(autoClicker = new AutoClicker());
+        this.addModule(new Autoblock());
+        this.addModule(blockIn = new BlockIn());
         this.addModule(new BurstClicker());
         this.addModule(new ClickAssist());
         this.addModule(hitBox = new HitBox());
         this.addModule(new JumpReset());
         this.addModule(killAura = new KillAura());
         this.addModule(piercing = new Piercing());
+        this.addModule(ghostHand = new GhostHand());
+        this.addModule(new RawInput());
         this.addModule(reach = new Reach());
         this.addModule(reduce = new Reduce());
         this.addModule(new RodAimbot());
@@ -140,7 +147,7 @@ public class ModuleManager {
         this.addModule(new AntiAFK());
         this.addModule(antiFireball = new AntiFireball());
         this.addModule(new AutoJump());
-        this.addModule(new AutoPlace());
+        this.addModule(new BridgeAssist());
         this.addModule(autoSwap = new AutoSwap());
         this.addModule(autoTool = new AutoTool());
         this.addModule(bedAura = new BedAura());
@@ -164,23 +171,32 @@ public class ModuleManager {
         this.addModule(antiShuffle = new AntiShuffle());
         this.addModule(new Arrows());
         this.addModule(bedESP = new BedESP());
+        this.addModule(new BlockESP());
+        this.addModule(new BlockOverlay());
         this.addModule(new BreakProgress());
         this.addModule(chams = new Chams());
+        this.addModule(new DamageTint());
         this.addModule(new ChestESP());
         this.addModule(extendCamera = new ExtendCamera());
+        this.addModule(freelook = new Freelook());
         this.addModule(new FallView());
+        this.addModule(new Holdlook());
         this.addModule(hud = new HUD());
         this.addModule(new Indicators());
         this.addModule(new ItemESP());
+        this.addModule(new ItemPhysics());
         this.addModule(new MobESP());
-        this.addModule(new Nametags());
+        // Legacy 2D Nametags module is deprecated in favor of the 3D-based replacement.
+        // this.addModule(new Nametags());
+        this.addModule(new Nametags3D());
         this.addModule(noCameraClip = new NoCameraClip());
         this.addModule(noHurtCam = new NoHurtCam());
         this.addModule(playerESP = new PlayerESP());
         this.addModule(new Radar());
-        this.addModule(new Shaders());
+        this.addModule(new Saturation());
         this.addModule(targetHUD = new TargetHUD());
         this.addModule(new Trajectories());
+        this.addModule(new TNTTimer());
         this.addModule(new Tracers());
         this.addModule(new Xray());
 

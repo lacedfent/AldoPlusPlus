@@ -30,6 +30,11 @@ public class KeySetting extends Setting {
         return super.getName();
     }
 
+    @Override
+    public String getProfileKey() {
+        return group == null ? getName() : group.getName() + "." + getName();
+    }
+
     public void setKey(int key) {
         this.key = key;
     }
@@ -48,10 +53,13 @@ public class KeySetting extends Setting {
 
     @Override
     public void loadProfile(JsonObject data) {
-        if (data.has(getName()) && data.get(getName()).isJsonPrimitive()) {
+        String profileKey = getProfileKey();
+        String legacyKey = getName();
+        String key = data.has(profileKey) ? profileKey : legacyKey;
+        if (data.has(key) && data.get(key).isJsonPrimitive()) {
             int keyValue = this.key;
             try {
-                keyValue = data.getAsJsonPrimitive(getName()).getAsInt();
+                keyValue = data.getAsJsonPrimitive(key).getAsInt();
             }
             catch (Exception ignored) {}
             this.key = keyValue;

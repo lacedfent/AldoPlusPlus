@@ -11,6 +11,7 @@ import net.minecraft.util.Vec3;
 
 public class KeepSprint extends Module {
     public static SliderSetting slow;
+    public static ButtonSetting stopSprint;
     public static ButtonSetting disableWhileJump;
     public static ButtonSetting reduceReachHits;
 
@@ -18,6 +19,7 @@ public class KeepSprint extends Module {
         super("KeepSprint", Module.category.movement, 0);
         this.registerSetting(new DescriptionSetting(new String("Default is 40% motion reduction.")));
         this.registerSetting(slow = new SliderSetting("Slow %", 40.0D, 0.0D, 40.0D, 1.0D));
+        this.registerSetting(stopSprint = new ButtonSetting("Stop Sprint", true));
         this.registerSetting(disableWhileJump = new ButtonSetting("Disable while jumping", false));
         this.registerSetting(reduceReachHits = new ButtonSetting("Only reduce reach hits", false));
     }
@@ -48,6 +50,10 @@ public class KeepSprint extends Module {
             float mult = (100.0f - (float) slow.getInput()) / 100.0f;
             mc.thePlayer.motionX *= mult;
             mc.thePlayer.motionZ *= mult;
+        }
+
+        if (stopSprint.isToggled()) {
+            mc.thePlayer.motionX *= 0.5;
         }
     }
 }

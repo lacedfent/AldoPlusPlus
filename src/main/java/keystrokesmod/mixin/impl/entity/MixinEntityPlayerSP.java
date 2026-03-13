@@ -229,12 +229,10 @@ public abstract class MixinEntityPlayerSP extends AbstractClientPlayer {
 
             this.inPortal = false;
         }
-        else if (this.isPotionActive(Potion.confusion) && this.getActivePotionEffect(Potion.confusion).getDuration() > 60) {
-            if (ModuleManager.antiDebuff == null || !ModuleManager.antiDebuff.canRemoveNausea(Potion.confusion)) {
-                this.timeInPortal += 0.006666667F;
-                if (this.timeInPortal > 1.0F) {
-                    this.timeInPortal = 1.0F;
-                }
+        else if (this.isPotionActive(Potion.confusion) && this.getActivePotionEffect(Potion.confusion).getDuration() > 60 && (ModuleManager.antiDebuff == null || !ModuleManager.antiDebuff.canRemoveNausea(Potion.confusion))) {
+            this.timeInPortal += 0.006666667F;
+            if (this.timeInPortal > 1.0F) {
+                this.timeInPortal = 1.0F;
             }
         }
         else {

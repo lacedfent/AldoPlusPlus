@@ -23,7 +23,7 @@ public abstract class Setting {
             if (categoryComponent.category == module.moduleCategory()) {
                 for (ModuleComponent moduleComponent : categoryComponent.modules) {
                     if (moduleComponent.mod.getName().equals(module.getName())) {
-                        moduleComponent.updateSettingPositions(0);
+                        moduleComponent.updateSettingPositions();
                         break;
                     }
                 }
@@ -32,6 +32,10 @@ public abstract class Setting {
     }
 
     public String getName() {
+        return this.name;
+    }
+
+    public String getProfileKey() {
         return this.name;
     }
 

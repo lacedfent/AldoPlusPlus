@@ -36,7 +36,10 @@ import net.minecraft.item.*;
 import net.minecraft.network.play.client.C03PacketPlayer.C05PacketPlayerLook;
 import net.minecraft.network.play.client.C0APacketAnimation;
 import net.minecraft.potion.Potion;
-import net.minecraft.scoreboard.*;
+import net.minecraft.scoreboard.Score;
+import net.minecraft.scoreboard.ScoreObjective;
+import net.minecraft.scoreboard.ScorePlayerTeam;
+import net.minecraft.scoreboard.Scoreboard;
 import net.minecraft.util.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -44,9 +47,12 @@ import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
 import java.awt.*;
-import java.io.*;
-import java.util.List;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.*;
+import java.util.List;
 import java.util.stream.IntStream;
 
 public class Utils implements IMinecraftInstance {
@@ -428,6 +434,15 @@ public class Utils implements IMinecraftInstance {
             return true;
         }
         return false;
+    }
+
+    public static boolean inFov(float origin, float fov, float targetYaw) {
+        fov *= 0.5F;
+        final double wrapAngleTo180_double = MathHelper.wrapAngleTo180_double((origin - targetYaw) % 360.0f);
+        if (wrapAngleTo180_double > 0.0) {
+            return wrapAngleTo180_double < fov;
+        }
+        else return wrapAngleTo180_double > -fov;
     }
 
     public static Vec3 getLookVec(float yaw, float pitch) {
@@ -943,6 +958,10 @@ public class Utils implements IMinecraftInstance {
         return ((double) ((useServerYaw ? RotationUtils.serverRotations[0] : mc.thePlayer.rotationYaw) - getYaw(en)) % 360.0D + 540.0D) % 360.0D - 180.0D;
     }
 
+    public static double pitchDifference(Entity en, boolean useServerPitch) {
+        return ((double) ((useServerPitch ? RotationUtils.serverRotations[1] : mc.thePlayer.rotationPitch) - getPitch(en)) % 360.0D + 540.0D) % 360.0D - 180.0D;
+    }
+
     public static float getYaw(Entity ent) {
         double x = ent.posX - mc.thePlayer.posX;
         double z = ent.posZ - mc.thePlayer.posZ;
@@ -950,15 +969,19 @@ public class Utils implements IMinecraftInstance {
         return (float) (yaw * -1.0D);
     }
 
+    public static float getPitch(Entity ent) {
+        double x = ent.posX - mc.thePlayer.posX;
+        double z = ent.posZ - mc.thePlayer.posZ;
+        double y = ent.posY + ent.getEyeHeight() / 2.0F - (mc.thePlayer.posY + mc.thePlayer.getEyeHeight());
+        double pitch = Math.atan2(y, Math.sqrt(x * x + z * z)) * 57.29577951308232;
+        return (float) (pitch * -1.0D);
+    }
+
     public static void switchSlot(final int slot, final boolean instant) {
         mc.thePlayer.inventory.currentItem = slot;
         if (instant) {
-            ((IAccessorPlayerControllerMP) mc.playerController).syncCurrentPlayItem();
+            ((IAccessorPlayerControllerMP) mc.playerController).callSyncCurrentPlayItem();
         }
-    }
-
-    public static MovingObjectPosition getTarget(final double reach) {
-        return getTarget(reach, mc.thePlayer.rotationYaw, mc.thePlayer.rotationPitch);
     }
 
     public static MovingObjectPosition getTarget(final double reach, final float yaw, final float pitch) {
@@ -1216,12 +1239,32 @@ public class Utils implements IMinecraftInstance {
     }
 
     public static boolean isClicking() {
-        if (ModuleManager.autoClicker.isEnabled() && AutoClicker.leftClick.isToggled()) {
+        if (ModuleManager.autoClicker != null && ModuleManager.autoClicker.isEnabled()) {
             return Mouse.isButtonDown(0);
         }
         else {
             return MouseHelper.f() > 1 && System.currentTimeMillis() - MouseHelper.LL < 300L;
         }
+    }
+
+    /**
+     * Returns true if the player is mining (attack key down, ray hits block, no entity in front).
+     * Uses raw input for attack key (ignores AutoClicker's KeyBinding state).
+     */
+    public static boolean isMining() {
+        int keyCode = mc.gameSettings.keyBindAttack.getKeyCode();
+        if (keyCode == 0) return false;
+        boolean attackDown = keyCode < 0 ? Mouse.isButtonDown(keyCode + 100) : Keyboard.isKeyDown(keyCode);
+        if (!attackDown) return false;
+        double reach = mc.playerController.getBlockReachDistance();
+        float yaw = mc.thePlayer.rotationYaw;
+        float pitch = mc.thePlayer.rotationPitch;
+        MovingObjectPosition entityHit = RotationUtils.rayTrace(reach, 1.0f, new float[] { yaw, pitch }, null);
+        if (entityHit != null && entityHit.typeOfHit == MovingObjectPosition.MovingObjectType.ENTITY) {
+            return false;
+        }
+        MovingObjectPosition blockHit = RotationUtils.rayCastBlock(reach, yaw, pitch);
+        return blockHit != null && blockHit.typeOfHit == MovingObjectPosition.MovingObjectType.BLOCK && blockHit.getBlockPos() != null;
     }
 
     public static boolean isEdgeOfBlock() {
@@ -1543,5 +1586,25 @@ public class Utils implements IMinecraftInstance {
             return false;
         }
         return false;
+    }
+
+    public static Vec3 getClosestPlayerPos(double maxDistSq) {
+        if (mc.theWorld == null || mc.thePlayer == null) return null;
+        Vec3 closest = null;
+        double bestDist = maxDistSq;
+        for (EntityPlayer player : mc.theWorld.playerEntities) {
+            if (player == mc.thePlayer) continue;
+            if (mc.getNetHandler() == null || mc.getNetHandler().getPlayerInfo(player.getUniqueID()) == null)
+                continue;
+            double dx = player.posX - mc.thePlayer.posX;
+            double dy = player.posY - mc.thePlayer.posY;
+            double dz = player.posZ - mc.thePlayer.posZ;
+            double dist = dx * dx + dy * dy + dz * dz;
+            if (dist < bestDist) {
+                bestDist = dist;
+                closest = new Vec3(player.posX, player.posY, player.posZ);
+            }
+        }
+        return closest;
     }
 }

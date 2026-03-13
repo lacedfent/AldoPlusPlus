@@ -5,11 +5,16 @@ import net.minecraft.block.material.Material;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.enchantment.Enchantment;
 import net.minecraft.enchantment.EnchantmentHelper;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.init.Blocks;
 import net.minecraft.item.EnumDyeColor;
+import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
 import net.minecraft.potion.Potion;
+import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.BlockPos;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.MathHelper;
 import net.minecraft.util.MovingObjectPosition;
 import net.minecraft.util.Vec3;
 
@@ -128,6 +133,19 @@ public class BlockUtils implements IMinecraftInstance {
         return mc.theWorld.getBlockState(blockPos);
     }
 
+    public static AxisAlignedBB getBlockSelectionBox(BlockPos pos) {
+        if (mc.theWorld == null || pos == null) return null;
+        IBlockState state = mc.theWorld.getBlockState(pos);
+        Block block = state.getBlock();
+        block.setBlockBoundsBasedOnState(mc.theWorld, pos);
+        AxisAlignedBB box = block.getSelectedBoundingBox(mc.theWorld, pos);
+        if (box == null) {
+            box = new AxisAlignedBB(pos.getX(), pos.getY(), pos.getZ(),
+                    pos.getX() + 1.0, pos.getY() + 1.0, pos.getZ() + 1.0);
+        }
+        return box;
+    }
+
     public static boolean check(final BlockPos blockPos, final Block block) {
         return getBlock(blockPos) == block;
     }
@@ -179,5 +197,171 @@ public class BlockUtils implements IMinecraftInstance {
 
     public static EnumDyeColor getWoolColor(final IBlockState state) {
         return (EnumDyeColor)state.getProperties().get(BlockColored.COLOR);
+    }
+
+    public static EnumFacing[] getVisibleFaces(Vec3 eye, BlockPos block) {
+        EnumFacing yFace = Math.abs(eye.yCoord - (block.getY() + 1)) < Math.abs(eye.yCoord - block.getY())
+                ? EnumFacing.UP : EnumFacing.DOWN;
+        EnumFacing zFace = Math.abs(eye.zCoord - (block.getZ() + 1)) < Math.abs(eye.zCoord - block.getZ())
+                ? EnumFacing.SOUTH : EnumFacing.NORTH;
+        EnumFacing xFace = Math.abs(eye.xCoord - (block.getX() + 1)) < Math.abs(eye.xCoord - block.getX())
+                ? EnumFacing.EAST : EnumFacing.WEST;
+        return new EnumFacing[]{yFace, zFace, xFace};
+    }
+
+    public static boolean containsFace(EnumFacing[] faces, EnumFacing face) {
+        for (EnumFacing f : faces) if (f == face) return true;
+        return false;
+    }
+
+    public static Vec3 getFaceCenter(BlockPos block, EnumFacing face) {
+        double eps = 1e-3;
+        double cx = block.getX() + 0.5;
+        double cy = block.getY() + 0.5;
+        double cz = block.getZ() + 0.5;
+        switch (face) {
+            case UP:    return new Vec3(cx, block.getY() + 1 - eps, cz);
+            case DOWN:  return new Vec3(cx, block.getY() + eps, cz);
+            case NORTH: return new Vec3(cx, cy, block.getZ() + eps);
+            case SOUTH: return new Vec3(cx, cy, block.getZ() + 1 - eps);
+            case EAST:  return new Vec3(block.getX() + 1 - eps, cy, cz);
+            case WEST:  return new Vec3(block.getX() + eps, cy, cz);
+            default:    return new Vec3(cx, cy, cz);
+        }
+    }
+
+    public static double dist2PointAABB(Vec3 p, BlockPos b) {
+        double cx = Math.max(b.getX(), Math.min(b.getX() + 1, p.xCoord));
+        double cy = Math.max(b.getY(), Math.min(b.getY() + 1, p.yCoord));
+        double cz = Math.max(b.getZ(), Math.min(b.getZ() + 1, p.zCoord));
+        double dx = p.xCoord - cx, dy = p.yCoord - cy, dz = p.zCoord - cz;
+        return dx * dx + dy * dy + dz * dz;
+    }
+
+    public static boolean canPlaceBlockOnSide(ItemStack stack, BlockPos pos, EnumFacing side) {
+        if (stack == null || !(stack.getItem() instanceof ItemBlock)) return false;
+        return ((ItemBlock) stack.getItem()).canPlaceBlockOnSide(
+                mc.theWorld, pos, side, mc.thePlayer, stack);
+    }
+
+    public static float getFistBreakTicks(Block block) {
+        float hardness = block.getBlockHardness(mc.theWorld, null);
+        if (hardness < 0) return Float.MAX_VALUE;
+        if (hardness == 0) return 0;
+        return hardness * (block.getMaterial().isToolNotRequired() ? 30f : 100f);
+    }
+
+    public static boolean hasAirNeighbor(BlockPos pos, BlockPos... exclude) {
+        for (EnumFacing f : EnumFacing.values()) {
+            BlockPos n = pos.offset(f);
+            if (mc.theWorld.getBlockState(n).getBlock() != Blocks.air) continue;
+            boolean excluded = false;
+            for (BlockPos ex : exclude) {
+                if (n.equals(ex)) { excluded = true; break; }
+            }
+            if (!excluded) return true;
+        }
+        return false;
+    }
+
+    public static boolean isAdjacentToBed(BlockPos pos) {
+        for (EnumFacing face : EnumFacing.values()) {
+            if (getBlock(pos.offset(face)) instanceof BlockBed) return true;
+        }
+        return false;
+    }
+
+    public static MovingObjectPosition traverseBlocksAlongRay(Vec3 start, Vec3 end,
+            boolean wantBed, boolean wantAdjacent) {
+        if (mc.theWorld == null) return null;
+        if (Double.isNaN(start.xCoord) || Double.isNaN(start.yCoord) || Double.isNaN(start.zCoord)) return null;
+        if (Double.isNaN(end.xCoord) || Double.isNaN(end.yCoord) || Double.isNaN(end.zCoord)) return null;
+
+        int destX = MathHelper.floor_double(end.xCoord);
+        int destY = MathHelper.floor_double(end.yCoord);
+        int destZ = MathHelper.floor_double(end.zCoord);
+        int curX = MathHelper.floor_double(start.xCoord);
+        int curY = MathHelper.floor_double(start.yCoord);
+        int curZ = MathHelper.floor_double(start.zCoord);
+
+        MovingObjectPosition firstHit = null;
+
+        MovingObjectPosition candidate = getBlockCollisionHit(curX, curY, curZ, start, end);
+        if (candidate != null) {
+            if (isBedOrAdjacentMatch(candidate.getBlockPos(), wantBed, wantAdjacent)) return candidate;
+            firstHit = candidate;
+        }
+
+        Vec3 tracePos = start;
+        int remaining = 200;
+
+        while (remaining-- >= 0) {
+            if (Double.isNaN(tracePos.xCoord) || Double.isNaN(tracePos.yCoord) || Double.isNaN(tracePos.zCoord))
+                return firstHit;
+            if (curX == destX && curY == destY && curZ == destZ)
+                return firstHit;
+
+            boolean crossX = true, crossY = true, crossZ = true;
+            double boundX = 999.0, boundY = 999.0, boundZ = 999.0;
+            if (destX > curX) boundX = (double) curX + 1.0;
+            else if (destX < curX) boundX = (double) curX;
+            else crossX = false;
+            if (destY > curY) boundY = (double) curY + 1.0;
+            else if (destY < curY) boundY = (double) curY;
+            else crossY = false;
+            if (destZ > curZ) boundZ = (double) curZ + 1.0;
+            else if (destZ < curZ) boundZ = (double) curZ;
+            else crossZ = false;
+
+            double dx = end.xCoord - tracePos.xCoord;
+            double dy = end.yCoord - tracePos.yCoord;
+            double dz = end.zCoord - tracePos.zCoord;
+            double tX = 999.0, tY = 999.0, tZ = 999.0;
+            if (crossX) tX = (boundX - tracePos.xCoord) / dx;
+            if (crossY) tY = (boundY - tracePos.yCoord) / dy;
+            if (crossZ) tZ = (boundZ - tracePos.zCoord) / dz;
+            if (tX == -0.0) tX = -1.0E-4;
+            if (tY == -0.0) tY = -1.0E-4;
+            if (tZ == -0.0) tZ = -1.0E-4;
+
+            EnumFacing face;
+            if (tX < tY && tX < tZ) {
+                face = destX > curX ? EnumFacing.WEST : EnumFacing.EAST;
+                tracePos = new Vec3(boundX, tracePos.yCoord + dy * tX, tracePos.zCoord + dz * tX);
+            } else if (tY < tZ) {
+                face = destY > curY ? EnumFacing.DOWN : EnumFacing.UP;
+                tracePos = new Vec3(tracePos.xCoord + dx * tY, boundY, tracePos.zCoord + dz * tY);
+            } else {
+                face = destZ > curZ ? EnumFacing.NORTH : EnumFacing.SOUTH;
+                tracePos = new Vec3(tracePos.xCoord + dx * tZ, tracePos.yCoord + dy * tZ, boundZ);
+            }
+
+            curX = MathHelper.floor_double(tracePos.xCoord) - (face == EnumFacing.EAST ? 1 : 0);
+            curY = MathHelper.floor_double(tracePos.yCoord) - (face == EnumFacing.UP ? 1 : 0);
+            curZ = MathHelper.floor_double(tracePos.zCoord) - (face == EnumFacing.SOUTH ? 1 : 0);
+
+            candidate = getBlockCollisionHit(curX, curY, curZ, start, end);
+            if (candidate != null) {
+                if (isBedOrAdjacentMatch(candidate.getBlockPos(), wantBed, wantAdjacent)) return candidate;
+                if (firstHit == null) firstHit = candidate;
+            }
+        }
+        return firstHit;
+    }
+
+    private static MovingObjectPosition getBlockCollisionHit(int x, int y, int z, Vec3 start, Vec3 end) {
+        BlockPos pos = new BlockPos(x, y, z);
+        IBlockState state = mc.theWorld.getBlockState(pos);
+        Block block = state.getBlock();
+        if (!block.canCollideCheck(state, false)) return null;
+        return block.collisionRayTrace(mc.theWorld, pos, start, end);
+    }
+
+    private static boolean isBedOrAdjacentMatch(BlockPos pos, boolean wantBed, boolean wantAdjacent) {
+        Block block = getBlock(pos);
+        boolean isBed = block instanceof BlockBed;
+        if (wantBed && isBed) return true;
+        if (wantAdjacent && !isBed && isAdjacentToBed(pos)) return true;
+        return false;
     }
 }

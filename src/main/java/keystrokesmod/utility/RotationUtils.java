@@ -2,14 +2,17 @@ package keystrokesmod.utility;
 
 import com.google.common.base.Predicates;
 import keystrokesmod.event.PreMotionEvent;
+import keystrokesmod.helper.RotationHelper;
 import keystrokesmod.module.impl.client.Settings;
 import net.minecraft.block.Block;
 import net.minecraft.block.state.IBlockState;
-import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.util.*;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 public class RotationUtils implements IMinecraftInstance {
@@ -224,6 +227,235 @@ public class RotationUtils implements IMinecraftInstance {
         return new float[] { mc.thePlayer.rotationYaw + MathHelper.wrapAngleTo180_float((float) (Math.atan2(deltaZ, deltaX) * 57.295780181884766) - 90.0f - mc.thePlayer.rotationYaw), clampPitch(mc.thePlayer.rotationPitch + MathHelper.wrapAngleTo180_float((float) (-(Math.atan2(deltaY, MathHelper.sqrt_double(deltaX * deltaX + deltaZ * deltaZ)) * 57.295780181884766)) - mc.thePlayer.rotationPitch) + 3.0f)};
     }
 
+    public static float[] getRotationsToPoint(double x, double y, double z) {
+        return getRotationsToPoint(x, y, z, mc.thePlayer.rotationYaw, mc.thePlayer.rotationPitch);
+    }
+
+    /**
+     * Base-aware overload for silent rotation paths. When the target is directly above/below
+     * (horizDist near zero), preserves baseYaw to avoid atan2(0,0) -> -90 degenerate yaw.
+     */
+    public static float[] getRotationsToPoint(double x, double y, double z, float baseYaw, float basePitch) {
+        double deltaX = x - mc.thePlayer.posX;
+        double deltaZ = z - mc.thePlayer.posZ;
+        double deltaY = y - (mc.thePlayer.posY + mc.thePlayer.getEyeHeight());
+        double horizDistSq = deltaX * deltaX + deltaZ * deltaZ;
+
+        float yaw;
+        float targetPitch;
+        if (horizDistSq < 1.0E-12) {
+            yaw = baseYaw;
+            targetPitch = (float) (-(Math.atan2(deltaY, 0) * 57.295780181884766));
+        } else {
+            float targetYaw = (float) (Math.atan2(deltaZ, deltaX) * 57.295780181884766) - 90.0f;
+            yaw = baseYaw + MathHelper.wrapAngleTo180_float(targetYaw - baseYaw);
+            double horizDist = MathHelper.sqrt_double(horizDistSq);
+            targetPitch = (float) (-(Math.atan2(deltaY, horizDist) * 57.295780181884766));
+        }
+
+        float pitch = basePitch + MathHelper.wrapAngleTo180_float(targetPitch - basePitch) + 3.0f;
+        return new float[] { yaw, clampPitch(pitch) };
+    }
+
+    public static float[] getRotations(final Entity entity, double horizontalMultipoint, double verticalMultipoint, final float baseYaw, final float basePitch) {
+        if (entity == null || mc.thePlayer == null) {
+            return null;
+        }
+        float borderSize = entity.getCollisionBorderSize();
+        AxisAlignedBB bb = entity.getEntityBoundingBox().expand(borderSize, borderSize, borderSize);
+        double centerX = (bb.minX + bb.maxX) / 2.0;
+        double centerZ = (bb.minZ + bb.maxZ) / 2.0;
+        Vec3 eye = mc.thePlayer.getPositionEyes(1.0f);
+
+        double targetX, targetY, targetZ;
+        if (bb.isVecInside(eye)) {
+            targetX = centerX;
+            targetY = eye.yCoord;
+            targetZ = centerZ;
+        } else {
+            double centerY = entity instanceof EntityLivingBase
+                    ? entity.posY + ((EntityLivingBase) entity).getEyeHeight()
+                    : (bb.minY + bb.maxY) / 2.0;
+            double closestX = Math.max(bb.minX, Math.min(bb.maxX, eye.xCoord));
+            double closestY = Math.max(bb.minY, Math.min(bb.maxY, eye.yCoord));
+            double closestZ = Math.max(bb.minZ, Math.min(bb.maxZ, eye.zCoord));
+            double tH = Math.max(0.0, Math.min(1.0, horizontalMultipoint / 100.0));
+            double tV = Math.max(0.0, Math.min(1.0, verticalMultipoint / 100.0));
+            targetX = centerX + (closestX - centerX) * tH;
+            targetY = centerY + (closestY - centerY) * tV;
+            targetZ = centerZ + (closestZ - centerZ) * tH;
+        }
+        return getRotationsToPoint(targetX, targetY, targetZ, baseYaw, basePitch);
+    }
+
+    /**
+     * Returns the aim point Vec3 for the given entity and multipoint settings.
+     * Extracted from getRotations logic for backup-point fallback.
+     */
+    public static Vec3 getAimPoint(Entity entity, double horizontalMultipoint, double verticalMultipoint) {
+        if (entity == null || mc.thePlayer == null) return null;
+        float borderSize = entity.getCollisionBorderSize();
+        AxisAlignedBB bb = entity.getEntityBoundingBox().expand(borderSize, borderSize, borderSize);
+        double centerX = (bb.minX + bb.maxX) / 2.0;
+        double centerY;
+        if (entity instanceof EntityLivingBase) {
+            centerY = entity.posY + ((EntityLivingBase) entity).getEyeHeight();
+        } else {
+            centerY = (bb.minY + bb.maxY) / 2.0;
+        }
+        double centerZ = (bb.minZ + bb.maxZ) / 2.0;
+        Vec3 eye = mc.thePlayer.getPositionEyes(1.0f);
+        double closestX = Math.max(bb.minX, Math.min(bb.maxX, eye.xCoord));
+        double closestY = Math.max(bb.minY, Math.min(bb.maxY, eye.yCoord));
+        double closestZ = Math.max(bb.minZ, Math.min(bb.maxZ, eye.zCoord));
+        double tH = Math.max(0.0, Math.min(1.0, horizontalMultipoint / 100.0));
+        double tV = Math.max(0.0, Math.min(1.0, verticalMultipoint / 100.0));
+        double targetX = centerX + (closestX - centerX) * tH;
+        double targetY = centerY + (closestY - centerY) * tV;
+        double targetZ = centerZ + (closestZ - centerZ) * tH;
+        return new Vec3(targetX, targetY, targetZ);
+    }
+
+    /**
+     * Returns squared distance from player eye to the closest point on the entity's expanded AABB.
+     */
+    public static double distanceSqFromEyeToClosestOnAABB(Entity entity) {
+        if (entity == null || mc.thePlayer == null) return Double.MAX_VALUE;
+        Vec3 eye = mc.thePlayer.getPositionEyes(1.0f);
+        float borderSize = entity.getCollisionBorderSize();
+        AxisAlignedBB bb = entity.getEntityBoundingBox().expand(borderSize, borderSize, borderSize);
+        double closestX = Math.max(bb.minX, Math.min(bb.maxX, eye.xCoord));
+        double closestY = Math.max(bb.minY, Math.min(bb.maxY, eye.yCoord));
+        double closestZ = Math.max(bb.minZ, Math.min(bb.maxZ, eye.zCoord));
+        double dx = eye.xCoord - closestX;
+        double dy = eye.yCoord - closestY;
+        double dz = eye.zCoord - closestZ;
+        return dx * dx + dy * dy + dz * dz;
+    }
+
+    /**
+     * Builds 10 backup points in a vertical line up the center of the hitbox, evenly spread (0%, 10%, ..., 90%).
+     */
+    public static List<Vec3> buildBackupPoints(Entity entity) {
+        if (entity == null || mc.thePlayer == null) return new ArrayList<>();
+        float borderSize = entity.getCollisionBorderSize();
+        AxisAlignedBB bb = entity.getEntityBoundingBox().expand(borderSize, borderSize, borderSize);
+        double centerX = (bb.minX + bb.maxX) / 2.0;
+        double centerZ = (bb.minZ + bb.maxZ) / 2.0;
+        double minY = bb.minY;
+        double height = bb.maxY - bb.minY;
+
+        List<Vec3> points = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            double t = i * 0.1;
+            double y = minY + height * t;
+            points.add(new Vec3(centerX, y, centerZ));
+        }
+        return points;
+    }
+
+    /**
+     * Checks if a ray from eye toward point hits the target entity's hitbox AND no block is closer.
+     * Returns true only if the entity hit is in front of any block hit (no aiming through walls).
+     */
+    public static boolean canAimAtPoint(Vec3 eye, Vec3 point, Entity target, double range) {
+        if (target == null) return false;
+        double dx = point.xCoord - eye.xCoord;
+        double dy = point.yCoord - eye.yCoord;
+        double dz = point.zCoord - eye.zCoord;
+        double len = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        if (len < 1e-6) return false;
+        double scale = range / len;
+        Vec3 end = new Vec3(eye.xCoord + dx * scale, eye.yCoord + dy * scale, eye.zCoord + dz * scale);
+
+        float borderSize = target.getCollisionBorderSize();
+        AxisAlignedBB aabb = target.getEntityBoundingBox().expand(borderSize, borderSize, borderSize);
+        MovingObjectPosition entityHit = aabb.calculateIntercept(eye, end);
+        if (entityHit == null) return false;
+
+        double entityDistSq = eye.squareDistanceTo(entityHit.hitVec);
+        MovingObjectPosition blockHit = mc.theWorld.rayTraceBlocks(eye, end, false, false, false);
+        if (blockHit != null && blockHit.typeOfHit == MovingObjectPosition.MovingObjectType.BLOCK) {
+            double blockDistSq = eye.squareDistanceTo(blockHit.hitVec);
+            if (blockDistSq < entityDistSq) return false;
+        }
+        return true;
+    }
+
+    /**
+     * Returns true if player eye is inside the entity's expanded AABB.
+     */
+    public static boolean isEyeInsideEntityAABB(Entity entity) {
+        if (entity == null || mc.thePlayer == null) return false;
+        Vec3 eye = mc.thePlayer.getPositionEyes(1.0f);
+        float borderSize = entity.getCollisionBorderSize();
+        AxisAlignedBB bb = entity.getEntityBoundingBox().expand(borderSize, borderSize, borderSize);
+        return bb.isVecInside(eye);
+    }
+
+    /**
+     * Returns true if main point or any backup point passes canAimAtPoint (entity hit before block),
+     * or if main aim point is at eye (inside hitbox - can see entity, no rotation needed).
+     */
+    public static boolean hasValidAimPoint(Entity entity, double hMult, double vMult, double range) {
+        if (entity == null || mc.thePlayer == null) return false;
+        Vec3 mainPoint = getAimPoint(entity, hMult, vMult);
+        if (mainPoint == null) return false;
+        Vec3 eye = mc.thePlayer.getPositionEyes(1.0f);
+        if (eye.squareDistanceTo(mainPoint) < 1e-6) return true; // inside hitbox - can see entity, will hit without rotating
+        if (canAimAtPoint(eye, mainPoint, entity, range)) return true;
+        List<Vec3> backups = buildBackupPoints(entity);
+        Collections.sort(backups, Comparator.comparingDouble(p -> {
+            double dx = p.xCoord - eye.xCoord;
+            double dy = p.yCoord - eye.yCoord;
+            double dz = p.zCoord - eye.zCoord;
+            return dx * dx + dy * dy + dz * dz;
+        }));
+        for (Vec3 p : backups) {
+            if (canAimAtPoint(eye, p, entity, range)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Returns rotations to the first valid point among main + backups.
+     * Raycasts toward each point; use point only if ray hits entity hitbox and no block is closer.
+     * Returns null when main aim point is at eye (inside hitbox - closest point = eye, no aim needed).
+     */
+    public static float[] getRotationsWithBackup(Entity entity, double horizontalMultipoint, double verticalMultipoint, float baseYaw, float basePitch, double range) {
+        if (entity == null || mc.thePlayer == null) return null;
+        Vec3 eye = mc.thePlayer.getPositionEyes(1.0f);
+        float borderSize = entity.getCollisionBorderSize();
+        AxisAlignedBB bb = entity.getEntityBoundingBox().expand(borderSize, borderSize, borderSize);
+        if (bb.isVecInside(eye)) {
+            double centerX = (bb.minX + bb.maxX) / 2.0;
+            double centerZ = (bb.minZ + bb.maxZ) / 2.0;
+            return getRotationsToPoint(centerX, eye.yCoord, centerZ, baseYaw, basePitch);
+        }
+        Vec3 mainPoint = getAimPoint(entity, horizontalMultipoint, verticalMultipoint);
+        if (mainPoint == null) return null;
+        if (eye.squareDistanceTo(mainPoint) < 1e-6) return null; // main point at eye, should not happen after inside check
+
+        if (canAimAtPoint(eye, mainPoint, entity, range)) {
+            return getRotationsToPoint(mainPoint.xCoord, mainPoint.yCoord, mainPoint.zCoord, baseYaw, basePitch);
+        }
+
+        List<Vec3> backups = buildBackupPoints(entity);
+        Collections.sort(backups, Comparator.comparingDouble(p -> {
+            double dx = p.xCoord - eye.xCoord;
+            double dy = p.yCoord - eye.yCoord;
+            double dz = p.zCoord - eye.zCoord;
+            return dx * dx + dy * dy + dz * dz;
+        }));
+
+        for (Vec3 p : backups) {
+            if (canAimAtPoint(eye, p, entity, range)) {
+                return getRotationsToPoint(p.xCoord, p.yCoord, p.zCoord, baseYaw, basePitch);
+            }
+        }
+        return null;
+    }
+
     public static float[] getRotationsPredicated(final Entity entity, final int ticks) {
         if (entity == null) {
             return null;
@@ -252,11 +484,67 @@ public class RotationUtils implements IMinecraftInstance {
         return new float[] { applyVanilla(mc.thePlayer.rotationYaw + MathHelper.wrapAngleTo180_float((float)(Math.atan2(n6, n4) * 57.295780181884766) - 90.0f - mc.thePlayer.rotationYaw)), clampPitch(mc.thePlayer.rotationPitch + MathHelper.wrapAngleTo180_float((float)(-(Math.atan2(n5, MathHelper.sqrt_double(n4 * n4 + n6 * n6)) * 57.295780181884766)) - mc.thePlayer.rotationPitch) + 3.0f) };
     }
 
+    private static final float FAR_THRESHOLD = 180f;
+
+    /**
+     * Smoothly interpolates from base to target rotation using linear step model.
+     * Steps along the combined (yaw, pitch) direction so both axes move together proportionally,
+     * simulating human mouse movement (one fluid motion).
+     * @param speed 0 = no movement, 30 = practically instant
+     */
+    public static float[] smoothRotation(float baseYaw, float basePitch,
+                                          float targetYaw, float targetPitch,
+                                          int speed) {
+        return smoothRotation(baseYaw, basePitch, targetYaw, targetPitch, speed, 0f);
+    }
+
+    /**
+     * Overload with configurable randomization (0-100%). Higher randomization varies step size
+     * per tick to bypass anticheat pattern analysis (consistent deltas, constant acceleration).
+     * @param speed 0 = no movement, 30 = practically instant
+     */
+    public static float[] smoothRotation(float baseYaw, float basePitch,
+                                          float targetYaw, float targetPitch,
+                                          int speed, float randomizationPercent) {
+        if (speed <= 0) {
+            return new float[] { baseYaw, clampPitch(basePitch) };
+        }
+        if (speed >= 30) {
+            return new float[] { targetYaw, clampPitch(targetPitch) };
+        }
+        float deltaYaw = MathHelper.wrapAngleTo180_float(targetYaw - baseYaw);
+        float deltaPitch = targetPitch - basePitch;
+        float magnitude = (float) MathHelper.sqrt_double(deltaYaw * deltaYaw + deltaPitch * deltaPitch);
+        if (magnitude < 0.001f) {
+            return new float[] { targetYaw, clampPitch(targetPitch) };
+        }
+        float t = speed / 30f;
+        float stepSize = t * t * 180f;
+        float range = 0.6f * (float)(randomizationPercent / 100.0);
+        float multiplier = (range <= 0.001f) ? 1.0f : (1.0f - range/2f + (float)(Math.random() * range));
+        stepSize *= multiplier;
+        float proximityFactor = Math.min(1f, magnitude / FAR_THRESHOLD);
+        proximityFactor = (float) Math.pow(proximityFactor, 0.7);
+        float maxSlowdown = (float)(randomizationPercent / 100.0);
+        // Cap proximity slowdown at 20% (min 80% speed) so high randomization doesn't kill aim assist
+        float proximityMult = Math.max(0.8f, 1.0f - maxSlowdown * (1.0f - proximityFactor));
+        stepSize *= proximityMult;
+        float stepLength = Math.min(stepSize, magnitude);
+        float scale = stepLength / magnitude;
+        float stepYaw = deltaYaw * scale;
+        float stepPitch = deltaPitch * scale;
+        float yaw = baseYaw + stepYaw;
+        float pitch = basePitch + stepPitch;
+        return new float[] { yaw, clampPitch(pitch) };
+    }
+
     public static float clampPitch(final float n) {
         return MathHelper.clamp_float(n, -90.0f, 90.0f);
     }
 
+    // TODO remove calls to this from the util as it's done globally in RotationHelper
     public static float[] fixRotation(float targetYaw, float targetPitch, final float yaw, final float pitch) {
+        targetYaw = RotationHelper.unwrapYaw(targetYaw, yaw);
         float n5 = targetYaw - yaw;
         final float abs = Math.abs(n5);
         final float n7 = targetPitch - pitch;
@@ -266,20 +554,15 @@ public class RotationUtils implements IMinecraftInstance {
         final float n11 = (float) (Math.round((double) n7 / n9) * n9);
         targetYaw = yaw + n10;
         targetPitch = pitch + n11;
-        if (abs >= 1.0f) {
-            final int n12 = (int) Settings.randomYawFactor.getInput();
-            if (n12 != 0) {
-                final int n13 = n12 * 100 + Utils.randomizeInt(-30, 30);
-                targetYaw += Utils.randomizeInt(-n13, n13) / 100.0;
-            }
-        } else if (abs <= 0.04) {
-            targetYaw += ((abs > 0.0f) ? 0.01 : -0.01);
-        }
         return new float[] { targetYaw, clampPitch(targetPitch) };
     }
 
     public static float angle(final double n, final double n2) {
         return (float) (Math.atan2(n - mc.thePlayer.posX, n2 - mc.thePlayer.posZ) * 57.295780181884766 * -1.0);
+    }
+
+    public static float deltaAngle(final double n, final double n2) {
+        return (float) (Math.atan2(n, n2) * 57.295780181884766 * -1.0);
     }
 
     public static MovingObjectPosition rayCast(double distance, float yaw, float pitch, boolean collisionCheck) {
@@ -458,6 +741,16 @@ public class RotationUtils implements IMinecraftInstance {
 
     public static float applyVanilla(float yaw) {
         return applyVanilla(yaw, false);
+    }
+
+    public static float[] getRotationsFromEye(Vec3 eye, double tx, double ty, double tz) {
+        double dx = tx - eye.xCoord;
+        double dy = ty - eye.yCoord;
+        double dz = tz - eye.zCoord;
+        double dist = Math.sqrt(dx * dx + dz * dz);
+        float yaw = (float) Math.toDegrees(Math.atan2(dz, dx)) - 90;
+        float pitch = (float) -Math.toDegrees(Math.atan2(dy, dist));
+        return new float[]{yaw, pitch};
     }
 
     public static enum PLAYER_OFFSETS {

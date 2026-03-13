@@ -6,10 +6,13 @@ import keystrokesmod.event.SlotUpdateEvent;
 import keystrokesmod.mixin.impl.accessor.IAccessorPlayerControllerMP;
 import keystrokesmod.mixin.interfaces.IMixinItemRenderer;
 import keystrokesmod.module.Module;
+import keystrokesmod.module.setting.impl.BlockListSetting;
 import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
 import keystrokesmod.utility.BlockUtils;
 import keystrokesmod.utility.Utils;
+import net.minecraft.block.Block;
+import net.minecraft.block.state.IBlockState;
 import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.MovingObjectPosition;
@@ -28,6 +31,8 @@ public class AutoTool extends Module {
     public ButtonSetting spoofItem;
     private ButtonSetting swapBack;
     private ButtonSetting overrideSwapBack;
+    private ButtonSetting blockWhitelistToggle;
+    private BlockListSetting blockWhitelist;
 
     private boolean hasSwapped = false;
     private int swapDelayTick = 0;
@@ -36,8 +41,8 @@ public class AutoTool extends Module {
 
     public AutoTool() {
         super("AutoTool", category.player);
-        this.registerSetting(hoverDelay = new SliderSetting("Hover delay", 0.0, 0.0, 20.0, 1.0));
-        this.registerSetting(swapDelay = new SliderSetting("Swap delay", 0, 0, 20, 1));
+        this.registerSetting(hoverDelay = new SliderSetting("Hover delay", "ms", 0.0, 0.0, 1000.0, 50.0));
+        this.registerSetting(swapDelay = new SliderSetting("Swap delay", "ms", 0.0, 0.0, 1000.0, 50.0));
         this.registerSetting(disableOnInteractable = new ButtonSetting("Disable on interactable", true));
         this.registerSetting(disableWhileHoldingBlocks = new ButtonSetting("Disable while holding blocks", true));
         this.registerSetting(rightDisable = new ButtonSetting("Disable while right click", true));
@@ -46,7 +51,14 @@ public class AutoTool extends Module {
         this.registerSetting(spoofItem = new ButtonSetting("Spoof item", false));
         this.registerSetting(swapBack = new ButtonSetting("Swap to previous slot", true));
         this.registerSetting(overrideSwapBack = new ButtonSetting("Override swap back", false));
+        this.registerSetting(blockWhitelistToggle = new ButtonSetting("Block whitelist", false));
+        this.registerSetting(blockWhitelist = new BlockListSetting("Blocks"));
         this.closetModule = true;
+    }
+
+    @Override
+    public void guiUpdate() {
+        blockWhitelist.setVisible(blockWhitelistToggle.isToggled(), this);
     }
 
     @Override
@@ -90,7 +102,8 @@ public class AutoTool extends Module {
             }
             long ticks = this.ticksHovered + 1L;
             this.ticksHovered = ticks;
-            if (ticks < this.hoverDelay.getInput()) {
+            long hoverDelayTicks = (long) (this.hoverDelay.getInput() / 50.0); // ms to ticks (50ms = 1 tick)
+            if (ticks < hoverDelayTicks) {
                 return;
             }
         }
@@ -106,6 +119,23 @@ public class AutoTool extends Module {
             resetVariables(false);
             return;
         }
+        if (blockWhitelistToggle.isToggled() && !blockWhitelist.getBlocks().isEmpty()) {
+            IBlockState state = BlockUtils.getBlockState(over.getBlockPos());
+            Block hoveredBlock = state.getBlock();
+            String registryId = hoveredBlock != null && Block.blockRegistry.getNameForObject(hoveredBlock) != null
+                    ? Block.blockRegistry.getNameForObject(hoveredBlock).toString() : "";
+            if (!registryId.isEmpty()) {
+                int meta = hoveredBlock.getMetaFromState(state);
+                String storageId = meta != 0 ? registryId + ":" + meta : registryId;
+                if (!blockWhitelist.contains(storageId) && !blockWhitelist.contains(registryId)) {
+                    resetVariables(false);
+                    return;
+                }
+            } else {
+                resetVariables(false);
+                return;
+            }
+        }
         int slot = Utils.getTool(BlockUtils.getBlock(over.getBlockPos()));
         if (slot == -1) {
             return;
@@ -119,7 +149,7 @@ public class AutoTool extends Module {
         else if (slot != mc.thePlayer.inventory.currentItem) {
             if (swapDelayTick-- <= 0) {
                 setSlot(slot);
-                swapDelayTick = (int) swapDelay.getInput();
+                swapDelayTick = (int) (swapDelay.getInput() / 50.0); // ms to ticks (50ms = 1 tick)
             }
         }
     }
@@ -165,7 +195,7 @@ public class AutoTool extends Module {
         }
         mc.thePlayer.inventory.currentItem = currentItem;
         hasSwapped = true;
-        swapDelayTick = (int) swapDelay.getInput();
-        ((IAccessorPlayerControllerMP) mc.playerController).syncCurrentPlayItem();
+        swapDelayTick = (int) (swapDelay.getInput() / 50.0); // ms to ticks (50ms = 1 tick)
+        ((IAccessorPlayerControllerMP) mc.playerController).callSyncCurrentPlayItem();
     }
 }
