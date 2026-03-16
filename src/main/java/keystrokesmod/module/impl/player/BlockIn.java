@@ -11,6 +11,8 @@ import keystrokesmod.utility.RenderUtils;
 import keystrokesmod.utility.RotationUtils;
 import keystrokesmod.utility.Utils;
 import net.minecraft.block.Block;
+import net.minecraft.block.BlockFence;
+import net.minecraft.block.BlockWall;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.item.ItemBlock;
@@ -167,7 +169,6 @@ public class BlockIn extends Module {
         equipPlannedSlot();
     }
 
-    // ── Event: PreUpdateEvent (placement execution, fill count) ──
 
     @SubscribeEvent
     public void onPreUpdate(PreUpdateEvent e) {
@@ -209,7 +210,6 @@ public class BlockIn extends Module {
         }
     }
 
-    // ── Event: RenderTickEvent (ring animation) ──
 
     @SubscribeEvent
     public void onRenderTick(TickEvent.RenderTickEvent e) {
@@ -248,7 +248,6 @@ public class BlockIn extends Module {
         RenderUtils.draw2DCircleArc(cx, cy, radius, startAngle, endAngle, thickness, color);
     }
 
-    // ── Event: MouseEvent (input suppression) ──
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public void onMouse(MouseEvent e) {
@@ -256,8 +255,6 @@ public class BlockIn extends Module {
             e.setCanceled(true);
         }
     }
-
-    // ── State management ──
 
     public boolean isPlacing() {
         return placing;
@@ -301,7 +298,6 @@ public class BlockIn extends Module {
         }
     }
 
-    // ── Block scoring and slot selection ──
 
     private int pickBlockSlot(boolean preferStrong) {
         int best = -1;
@@ -323,7 +319,6 @@ public class BlockIn extends Module {
         return best;
     }
 
-    // ── Target search ──
 
     private boolean getTarget() {
         AimResult result = roofAim();
@@ -374,6 +369,8 @@ public class BlockIn extends Module {
 
                     BlockPos bp = new BlockPos(x, y, z);
                     if (BlockUtils.replaceable(bp)) continue;
+                    Block block = BlockUtils.getBlock(bp);
+                    if (BlockUtils.isInteractable(block) || block instanceof BlockFence || block instanceof BlockWall) continue;
 
                     double d2 = BlockUtils.dist2PointAABB(eye, bp);
                     if (d2 > r2) continue;
@@ -600,7 +597,6 @@ public class BlockIn extends Module {
         return null;
     }
 
-    // ── Validation ──
 
     private AimResult tryPlacement(double reachVal, float yaw, float pit, BlockPos expectedSupport, EnumFacing expectedFace, BlockPos goal) {
         MovingObjectPosition mop = RotationUtils.rayCastBlock(reachVal, yaw, pit);
@@ -649,7 +645,6 @@ public class BlockIn extends Module {
         return range > 0 ? (Math.random() * 2 - 1) * range : 0;
     }
 
-    // ── Inner types ──
 
     private static class SupportOffset {
         final int dx, dy, dz;

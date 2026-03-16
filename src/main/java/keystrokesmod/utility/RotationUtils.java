@@ -602,6 +602,39 @@ public class RotationUtils implements IMinecraftInstance {
         return mc.theWorld.rayTraceBlocks(vec3, vec32, false, false, true);
     }
 
+    /**
+     * Raytraces for a block using the given yaw/pitch, but returns null if an entity is closer (so the block is "behind" an entity).
+     */
+    public static MovingObjectPosition rayTraceBlockIfNoEntityInFront(double reach, float yaw, float pitch) {
+        if (mc.thePlayer == null || mc.theWorld == null) return null;
+        MovingObjectPosition blockHit = rayTraceCustom(reach, yaw, pitch);
+        Vec3 eyes = mc.thePlayer.getPositionEyes(1.0F);
+        double blockDist = reach;
+        if (blockHit != null && blockHit.typeOfHit == MovingObjectPosition.MovingObjectType.BLOCK) {
+            blockDist = blockHit.hitVec.distanceTo(eyes);
+        } else {
+            return null;
+        }
+        Vec3 lookVec = getVectorForRotation(pitch, yaw);
+        Vec3 end = eyes.addVector(lookVec.xCoord * reach, lookVec.yCoord * reach, lookVec.zCoord * reach);
+        List<Entity> entities = mc.theWorld.getEntitiesInAABBexcluding(mc.thePlayer, mc.thePlayer.getEntityBoundingBox().addCoord(lookVec.xCoord * reach, lookVec.yCoord * reach, lookVec.zCoord * reach).expand(1.0F, 1.0F, 1.0F), Predicates.and(EntitySelectors.NOT_SPECTATING, Entity::canBeCollidedWith));
+        for (Entity entity : entities) {
+            float border = entity.getCollisionBorderSize();
+            AxisAlignedBB aabb = entity.getEntityBoundingBox().expand(border, border, border);
+            MovingObjectPosition entityHit = aabb.calculateIntercept(eyes, end);
+            if (aabb.isVecInside(eyes)) {
+                return null;
+            }
+            if (entityHit != null) {
+                double entityDist = eyes.distanceTo(entityHit.hitVec);
+                if (entityDist < blockDist) {
+                    return null;
+                }
+            }
+        }
+        return blockHit;
+    }
+
     public static Vec3 getVectorForRotation(float pitch, float yaw) {
         float f = MathHelper.cos(-yaw * ((float)Math.PI / 180F) - (float)Math.PI);
         float f1 = MathHelper.sin(-yaw * ((float)Math.PI / 180F) - (float)Math.PI);

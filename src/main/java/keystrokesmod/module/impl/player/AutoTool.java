@@ -10,6 +10,7 @@ import keystrokesmod.module.setting.impl.BlockListSetting;
 import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
 import keystrokesmod.utility.BlockUtils;
+import keystrokesmod.utility.RotationUtils;
 import keystrokesmod.utility.Utils;
 import net.minecraft.block.Block;
 import net.minecraft.block.state.IBlockState;
@@ -93,7 +94,8 @@ public class AutoTool extends Module {
             ((IMixinItemRenderer) mc.getItemRenderer()).setCancelUpdate(true);
             ((IMixinItemRenderer) mc.getItemRenderer()).setCancelReset(true);
         }
-        MovingObjectPosition over = mc.objectMouseOver;
+        double reach = mc.playerController.getBlockReachDistance();
+        MovingObjectPosition over = RotationUtils.rayTraceBlockIfNoEntityInFront(reach, mc.thePlayer.rotationYaw, mc.thePlayer.rotationPitch);
         if (this.hoverDelay.getInput() != 0) {
             if (over == null || over.typeOfHit != MovingObjectPosition.MovingObjectType.BLOCK) {
                 resetSlot();
@@ -107,7 +109,7 @@ public class AutoTool extends Module {
                 return;
             }
         }
-        if (!mc.inGameHasFocus || mc.currentScreen != null || (rightDisable.isToggled() && Mouse.isButtonDown(1)) || !mc.thePlayer.capabilities.allowEdit || (requireCrouch.isToggled() && !mc.thePlayer.isSneaking()) || disableInteractable() || disableBlocks()) {
+        if (!mc.inGameHasFocus || mc.currentScreen != null || (rightDisable.isToggled() && Mouse.isButtonDown(1)) || !mc.thePlayer.capabilities.allowEdit || (requireCrouch.isToggled() && !mc.thePlayer.isSneaking()) || disableInteractable(over) || disableBlocks()) {
             resetVariables(false);
             return;
         }
@@ -162,9 +164,9 @@ public class AutoTool extends Module {
         return false;
     }
 
-    private boolean disableInteractable() {
+    private boolean disableInteractable(MovingObjectPosition over) {
         if (disableOnInteractable.isToggled()) {
-            return BlockUtils.isInteractable(mc.objectMouseOver);
+            return BlockUtils.isInteractable(over);
         }
         return false;
     }
