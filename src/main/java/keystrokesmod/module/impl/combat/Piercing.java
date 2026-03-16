@@ -39,9 +39,6 @@ public class Piercing extends Module {
 
     public void modifyMouseOverFromGetMouseOver(float partialTicks) {
         if (mc == null || mc.thePlayer == null) return;
-        /* int tick = mc.thePlayer.ticksExisted;
-        if (lastMouseOverTick == tick) return;
-        lastMouseOverTick = tick; */
         keystrokesmod$modifyMouseOverVanillaLook(partialTicks);
     }
 
@@ -96,7 +93,8 @@ public class Piercing extends Module {
             if (!inside && hit == null) continue;
             double dist = inside ? 0.0 : eyes.distanceTo(hit.hitVec);
             if (!mc.playerController.extendedReach() && dist > 3.0) continue;
-            if (dist > reach || dist >= bestDist) continue;
+            if (dist > reach) continue;
+            if (dist >= bestDist && (KillAura.attackingEntity == null || e != KillAura.attackingEntity)) continue;
             if (this.insideHitboxOnly.isToggled() && dist > 0.10000000149011612) continue;
 
             if (e == viewEntity.ridingEntity && !viewEntity.canRiderInteract() && best != null) continue;
@@ -106,7 +104,10 @@ public class Piercing extends Module {
             float hp = living ? ((EntityLivingBase) e).getHealth() : Float.POSITIVE_INFINITY;
 
             boolean take = false;
-            if (best == null) {
+            if (KillAura.attackingEntity != null && e == KillAura.attackingEntity) {
+                take = true;
+            }
+            else if (best == null) {
                 take = true;
             }
             else if (living && !bestLiving) {
@@ -141,6 +142,7 @@ public class Piercing extends Module {
                 bestLiving = living;
                 bestHurt = hurt;
                 bestHp = hp;
+                if (KillAura.attackingEntity != null && best == KillAura.attackingEntity) break;
             }
         }
 

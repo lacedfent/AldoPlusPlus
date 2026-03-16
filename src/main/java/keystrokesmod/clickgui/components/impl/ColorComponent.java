@@ -33,6 +33,8 @@ public class ColorComponent extends Component {
     private static final float SQUARE_SIZE = 50f;
     private static final float HUE_BAR_WIDTH = 10f;
     private static final float HUE_GAP = 4f;
+    private static final float BLACK_BRI_EPSILON = 0.001f;
+    private static final float GREY_SAT_EPSILON = 0.001f;
     private static final float ALPHA_BAR_WIDTH = 10f;
     private static final float ALPHA_GAP = 4f;
     private static final float SQUARE_TOP_PAD = 2f;
@@ -124,9 +126,21 @@ public class ColorComponent extends Component {
         float sqRight = areaLeft + SQUARE_SIZE;
         float sqBottom = sqTop + SQUARE_SIZE;
 
-        float hue = (dragMode != 0) ? cachedHue / 360f : colorSetting.getHue() / 360f;
-        float sat = (dragMode != 0) ? cachedSat : colorSetting.getSaturation();
         float bri = (dragMode != 0) ? cachedBri : colorSetting.getBrightness();
+        float satFromSetting = (dragMode != 0) ? cachedSat : colorSetting.getSaturation();
+        boolean isBlack = bri < BLACK_BRI_EPSILON;
+        boolean isGrey = satFromSetting < GREY_SAT_EPSILON;
+        if (dragMode == 0 && !isBlack) {
+            cachedBri = bri;
+            cachedSat = colorSetting.getSaturation();
+            if (!isGrey) {
+                cachedHue = colorSetting.getHue();
+            }
+        }
+        // When black or grey, RGBtoHSB gives hue=0; use cached hue so the hue bar doesn't jump to red
+        boolean useCachedHue = dragMode != 0 || isBlack || isGrey;
+        float hue = useCachedHue ? cachedHue / 360f : colorSetting.getHue() / 360f;
+        float sat = (dragMode != 0 || isBlack) ? cachedSat : satFromSetting;
 
         int hueRGB = Color.HSBtoRGB(hue, 1f, 1f) | 0xFF000000;
         RenderUtils.drawRect(areaLeft, sqTop, sqRight, sqBottom, hueRGB);
@@ -311,9 +325,15 @@ public class ColorComponent extends Component {
     }
 
     private void cacheHSB() {
-        cachedHue = colorSetting.getHue();
-        cachedSat = colorSetting.getSaturation();
-        cachedBri = colorSetting.getBrightness();
+        float bri = colorSetting.getBrightness();
+        float sat = colorSetting.getSaturation();
+        cachedBri = bri;
+        if (bri >= BLACK_BRI_EPSILON) {
+            cachedSat = sat;
+            if (sat >= GREY_SAT_EPSILON) {
+                cachedHue = colorSetting.getHue();
+            }
+        }
     }
 
     private void markUnsaved() {

@@ -3,6 +3,7 @@ package keystrokesmod.module.impl.combat;
 import keystrokesmod.event.ClientRotationEvent;
 import keystrokesmod.helper.RotationHelper;
 import keystrokesmod.module.Module;
+import keystrokesmod.module.ModuleManager;
 import keystrokesmod.module.impl.world.AntiBot;
 import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
@@ -73,6 +74,7 @@ public class AimAssist extends Module {
 
     @SubscribeEvent(priority = EventPriority.NORMAL)
     public void onClientRotation(ClientRotationEvent e) {
+        if (ModuleManager.killAura != null && ModuleManager.killAura.isEnabled() && KillAura.target != null) return;
         if (mode.getInput() == 0 || !conditionsMet()) {
             return;
         }
@@ -93,6 +95,7 @@ public class AimAssist extends Module {
 
     @Override
     public void onUpdate() {
+        if (ModuleManager.killAura != null && ModuleManager.killAura.isEnabled() && KillAura.target != null) return;
         if (mode.getInput() == 1 || !conditionsMet()) {
             return;
         }

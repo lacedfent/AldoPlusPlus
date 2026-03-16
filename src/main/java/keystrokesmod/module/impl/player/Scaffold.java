@@ -566,7 +566,7 @@ public class Scaffold extends Module {
             if (LongJump.stopModules) {
                 return;
             }
-            if (KillAura.target != null  || ModuleManager.killAura.stoppedTargeting) {
+            if (KillAura.target != null) {
                 return;
             }
 

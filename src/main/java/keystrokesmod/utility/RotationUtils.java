@@ -334,6 +334,14 @@ public class RotationUtils implements IMinecraftInstance {
     }
 
     /**
+     * Returns distance from player eye to the closest point on the entity's expanded AABB.
+     */
+    public static double distanceFromEyeToClosestOnAABB(Entity entity) {
+        double dSq = distanceSqFromEyeToClosestOnAABB(entity);
+        return dSq == Double.MAX_VALUE ? Double.MAX_VALUE : Math.sqrt(dSq);
+    }
+
+    /**
      * Builds 10 backup points in a vertical line up the center of the hitbox, evenly spread (0%, 10%, ..., 90%).
      */
     public static List<Vec3> buildBackupPoints(Entity entity) {

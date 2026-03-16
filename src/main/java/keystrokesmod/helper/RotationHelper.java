@@ -23,6 +23,7 @@ public class RotationHelper {
     private boolean setRotations = false;
 
     public boolean forceMovementFix = false;
+    private boolean serverRelativeMovementInputs = false;
 
     // Tick-scoped swap state for temporarily overriding entity rotations
     private float savedYaw, savedPitch;
@@ -214,6 +215,7 @@ public class RotationHelper {
         }
         this.serverYaw = this.serverPitch = null;
         this.setRotations = this.forceMovementFix = false;
+        this.serverRelativeMovementInputs = false;
         this.rotationsUpdatedThisTick = false;
         this.swappedForMouseOver = false;
     }
@@ -263,6 +265,10 @@ public class RotationHelper {
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public void onPostInput(PostPlayerInputEvent event) {
         if (!fixMovement()) {
+            return;
+        }
+
+        if (this.serverRelativeMovementInputs) {
             return;
         }
 
@@ -354,6 +360,10 @@ public class RotationHelper {
     public void setPitch(float pitch) {
         this.serverPitch = pitch;
         this.setRotations = true;
+    }
+
+    public void setServerRelativeMovementInputs(boolean serverRelativeMovementInputs) {
+        this.serverRelativeMovementInputs = serverRelativeMovementInputs;
     }
 
     public Float getServerYaw() {

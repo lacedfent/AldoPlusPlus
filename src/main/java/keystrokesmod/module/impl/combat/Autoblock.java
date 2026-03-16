@@ -127,7 +127,7 @@ public class Autoblock extends Module {
         }
 
         boolean rmbDown = Mouse.isButtonDown(1);
-        boolean lmbDown = Mouse.isButtonDown(0);
+        boolean lmbDown = Mouse.isButtonDown(0) || KillAura.attackingEntity != null;
         long now = System.currentTimeMillis();
 
         if (!rmbDown) {

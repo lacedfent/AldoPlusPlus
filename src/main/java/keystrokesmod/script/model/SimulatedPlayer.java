@@ -4,6 +4,8 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.Lists;
 import keystrokesmod.mixin.impl.accessor.IAccessorEntity;
 import keystrokesmod.mixin.impl.accessor.IAccessorEntityLivingBase;
+import keystrokesmod.module.ModuleManager;
+import keystrokesmod.module.impl.movement.NoSlow;
 import net.minecraft.block.*;
 import net.minecraft.block.Block;
 import net.minecraft.block.material.Material;
@@ -50,6 +52,7 @@ public class SimulatedPlayer {
     public boolean onGround;
     private boolean isAirBorne;
     public float rotationYaw;
+    public float rotationPitch;
     private double posX;
     private double posY;
     private double posZ;
@@ -78,9 +81,10 @@ public class SimulatedPlayer {
     private boolean isInWeb;
     private boolean noClip;
     private boolean isSprinting;
+    private boolean sprintRequested;
     private final FoodStats foodStats;
 
-    public SimulatedPlayer(EntityPlayerSP player, AxisAlignedBB box, net.minecraft.util.MovementInput movementInput, int jumpTicks, double motionZ, double motionY, double motionX, boolean inWater, boolean onGround, boolean isAirBorne, float rotationYaw, double posX, double posY, double posZ, PlayerCapabilities capabilities, Entity ridingEntity, float jumpMovementFactor, World worldObj, boolean isCollidedHorizontally, boolean isCollidedVertically, WorldBorder worldBorder, IChunkProvider chunkProvider, boolean isOutsideBorder, Entity riddenByEntity, BaseAttributeMap attributeMap, boolean isSpectator, float fallDistance, float stepHeight, boolean isCollided, int fire, float distanceWalkedModified, float distanceWalkedOnStepModified, int nextStepDistance, float height, float width, int fireResistance, boolean isInWeb, boolean noClip, boolean isSprinting, FoodStats foodStats) {
+    public SimulatedPlayer(EntityPlayerSP player, AxisAlignedBB box, net.minecraft.util.MovementInput movementInput, int jumpTicks, double motionZ, double motionY, double motionX, boolean inWater, boolean onGround, boolean isAirBorne, float rotationYaw, float rotationPitch, double posX, double posY, double posZ, PlayerCapabilities capabilities, Entity ridingEntity, float jumpMovementFactor, World worldObj, boolean isCollidedHorizontally, boolean isCollidedVertically, WorldBorder worldBorder, IChunkProvider chunkProvider, boolean isOutsideBorder, Entity riddenByEntity, BaseAttributeMap attributeMap, boolean isSpectator, float fallDistance, float stepHeight, boolean isCollided, int fire, float distanceWalkedModified, float distanceWalkedOnStepModified, int nextStepDistance, float height, float width, int fireResistance, boolean isInWeb, boolean noClip, boolean isSprinting, FoodStats foodStats) {
         this.player = player;
         this.box = box;
         this.movementInput = movementInput;
@@ -92,6 +96,7 @@ public class SimulatedPlayer {
         this.onGround = onGround;
         this.isAirBorne = isAirBorne;
         this.rotationYaw = rotationYaw;
+        this.rotationPitch = rotationPitch;
         this.posX = posX;
         this.posY = posY;
         this.posZ = posZ;
@@ -120,6 +125,7 @@ public class SimulatedPlayer {
         this.isInWeb = isInWeb;
         this.noClip = noClip;
         this.isSprinting = isSprinting;
+        this.sprintRequested = isSprinting;
         this.foodStats = foodStats;
     }
 
@@ -158,6 +164,7 @@ public class SimulatedPlayer {
                 player.onGround,
                 player.isAirBorne,
                 player.rotationYaw,
+                player.rotationPitch,
                 player.posX,
                 player.posY,
                 player.posZ,
@@ -205,6 +212,8 @@ public class SimulatedPlayer {
 
         player.capabilities.writeCapabilitiesToNBT(capabilitiesNBT);
         capabilities.readCapabilitiesFromNBT(capabilitiesNBT);
+        capabilities.isFlying = false;
+        capabilities.allowFlying = false;
 
         return capabilities;
     }
@@ -241,16 +250,25 @@ public class SimulatedPlayer {
         pushOutOfBlocks(posX + width * 0.35, getEntityBoundingBox().minY + 0.5, posZ - width * 0.35);
         pushOutOfBlocks(posX + width * 0.35, getEntityBoundingBox().minY + 0.5, posZ + width * 0.35);
 
-        boolean flag3 = this.foodStats.getFoodLevel() > 6 || capabilities.allowFlying;
-        float f = 0.8f;
-
-        boolean shouldSprint = player.isSprinting();
-
-        if (onGround && movementInput.moveForward >= f && !isSprinting() && flag3 && !player.isUsingItem() && !isPotionActive(Potion.blindness) && shouldSprint) {
-            setSprinting(true);
+        boolean useItemBlocksSprint = ModuleManager.noSlow == null || !ModuleManager.noSlow.isEnabled() || NoSlow.slowed.getInput() == 80;
+        if (player.isUsingItem() && ridingEntity == null) {
+            float slowed = NoSlow.getSlowed();
+            movementInput.moveStrafe *= slowed;
+            movementInput.moveForward *= slowed;
         }
 
-        if (!isSprinting() && movementInput.moveForward >= f && flag3 && !player.isUsingItem() && !isPotionActive(Potion.blindness) && shouldSprint) {
+        int foodLevel = foodStats.getFoodLevel();
+        boolean flag3 = foodLevel > 6 || capabilities.allowFlying;
+        boolean blind = isPotionActive(Potion.blindness);
+
+        if (sprintRequested
+                && !movementInput.sneak
+                && onGround
+                && !isCollidedHorizontally
+                && (movementInput.moveForward >= 0.8F || movementInput.moveStrafe != 0.0F)
+                && flag3
+                && (!player.isUsingItem() || !useItemBlocksSprint)
+                && !blind) {
             setSprinting(true);
         }
 
@@ -258,7 +276,11 @@ public class SimulatedPlayer {
             setSprinting(false);
         }
 
-        if (isSprinting() && (movementInput.moveForward < 0.8f || isCollidedHorizontally || !flag3)) {
+        if (isSprinting()
+                && (movementInput.moveForward <= 0.0F
+                || movementInput.sneak
+                || isCollidedHorizontally
+                || (foodLevel <= 6 && !capabilities.allowFlying))) {
             setSprinting(false);
         }
 
@@ -362,6 +384,32 @@ public class SimulatedPlayer {
 
     private void setSprinting(boolean state) {
         isSprinting = state;
+    }
+
+    public void setSprintRequested(boolean sprintRequested) {
+        this.sprintRequested = sprintRequested;
+    }
+
+    public void resetSimulationState(double x, double y, double z, boolean onGround) {
+        setPosition(x, y, z);
+        this.motionX = 0.0D;
+        this.motionY = 0.0D;
+        this.motionZ = 0.0D;
+        this.onGround = onGround;
+        this.isAirBorne = !onGround;
+        this.isCollided = false;
+        this.isCollidedHorizontally = false;
+        this.isCollidedVertically = onGround;
+        this.fallDistance = 0.0F;
+        this.jumpTicks = 0;
+        this.inWater = false;
+        this.isInWeb = false;
+        this.isSprinting = false;
+        this.sprintRequested = false;
+        this.movementInput.moveForward = 0.0F;
+        this.movementInput.moveStrafe = 0.0F;
+        this.movementInput.jump = false;
+        this.movementInput.sneak = false;
     }
 
     private boolean pushOutOfBlocks(double x, double y, double z) {

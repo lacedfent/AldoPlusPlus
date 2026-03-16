@@ -11,6 +11,7 @@ import keystrokesmod.utility.Utils;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockStairs;
 import net.minecraft.block.BlockDeadBush;
+import net.minecraft.block.BlockDoublePlant;
 import net.minecraft.block.BlockFlower;
 import net.minecraft.block.BlockTallGrass;
 import net.minecraft.block.state.IBlockState;
@@ -24,6 +25,7 @@ import net.minecraft.util.BlockPos;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.MovingObjectPosition;
 import net.minecraftforge.client.event.DrawBlockHighlightEvent;
+import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import org.lwjgl.opengl.GL11;
 
@@ -98,7 +100,7 @@ public class BlockOverlay extends Module {
         return RENDER_MODES[(int) renderMode.getInput()];
     }
 
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
     public void onDrawBlockHighlight(DrawBlockHighlightEvent e) {
         int mode = (int) renderMode.getInput();
         if (mode == 0) {
@@ -108,6 +110,7 @@ public class BlockOverlay extends Module {
         if (mode == 1) {
             return;
         }
+        e.setCanceled(true);
         if (!Utils.nullCheck()) return;
         if (!persistence.isToggled() && mc.thePlayer.isSpectator()) return;
         BlockPos pos = getFocusedBlock();
@@ -116,7 +119,6 @@ public class BlockOverlay extends Module {
         boolean showOutline = outlineVisible.isToggled();
         if (!showOverlay && !showOutline) return;
 
-        e.setCanceled(true);
         EnumFacing side = (mode == 2) ? mc.objectMouseOver.sideHit : null;
         renderCustomBlockOverlay(pos, side, showOverlay, showOutline);
     }
@@ -184,7 +186,7 @@ public class BlockOverlay extends Module {
         Block block = mc.theWorld.getBlockState(pos).getBlock();
         if (block == Blocks.air) return null;
         if (block == Blocks.barrier && !barriers.isToggled()) return null;
-        if (hidePlants.isToggled() && (block instanceof BlockTallGrass || block instanceof BlockFlower || block instanceof BlockDeadBush)) return null;
+        if (hidePlants.isToggled() && (block instanceof BlockTallGrass || block instanceof BlockFlower || block instanceof BlockDeadBush || block instanceof BlockDoublePlant)) return null;
         return pos;
     }
 

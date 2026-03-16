@@ -12,6 +12,9 @@ public class Simulation {
 
     public static Simulation create() {
         Minecraft mc = Minecraft.getMinecraft();
+        if (mc == null || mc.thePlayer == null || mc.thePlayer.movementInput == null) {
+            throw new IllegalStateException("Simulation requires an initialized client player");
+        }
         MovementInput input = mc.thePlayer.movementInput;
         SimulatedPlayer sim = SimulatedPlayer.fromClientPlayer(input);
         return new Simulation(sim);
@@ -35,6 +38,18 @@ public class Simulation {
 
     public void setYaw(float yaw) {
         raw.rotationYaw = yaw;
+    }
+
+    public void setPitch(float pitch) {
+        raw.rotationPitch = pitch;
+    }
+
+    public void setSprinting(boolean sprinting) {
+        raw.setSprintRequested(sprinting);
+    }
+
+    public void resetState(double x, double y, double z, boolean onGround) {
+        raw.resetSimulationState(x, y, z, onGround);
     }
 
     public void tick() {

@@ -30,7 +30,6 @@ public class ModuleUtils implements IMinecraftInstance {
     public static int lastFaceDifference;
     private int lastFace;
     public static double offsetValue = 0.0000000000201;
-    private int unTargetTicks;
     public static boolean isAttacking;
     private int attackingTicks;
     public static int profileTicks = -1;
@@ -170,13 +169,6 @@ public class ModuleUtils implements IMinecraftInstance {
         if (isBreaking && ++isBreakingTick >= 1) {
             isBreaking = false;
             isBreakingTick = 0;
-        }
-
-        if (ModuleManager.killAura.stoppedTargeting) {
-            if (++unTargetTicks >= 2) {
-                unTargetTicks = 0;
-                ModuleManager.killAura.stoppedTargeting = false;
-            }
         }
     }
 
@@ -351,7 +343,7 @@ public class ModuleUtils implements IMinecraftInstance {
         if (!Utils.nullCheck()) {
             return;
         }
-        if (ModuleManager.killAura.rotationMode.getInput() == 0 && (KillAura.target != null || ModuleManager.killAura.stoppedTargeting)) {
+        if (ModuleManager.killAura.rotationMode.getInput() == 0 && KillAura.target != null) {
             mc.thePlayer.prevRenderArmYaw = mc.thePlayer.rotationYaw;
             mc.thePlayer.renderArmYaw = mc.thePlayer.rotationYaw;
         }

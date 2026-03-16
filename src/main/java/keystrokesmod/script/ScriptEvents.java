@@ -81,6 +81,16 @@ public class ScriptEvents {
     }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public void onPreAttack(PreAttackEvent e) {
+        if (e.isCanceled()) {
+            return;
+        }
+        if (Raven.scriptManager.invokeBoolean("onPreAttack", module) == 0) {
+            e.setCanceled(true);
+        }
+    }
+
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
     public void onAttack(AttackEvent e) {
         if (e.isCanceled()) {
             return;

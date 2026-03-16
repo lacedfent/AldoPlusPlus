@@ -4,7 +4,6 @@ import keystrokesmod.Raven;
 import keystrokesmod.utility.IMinecraftInstance;
 import keystrokesmod.utility.RenderUtils;
 import keystrokesmod.utility.Utils;
-import net.minecraft.client.Minecraft;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 

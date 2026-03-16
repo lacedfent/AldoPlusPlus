@@ -1,6 +1,7 @@
 package keystrokesmod.mixin.impl.client;
 
 import keystrokesmod.event.*;
+import net.minecraft.util.MovingObjectPosition;
 import keystrokesmod.helper.RotationHelper;
 import keystrokesmod.module.ModuleManager;
 import keystrokesmod.module.impl.render.Freelook;
@@ -60,8 +61,16 @@ public class MixinMinecraft {
         }
     }
 
-    @Inject(method = "clickMouse", at = @At("HEAD"))
+    @Inject(method = "clickMouse", at = @At("HEAD"), cancellable = true)
     public void injectClickMouse(CallbackInfo ci) {
+        Minecraft mc = (Minecraft) (Object) this;
+        MovingObjectPosition mop = mc.objectMouseOver;
+        PreAttackEvent preAttack = new PreAttackEvent(mop);
+        MinecraftForge.EVENT_BUS.post(preAttack);
+        if (preAttack.isCanceled()) {
+            ci.cancel();
+            return;
+        }
         MinecraftForge.EVENT_BUS.post(new ClickMouseEvent());
     }
 

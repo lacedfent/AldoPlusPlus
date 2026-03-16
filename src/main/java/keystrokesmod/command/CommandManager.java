@@ -2,6 +2,7 @@ package keystrokesmod.command;
 
 import keystrokesmod.utility.Utils;
 import keystrokesmod.command.impl.*;
+import keystrokesmod.module.ModuleManager;
 
 import java.util.ArrayList;
 import java.util.Arrays;

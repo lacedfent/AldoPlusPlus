@@ -61,6 +61,7 @@ public class AutoClicker extends Module {
     @SubscribeEvent
     public void onPrePlayerInteract(PrePlayerInteractEvent e) {
         if (!Utils.nullCheck()) return;
+        if (ModuleManager.killAura != null && ModuleManager.killAura.isEnabled() && KillAura.target != null) return;
 
         int key = mc.gameSettings.keyBindAttack.getKeyCode();
         if (Mouse.isButtonDown(0)) {

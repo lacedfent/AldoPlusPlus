@@ -773,6 +773,9 @@ public class ScriptDefaults {
                 else if (setting instanceof ButtonSetting) {
                     settings.put(setting.getName(), ((ButtonSetting) setting).isToggled());
                 }
+                else if (setting instanceof ColorSetting) {
+                    settings.put(setting.getName(), ((ColorSetting) setting).getColor());
+                }
             }
             return settings;
         }
@@ -870,6 +873,46 @@ public class ScriptDefaults {
 
         public void registerDescription(String description) {
             getScript(this.superName).registerSetting(new DescriptionSetting(description));
+        }
+
+        public void registerColor(String name, int red, int green, int blue) {
+            getScript(this.superName).registerSetting(new ColorSetting(name, red, green, blue));
+        }
+
+        public void registerColor(String name, int red, int green, int blue, int alpha) {
+            getScript(this.superName).registerSetting(new ColorSetting(name, red, green, blue, alpha));
+        }
+
+        public void registerColor(String group, String name, int red, int green, int blue) {
+            getScript(this.superName).registerSetting(new ColorSetting(getGroupForString(group), name, red, green, blue));
+        }
+
+        public void registerColor(String group, String name, int red, int green, int blue, int alpha) {
+            getScript(this.superName).registerSetting(new ColorSetting(getGroupForString(group), name, red, green, blue, alpha));
+        }
+
+        public int getColor(String moduleName, String name) {
+            ColorSetting setting = (ColorSetting) getSetting(getModule(moduleName), name);
+            if (setting == null) {
+                return 0;
+            }
+            return setting.getColor();
+        }
+
+        public void setColor(String moduleName, String name, int red, int green, int blue) {
+            ColorSetting setting = (ColorSetting) getSetting(getModule(moduleName), name);
+            if (setting == null) {
+                return;
+            }
+            setting.setColor(red, green, blue);
+        }
+
+        public void setColor(String moduleName, String name, int red, int green, int blue, int alpha) {
+            ColorSetting setting = (ColorSetting) getSetting(getModule(moduleName), name);
+            if (setting == null) {
+                return;
+            }
+            setting.setColor(red, green, blue, alpha);
         }
 
         public boolean getButton(String moduleName, String name) {
@@ -1420,9 +1463,15 @@ public class ScriptDefaults {
         }
 
         public static void line3D(final double startX, final double startY, final double startZ, double endX, double endY, double endZ, final float lineWidth, final int color) {
-            endX -= mc.getRenderManager().viewerPosX;
-            endY -= mc.getRenderManager().viewerPosY;
-            endZ -= mc.getRenderManager().viewerPosZ;
+            final double vx = mc.getRenderManager().viewerPosX;
+            final double vy = mc.getRenderManager().viewerPosY;
+            final double vz = mc.getRenderManager().viewerPosZ;
+            final double sx = startX - vx;
+            final double sy = startY - vy;
+            final double sz = startZ - vz;
+            endX -= vx;
+            endY -= vy;
+            endZ -= vz;
             final float a = (color >> 24 & 0xFF) / 255.0f;
             final float r = (color >> 16 & 0xFF) / 255.0f;
             final float g = (color >> 8 & 0xFF) / 255.0f;
@@ -1436,7 +1485,7 @@ public class ScriptDefaults {
             GL11.glLineWidth(lineWidth);
             GlStateManager.color(r, g, b, a);
             GL11.glBegin(2);
-            GL11.glVertex3d(startX - mc.thePlayer.posX, startY - mc.thePlayer.posY, startZ - mc.thePlayer.posZ);
+            GL11.glVertex3d(sx, sy, sz);
             GL11.glVertex3d(endX, endY, endZ);
             GL11.glEnd();
             GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);

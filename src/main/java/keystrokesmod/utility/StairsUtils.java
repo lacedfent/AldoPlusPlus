@@ -120,9 +120,9 @@ public final class StairsUtils {
             }
         } else if (side != EnumFacing.UP && side != EnumFacing.DOWN) {
             switch (blockFacing) {
-                case NORTH: side = side.rotateY(); break;
+                case NORTH: side = side.getOpposite(); break;
                 case EAST: side = side.rotateYCCW(); break;
-                case WEST: side = side.getOpposite(); break;
+                case WEST: side = side.rotateYCCW(); break;
                 default: break;
             }
         }
