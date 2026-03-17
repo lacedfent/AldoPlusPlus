@@ -44,14 +44,20 @@ public class ModuleComponent extends Component {
     private static final int INVALID_COLOR = new Color(255, 80, 80).getRGB();
     private static final int ENABLED_COLOR = new Color(24, 154, 255).getRGB();
     private static final int DISABLED_COLOR = new Color(192, 192, 192).getRGB();
+    private final boolean categoryManager;
 
     public ModuleComponent(Module mod, CategoryComponent p, float yPos) {
         this.mod = mod;
         this.categoryComponent = p;
         this.yPos = yPos;
         this.settings = new ArrayList();
-        this.isOpened = false;
-        float y = yPos + 12;
+        this.categoryManager = mod instanceof Manager || mod instanceof keystrokesmod.script.Manager;
+        this.isOpened = categoryManager;
+        float collapsedHeight = getCollapsedHeight();
+        this.smoothingY = collapsedHeight;
+        this.animationStartY = collapsedHeight;
+        this.animationTargetY = collapsedHeight;
+        float y = yPos + getSettingStartOffset();
         if (mod != null && !mod.getSettings().isEmpty()) {
             for (Setting v : mod.getSettings()) {
                 if (!v.visible) {
@@ -99,9 +105,17 @@ public class ModuleComponent extends Component {
                     this.settings.add(bsc);
                     y += 12;
                 }
+                else if (v instanceof TextSetting) {
+                    TextSetting ts = (TextSetting) v;
+                    TextFieldComponent tfc = new TextFieldComponent(ts, this, y);
+                    this.settings.add(tfc);
+                    y += tfc.getHeightF();
+                }
             }
         }
-        this.settings.add(new BindComponent(this, y));
+        if (!categoryManager) {
+            this.settings.add(new BindComponent(this, y));
+        }
     }
 
     public void updateAnimationState() {
@@ -122,7 +136,7 @@ public class ModuleComponent extends Component {
 
     public void updateHeight(float newY) {
         this.yPos = newY;
-        float y = this.yPos + 16f;
+        float y = this.yPos + getCollapsedHeight();
         int idx = 0;
         while (idx < this.settings.size()) {
             Component co = this.settings.get(idx);
@@ -163,6 +177,8 @@ public class ModuleComponent extends Component {
                         ((ColorComponent) child).xOffset = GROUP_CHILD_INDENT;
                     } else if (child instanceof BlockSearchComponent) {
                         ((BlockSearchComponent) child).xOffset = GROUP_CHILD_INDENT;
+                    } else if (child instanceof TextFieldComponent) {
+                        ((TextFieldComponent) child).xOffset = GROUP_CHILD_INDENT;
                     }
                     idx++;
                 }
@@ -184,6 +200,8 @@ public class ModuleComponent extends Component {
                     ((ColorComponent) co).xOffset = indent;
                 } else if (co instanceof BlockSearchComponent) {
                     ((BlockSearchComponent) co).xOffset = indent;
+                } else if (co instanceof TextFieldComponent) {
+                    ((TextFieldComponent) co).xOffset = indent;
                 }
 
                 y += getBaseComponentHeightF(co);
@@ -193,7 +211,7 @@ public class ModuleComponent extends Component {
     }
 
     public void render() {
-        if (hovering || hoverTimer != null) {
+        if (hasModuleHeader() && (hovering || hoverTimer != null)) {
             double hoverAlpha = (hovering && hoverTimer != null) ? hoverTimer.getValueFloat(0, ORIGINAL_HOVER_ALPHA, 1) : (hoverTimer != null && !hovering) ? ORIGINAL_HOVER_ALPHA - hoverTimer.getValueFloat(0, ORIGINAL_HOVER_ALPHA, 1) : ORIGINAL_HOVER_ALPHA;
             if (hoverAlpha == 0) {
                 hoverTimer = null;
@@ -204,13 +222,15 @@ public class ModuleComponent extends Component {
         if (this.mod.script != null && this.mod.script.error) {
             button_rgb = INVALID_COLOR;
         }
-        if (this.mod.moduleCategory() == Module.category.profiles && !(this.mod instanceof Manager) && !((ProfileModule) this.mod).saved && Raven.currentProfile.getModule() == this.mod) {
+        if (this.mod.moduleCategory() == Module.category.profiles && !(this.mod instanceof Manager) && !((ProfileModule) this.mod).saved && Raven.currentProfile != null && Raven.currentProfile.getModule() == this.mod) {
             button_rgb = UNSAVED_COLOR;
         }
 
         boolean scissorRequired = smoothTimer != null;
 
-        Minecraft.getMinecraft().fontRendererObj.drawStringWithShadow(this.mod.getName(), (float) (this.categoryComponent.getX() + this.categoryComponent.getWidth() / 2 - Minecraft.getMinecraft().fontRendererObj.getStringWidth(this.mod.getName()) / 2), (float) (this.categoryComponent.getY() + this.yPos + 4), button_rgb);
+        if (hasModuleHeader()) {
+            Minecraft.getMinecraft().fontRendererObj.drawStringWithShadow(this.mod.getName(), (float) (this.categoryComponent.getX() + this.categoryComponent.getWidth() / 2 - Minecraft.getMinecraft().fontRendererObj.getStringWidth(this.mod.getName()) / 2), (float) (this.categoryComponent.getY() + this.yPos + 4), button_rgb);
+        }
         if (scissorRequired) {
             ScaledResolution sr = new ScaledResolution(Minecraft.getMinecraft());
             int scale = sr.getScaleFactor();
@@ -238,9 +258,9 @@ public class ModuleComponent extends Component {
             return smoothingY;
         }
         if (!this.isOpened) {
-            return 16f;
+            return getCollapsedHeight();
         }
-        float h = 16f;
+        float h = getCollapsedHeight();
         for (Component c : this.settings) {
             h += getAnimatedComponentHeightF(c);
         }
@@ -267,7 +287,7 @@ public class ModuleComponent extends Component {
      */
     public float getScrollExtentHeightF() {
         if (isOpened || (smoothTimer != null && animationTargetY > 16f)) {
-            float h = 16f;
+            float h = getCollapsedHeight();
             for (Component c : settings) {
                 if (!isVisibleBase(c)) continue;
                 GroupComponent group = getOwningGroup(c);
@@ -284,7 +304,7 @@ public class ModuleComponent extends Component {
         for (Component c : this.settings) {
             c.drawScreen(x, y);
         }
-        if (overModuleName(x, y) && this.categoryComponent.opened) {
+        if (hasModuleHeader() && overModuleName(x, y) && this.categoryComponent.opened) {
             hovering = true;
             if (hoverTimer == null) {
                 (hoverTimer = new Timer(75)).start();
@@ -301,7 +321,7 @@ public class ModuleComponent extends Component {
     }
 
     public boolean onClick(int x, int y, int mouse) {
-        if (this.overModuleName(x, y) && mouse == 0 && this.mod.canBeEnabled()) {
+        if (hasModuleHeader() && this.overModuleName(x, y) && mouse == 0 && this.mod.canBeEnabled()) {
             this.mod.toggle();
             if (this.mod.moduleCategory() != Module.category.profiles) {
                 if (Raven.currentProfile != null) {
@@ -311,20 +331,20 @@ public class ModuleComponent extends Component {
             return true;
         }
 
-        if (this.overModuleName(x, y) && mouse == 1) {
+        if (hasModuleHeader() && this.overModuleName(x, y) && mouse == 1) {
             float currentHeight = smoothTimer != null ? smoothingY : (isOpened ? getHeightF() : 16f);
             this.animationStartY = currentHeight;
             this.isOpened = !this.isOpened;
             // Compute full open height without smoothTimer interference
             float targetHeight;
             if (this.isOpened) {
-                float h = 16f;
+                float h = getCollapsedHeight();
                 for (Component c : this.settings) {
                     h += getAnimatedComponentHeightF(c);
                 }
                 targetHeight = h;
             } else {
-                targetHeight = 16f;
+                targetHeight = getCollapsedHeight();
             }
             this.animationTargetY = targetHeight;
             (this.smoothTimer = new Timer(250)).start();
@@ -363,13 +383,16 @@ public class ModuleComponent extends Component {
         }
         smoothTimer = null;
         hoverTimer = null;
-        float finalHeight = isOpened ? getHeightF() : 16f;
+        float finalHeight = isOpened ? getHeightF() : getCollapsedHeight();
         smoothingY = finalHeight;
         animationStartY = finalHeight;
         animationTargetY = finalHeight;
     }
 
     public boolean overModuleName(int x, int y) {
+        if (!hasModuleHeader()) {
+            return false;
+        }
         return x > this.categoryComponent.getX() && x < this.categoryComponent.getX() + this.categoryComponent.getWidth() && y > this.categoryComponent.getModuleY() + this.yPos && y < this.categoryComponent.getModuleY() + 16 + this.yPos;
     }
 
@@ -414,6 +437,9 @@ public class ModuleComponent extends Component {
         if (component instanceof ColorComponent && ((ColorComponent) component).colorSetting.groupSetting != null) {
             return ((ColorComponent) component).colorSetting.groupSetting.getName();
         }
+        if (component instanceof TextFieldComponent && ((TextFieldComponent) component).textSetting.group != null) {
+            return ((TextFieldComponent) component).textSetting.group.getName();
+        }
         return "";
     }
 
@@ -429,6 +455,9 @@ public class ModuleComponent extends Component {
         }
         if (component instanceof BlockSearchComponent) {
             return ((BlockSearchComponent) component).getCurrentHeight();
+        }
+        if (component instanceof TextFieldComponent) {
+            return component.getHeightF();
         }
         return 12f;
     }
@@ -565,5 +594,17 @@ public class ModuleComponent extends Component {
 
     private boolean isVisibleBase(Component component) {
         return component.isBaseVisible();
+    }
+
+    private boolean hasModuleHeader() {
+        return !categoryManager;
+    }
+
+    private float getCollapsedHeight() {
+        return hasModuleHeader() ? 16f : 0f;
+    }
+
+    private float getSettingStartOffset() {
+        return hasModuleHeader() ? 12f : 0f;
     }
 }

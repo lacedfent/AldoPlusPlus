@@ -2,6 +2,7 @@ package keystrokesmod.clickgui;
 
 import keystrokesmod.Raven;
 import keystrokesmod.clickgui.components.Component;
+import keystrokesmod.clickgui.components.FocusableTextComponent;
 import keystrokesmod.clickgui.components.impl.BindComponent;
 import keystrokesmod.clickgui.components.impl.BlockSearchComponent;
 import keystrokesmod.clickgui.components.impl.CategoryComponent;
@@ -387,7 +388,7 @@ public class ClickGui extends GuiScreen {
                     if (component instanceof BindComponent && ((BindComponent) component).isBinding) {
                         return true;
                     }
-                    if (component instanceof BlockSearchComponent && ((BlockSearchComponent) component).isSearchFocused()) {
+                    if (component instanceof FocusableTextComponent && ((FocusableTextComponent) component).isTextInputFocused()) {
                         return true;
                     }
                 }

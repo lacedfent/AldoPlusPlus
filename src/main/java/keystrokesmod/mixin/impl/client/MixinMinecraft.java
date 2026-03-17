@@ -53,6 +53,7 @@ public class MixinMinecraft {
     private void raven$pumpInputWhenTimerFrozen(CallbackInfo ci) {
         Minecraft mc = (Minecraft) (Object) this;
         if (((IAccessorMinecraft) (Object) this).getTimer().timerSpeed == 0.0F) {
+            keystrokesmod.utility.FrozenEntitySync.get().pumpFrame();
             if (mc.currentScreen == null) {
                 raven$frozenNoGui(mc);
             } else {

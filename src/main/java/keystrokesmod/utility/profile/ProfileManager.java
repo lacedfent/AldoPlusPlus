@@ -26,9 +26,11 @@ import net.minecraftforge.common.MinecraftForge;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.nio.file.Files;
 import java.util.*;
 
 public class ProfileManager implements IMinecraftInstance {
+    private static final char[] INVALID_PROFILE_NAME_CHARS = new char[]{'\\', '/', ':', '*', '?', '"', '<', '>', '|'};
 
     private static final class SavedCategoryState {
         final float x, y;
@@ -86,6 +88,21 @@ public class ProfileManager implements IMinecraftInstance {
             failedMessage("save", profile.getName());
             e.printStackTrace();
         }
+    }
+
+    public Profile createProfile(String requestedName, int bind) {
+        String profileName = normalizeProfileName(requestedName);
+        String validationError = validateProfileName(profileName, null);
+        if (validationError != null) {
+            Utils.sendMessage("&c" + validationError);
+            return null;
+        }
+
+        Profile profile = new Profile(profileName, bind);
+        saveProfile(profile);
+        profiles.add(profile);
+        refreshProfileModules();
+        return profile;
     }
 
     private static JsonObject getJsonObject(Module module) {
@@ -288,29 +305,48 @@ public class ProfileManager implements IMinecraftInstance {
         }
     }
 
-    public void deleteProfile(String name) {
+    public boolean deleteProfile(String name) {
+        Profile removedProfile = null;
         Iterator<Profile> iterator = profiles.iterator();
         while (iterator.hasNext()) {
             Profile profile = iterator.next();
             if (profile.getName().equals(name)) {
+                removedProfile = profile;
                 iterator.remove();
             }
         }
+
+        boolean deleted = false;
         if (directory.exists()) {
             File[] files = directory.listFiles();
-            for (File file : files) {
-                if (file.getName().equals(name + ".json")) {
-                    file.delete();
+            if (files != null) {
+                for (File file : files) {
+                    if (file.isFile() && file.getName().equals(name + ".json")) {
+                        deleted = file.delete() || !file.exists();
+                    }
                 }
             }
         }
+
+        if (removedProfile != null && Raven.currentProfile == removedProfile) {
+            Raven.currentProfile = null;
+        }
+        if (removedProfile != null) {
+            refreshProfileModules();
+        }
+        return removedProfile != null && (deleted || !new File(directory, name + ".json").exists());
     }
 
     public void loadProfiles() {
+        String currentProfileName = Raven.currentProfile != null ? Raven.currentProfile.getName() : null;
+        boolean currentProfileSaved = Raven.currentProfile == null || Raven.currentProfile.getModule().saved;
         profiles.clear();
         if (directory.exists()) {
             File[] files = directory.listFiles();
             for (File file : files) {
+                if (!file.isFile() || !file.getName().endsWith(".json")) {
+                    continue;
+                }
                 try (FileReader fileReader = new FileReader(file)) {
                     JsonParser jsonParser = new JsonParser();
                     JsonObject profileJson = jsonParser.parse(fileReader).getAsJsonObject();
@@ -335,11 +371,13 @@ public class ProfileManager implements IMinecraftInstance {
                 }
             }
 
-            for (CategoryComponent categoryComponent : Raven.clickGui.categories) {
-                if (categoryComponent.category == Module.category.profiles) {
-                    categoryComponent.reloadModules(true);
+            if (currentProfileName != null) {
+                Raven.currentProfile = getProfile(currentProfileName);
+                if (Raven.currentProfile != null) {
+                    Raven.currentProfile.getModule().saved = currentProfileSaved;
                 }
             }
+            refreshProfileModules();
             Utils.sendMessage("&b" + Raven.profileManager.getProfileFiles().size() + " &7profiles loaded.");
         }
     }
@@ -349,7 +387,7 @@ public class ProfileManager implements IMinecraftInstance {
         if (directory.exists()) {
             File[] files = directory.listFiles();
             for (File file : files) {
-                if (!file.getName().endsWith(".json")) {
+                if (!file.isFile() || !file.getName().endsWith(".json")) {
                     continue;
                 }
                 profileFiles.add(file);
@@ -369,5 +407,89 @@ public class ProfileManager implements IMinecraftInstance {
 
     public void failedMessage(String reason, String name) {
         Utils.sendMessage("&cFailed to " + reason + ": &b" + name);
+    }
+
+    public boolean renameProfile(Profile profile, String requestedName) {
+        if (profile == null) {
+            Utils.sendMessage("&cFailed to rename profile.");
+            return false;
+        }
+
+        String oldName = profile.getName();
+        String newName = normalizeProfileName(requestedName);
+        String validationError = validateProfileName(newName, oldName);
+        if (validationError != null) {
+            Utils.sendMessage("&c" + validationError);
+            return false;
+        }
+
+        if (oldName.equals(newName)) {
+            profile.setName(newName);
+            return true;
+        }
+
+        File oldFile = new File(directory, oldName + ".json");
+        File newFile = new File(directory, newName + ".json");
+
+        if (!oldFile.exists()) {
+            failedMessage("rename", oldName);
+            return false;
+        }
+
+        try {
+            Files.move(oldFile.toPath(), newFile.toPath());
+            profile.setName(newName);
+            return true;
+        }
+        catch (Exception e) {
+            failedMessage("rename", oldName);
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    private void refreshProfileModules() {
+        if (Raven.clickGui == null || Raven.clickGui.categories == null) {
+            return;
+        }
+        for (CategoryComponent categoryComponent : Raven.clickGui.categories) {
+            if (categoryComponent.category == Module.category.profiles) {
+                categoryComponent.reloadModules(true);
+                break;
+            }
+        }
+    }
+
+    private String validateProfileName(String profileName, String currentName) {
+        if (profileName.isEmpty()) {
+            return "Profile name cannot be empty.";
+        }
+        if (profileName.endsWith(".") || profileName.endsWith(" ")) {
+            return "Profile name cannot end with a space or period.";
+        }
+        for (char c : profileName.toCharArray()) {
+            if (c < 32 || containsInvalidProfileChar(c)) {
+                return "Profile name contains invalid characters.";
+            }
+        }
+        for (Profile profile : profiles) {
+            if (profile.getName().equalsIgnoreCase(profileName) && (currentName == null || !profile.getName().equalsIgnoreCase(currentName))) {
+                return "Profile already exists: " + profileName;
+            }
+        }
+        return null;
+    }
+
+    private boolean containsInvalidProfileChar(char c) {
+        for (char invalidChar : INVALID_PROFILE_NAME_CHARS) {
+            if (invalidChar == c) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String normalizeProfileName(String name) {
+        return name == null ? "" : name.trim();
     }
 }

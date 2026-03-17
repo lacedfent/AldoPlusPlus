@@ -3,6 +3,7 @@ package keystrokesmod.clickgui.components.impl;
 import keystrokesmod.Raven;
 import keystrokesmod.clickgui.animation.ScrollOffsetAnimation;
 import keystrokesmod.clickgui.components.Component;
+import keystrokesmod.clickgui.components.FocusableTextComponent;
 import keystrokesmod.module.impl.client.Gui;
 import keystrokesmod.module.setting.impl.BlockListSetting;
 import keystrokesmod.utility.BlockSearchIndex;
@@ -10,7 +11,6 @@ import keystrokesmod.utility.RenderUtils;
 import keystrokesmod.utility.Theme;
 import keystrokesmod.utility.Timer;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiTextField;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.RenderHelper;
 import net.minecraft.client.renderer.entity.RenderItem;
@@ -24,7 +24,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class BlockSearchComponent extends Component {
+public class BlockSearchComponent extends Component implements FocusableTextComponent {
     private static final ResourceLocation CLOSE_ICON = new ResourceLocation("keystrokesmod", "textures/gui/close.png");
     private static final ResourceLocation ARROW_ICON = new ResourceLocation("keystrokesmod", "textures/gui/arrow_left.png");
     private static ResourceLocation processedClose;
@@ -45,10 +45,9 @@ public class BlockSearchComponent extends Component {
     public float o;
     public float xOffset;
 
-    private GuiTextField searchField;
+    private ClickGuiTextField searchField;
     private final ScrollOffsetAnimation dropdownScrollAnim = new ScrollOffsetAnimation(200);
     private final ScrollOffsetAnimation selectedScrollAnim = new ScrollOffsetAnimation(200);
-    private long lastCursorTick;
     private List<BlockSearchIndex.GroupedBlockResult> cachedResults = Collections.emptyList();
     private String expandedGroupId;
     private List<BlockSearchIndex.BlockEntry> expandedVariants = Collections.emptyList();
@@ -122,12 +121,19 @@ public class BlockSearchComponent extends Component {
         }
     }
 
+    @Override
+    public boolean isTextInputFocused() {
+        return isSearchFocused();
+    }
+
+    @Override
+    public void unfocusTextInput() {
+        unfocusSearch();
+    }
+
     private void ensureSearchField() {
         if (searchField == null) {
-            searchField = new GuiTextField(0, Minecraft.getMinecraft().fontRendererObj, 0, 0, 100, 20);
-            searchField.setMaxStringLength(128);
-            searchField.setEnableBackgroundDrawing(false);
-            searchField.setCanLoseFocus(true);
+            searchField = new ClickGuiTextField("Search blocks...", 128, STATIC_TEXT_SCALE);
         }
     }
 
@@ -232,28 +238,9 @@ public class BlockSearchComponent extends Component {
 
     private void renderSearchBox(Layout L) {
         ensureSearchField();
-        float innerLeft = L.left + 2;
-        float innerTop = L.searchTop + 1;
-        float innerWidth = L.right - L.left - 4;
-        float innerHeight = ROW_HEIGHT - 2;
         float boxTop = L.searchTop + 1;
         float boxBot = L.searchTop + ROW_HEIGHT - 1;
-        RenderUtils.drawRect(L.left, boxTop, L.right, boxBot, searchField.isFocused() ? 0xFF2A2A3A : 0xFF222230);
-        RenderUtils.drawOutline(L.left, boxTop, L.right, boxBot, 1f, searchField.isFocused() ? 0xFF5563A0 : 0xFF3A3A50);
-        int fontH = Minecraft.getMinecraft().fontRendererObj.FONT_HEIGHT;
-        float boxH = boxBot - boxTop;
-        float scaledFontH = fontH * STATIC_TEXT_SCALE;
-        float boxCenterY = boxTop + boxH / 2f;
-        GL11.glPushMatrix();
-        GL11.glScaled(STATIC_TEXT_SCALE, STATIC_TEXT_SCALE, 1);
-        searchField.xPosition = Math.round(innerLeft / STATIC_TEXT_SCALE);
-        searchField.yPosition = Math.round((boxCenterY - scaledFontH / 2f) / STATIC_TEXT_SCALE);
-        searchField.width = Math.round(innerWidth / STATIC_TEXT_SCALE);
-        searchField.height = Math.round(boxH / STATIC_TEXT_SCALE);
-        searchField.drawTextBox();
-        GL11.glPopMatrix();
-        if (!searchField.isFocused() && searchField.getText().isEmpty())
-            drawScaledText("\u00a77Search blocks...", innerLeft, centeredScaledTextY(innerTop, innerHeight), 0xFFAAAAAA);
+        searchField.render(L.left, boxTop, L.right, boxBot);
     }
 
     private void renderDropdown(Layout L) {
@@ -415,9 +402,8 @@ public class BlockSearchComponent extends Component {
     public void drawScreen(int mouseX, int mouseY) {
         lastMouseX = mouseX;
         lastMouseY = mouseY;
-        if (searchField != null && System.currentTimeMillis() - lastCursorTick >= 50) {
-            lastCursorTick = System.currentTimeMillis();
-            searchField.updateCursorCounter();
+        if (searchField != null) {
+            searchField.tickCursor();
         }
         updateDropdownAnimation();
     }
@@ -523,9 +509,10 @@ public class BlockSearchComponent extends Component {
     }
 
     private boolean handleSearchFocusClick(int mouseX, int mouseY, Layout L) {
-        float searchBot = L.cy + o + 2 * ROW_HEIGHT;
-        if (mouseX >= L.left && mouseX <= L.right && mouseY >= L.searchTop && mouseY <= searchBot) {
-            ensureSearchField();
+        ensureSearchField();
+        float boxTop = L.contentTop - ROW_HEIGHT + 1f;
+        float boxBottom = L.contentTop - 1f;
+        if (searchField.contains(mouseX, mouseY, L.left, boxTop, L.right, boxBottom)) {
             searchField.setFocused(true);
             if (!searchField.getText().isEmpty() && cachedResults.isEmpty())
                 cachedResults = BlockSearchIndex.searchGrouped(searchField.getText(), setting);

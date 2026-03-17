@@ -120,6 +120,44 @@ public class CategoryComponent {
                 }
             }
         }
+
+        syncAfterModuleReload();
+    }
+
+    private void syncAfterModuleReload() {
+        if (this.opened || this.smoothTimer != null) {
+            updateHeight();
+        }
+
+        float minScrollY = computeMinScrollY();
+        float maxScrollY = this.y;
+        float clampedScroll = Math.max(minScrollY, Math.min(maxScrollY, scrollAnim.getTarget()));
+        this.moduleY = clampedScroll;
+        scrollAnim.reset(clampedScroll);
+
+        if (this.opened && !this.modules.isEmpty()) {
+            float maxModulesHeight = (this.screenHeight * 0.9f) - this.titleHeight - 4;
+            float accumulated = 0f;
+            for (ModuleComponent component : this.modules) {
+                float componentHeight = component.getHeightF();
+                if (accumulated + componentHeight > maxModulesHeight) {
+                    float remaining = maxModulesHeight - accumulated;
+                    if (remaining > 0f) {
+                        accumulated += remaining;
+                    }
+                    break;
+                }
+                accumulated += componentHeight;
+            }
+            this.big = Math.max(0f, accumulated);
+            this.lastHeight = Math.min(this.y + this.titleHeight + this.big + 4, this.y + this.screenHeight * 0.9f);
+            return;
+        }
+
+        if (!this.opened && this.smoothTimer == null) {
+            this.big = 0f;
+        }
+        this.lastHeight = this.y + this.titleHeight + 4;
     }
 
     public void setX(float newX, boolean limit) {

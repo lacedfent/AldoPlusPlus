@@ -178,6 +178,7 @@ public class Raven {
             }
             Entity.clearCache();
             NetworkPlayer.clearCache();
+            keystrokesmod.utility.FrozenEntitySync.get().clearAll();
             if (DebugHelper.BACKGROUND) {
                 Utils.sendMessage("&enew world&7, clearing script caches. (&dEntity&7, &dNetworkPlayer&7)");
             }

@@ -159,20 +159,20 @@ public class KillAura extends Module {
         if (!Utils.nullCheck()) return;
         if (target == null) return;
         if (RotationUtils.distanceFromEyeToClosestOnAABB(target) > attackRange.getInput()) return;
-        if (!basicCondition() || !settingCondition()) return;
-        if (notUsingItem.isToggled() && mc.thePlayer.isUsingItem()) return;
 
         int key = mc.gameSettings.keyBindAttack.getKeyCode();
         long now = System.currentTimeMillis();
         if (nextClickTime == 0) {
             nextClickTime = now;
         }
-
         int clicks = 0;
         while (nextClickTime <= now) {
             clicks++;
             nextClickTime += nextDelay();
         }
+
+        if (!basicCondition() || !settingCondition()) return;
+        if (notUsingItem.isToggled() && mc.thePlayer.isUsingItem()) return;
 
         for (int i = 0; i < clicks; i++) {
             KeyBinding.setKeyBindState(key, true);

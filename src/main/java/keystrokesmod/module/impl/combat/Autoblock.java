@@ -6,6 +6,7 @@ import keystrokesmod.lag.api.EnumLagDirection;
 import keystrokesmod.lag.api.LagRequest;
 import keystrokesmod.lag.timeout.ModuleBackedTimeout;
 import keystrokesmod.module.Module;
+import keystrokesmod.module.ModuleManager;
 import keystrokesmod.module.impl.world.AntiBot;
 import keystrokesmod.event.SendPacketEvent;
 import keystrokesmod.module.setting.impl.ButtonSetting;
@@ -127,7 +128,7 @@ public class Autoblock extends Module {
         }
 
         boolean rmbDown = Mouse.isButtonDown(1);
-        boolean lmbDown = Mouse.isButtonDown(0) || KillAura.attackingEntity != null;
+        boolean lmbDown = Mouse.isButtonDown(0) || (ModuleManager.killAura != null && ModuleManager.killAura.isEnabled());
         long now = System.currentTimeMillis();
 
         if (!rmbDown) {

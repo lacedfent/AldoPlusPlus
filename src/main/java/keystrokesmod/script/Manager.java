@@ -4,11 +4,11 @@ import keystrokesmod.Raven;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.DescriptionSetting;
+import keystrokesmod.module.setting.impl.TextSetting;
 import keystrokesmod.script.model.Entity;
 import keystrokesmod.script.model.Image;
 import keystrokesmod.script.model.NetworkPlayer;
 import keystrokesmod.utility.Utils;
-import keystrokesmod.utility.profile.ProfileModule;
 import org.lwjgl.Sys;
 
 import java.awt.*;
@@ -24,6 +24,7 @@ import java.util.List;
 public class Manager extends Module {
     public static ButtonSetting enableHttpRequests;
     public static ButtonSetting enableWebSockets;
+    private final TextSetting createScriptName;
 
     public final String DOCUMENTATION_URL = "https://blowsy.gitbook.io/raven";
     private final String CONFIG_DIR = mc.mcDataDir + File.separator + "keystrokes" + File.separator + "settings.txt";
@@ -34,6 +35,8 @@ public class Manager extends Module {
 
     public Manager() {
         super("Manager", category.scripts);
+        this.registerSetting(createScriptName = new TextSetting("Script name", "", "Type a script name...", 32, this::createScript));
+        this.registerSetting(new ButtonSetting("Create script", this::createScript));
         this.registerSetting(new ButtonSetting("Load scripts", () -> {
             if (Raven.scriptManager.compiler == null) {
                 Utils.sendMessage("&cCompiler error, JDK not found");
@@ -169,5 +172,17 @@ public class Manager extends Module {
         }
         catch (IOException ex) {}
         return null;
+    }
+
+    private void createScript() {
+        if (Raven.scriptManager == null) {
+            return;
+        }
+
+        String scriptName = Raven.scriptManager.createScript(createScriptName.getText());
+        if (scriptName != null) {
+            createScriptName.setText("");
+            Utils.sendMessage("&7Created script: &b" + scriptName);
+        }
     }
 }

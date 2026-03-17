@@ -1,8 +1,8 @@
 package keystrokesmod.utility.profile;
 
 public class Profile {
-    private ProfileModule module;
-    private int bind = 0;
+    private final ProfileModule module;
+    private final int bind;
     private String profileName;
 
     public Profile(String profileName, int bind) {
@@ -22,5 +22,10 @@ public class Profile {
 
     public String getName() {
         return profileName;
+    }
+
+    public void setName(String profileName) {
+        this.profileName = profileName;
+        this.module.setProfileName(profileName);
     }
 }
