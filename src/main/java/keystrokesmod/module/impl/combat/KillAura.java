@@ -175,7 +175,7 @@ public class KillAura extends Module {
         if (notUsingItem.isToggled() && mc.thePlayer.isUsingItem()) return;
 
         for (int i = 0; i < clicks; i++) {
-            KeyBinding.setKeyBindState(key, true);
+            //KeyBinding.setKeyBindState(key, true);
             KeyBinding.onTick(key);
             ReflectionUtils.setButton(0, true);
         }
