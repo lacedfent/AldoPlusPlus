@@ -127,8 +127,10 @@ public class Autoblock extends Module {
             return;
         }
 
+        currentTarget = findTarget();
+        boolean killAuraAttacking = ModuleManager.killAura != null && ModuleManager.killAura.isEnabled() && !ModuleManager.killAura.isRequireMouseDown() && currentTarget != null;
         boolean rmbDown = Mouse.isButtonDown(1);
-        boolean lmbDown = Mouse.isButtonDown(0) || (ModuleManager.killAura != null && ModuleManager.killAura.isEnabled());
+        boolean lmbDown = Mouse.isButtonDown(0) || killAuraAttacking;
         long now = System.currentTimeMillis();
 
         if (!rmbDown) {
@@ -152,7 +154,6 @@ public class Autoblock extends Module {
             manualBlock = false;
         }
 
-        currentTarget = findTarget();
         boolean hasTarget = currentTarget != null;
         boolean conditionsMet = hasTarget && checkConditions(lmbDown, rmbDown);
 

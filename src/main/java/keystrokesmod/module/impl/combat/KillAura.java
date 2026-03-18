@@ -57,12 +57,17 @@ public class KillAura extends Module {
 
     public static EntityLivingBase target;
     public static EntityLivingBase attackingEntity;
+
+    public boolean isRequireMouseDown() {
+        return requireMouseDown.isToggled();
+    }
     private HashMap<Integer, Integer> hitMap = new HashMap<>();
     private List<Entity> hostileMobs = new ArrayList<>();
     private Map<Integer, Boolean> golems = new HashMap<>();
 
     private long nextClickTime;
     private Random rand;
+    private double targetDistance = Double.MAX_VALUE;
 
     public KillAura() {
         super("KillAura", category.combat);
@@ -118,9 +123,10 @@ public class KillAura extends Module {
         if (target == null) {
             return;
         }
+        targetDistance = RotationUtils.distanceFromEyeToClosestOnAABB(target);
         if (rotationMode.getInput() == 0) {
             double aimRangeVal = aimRange.getInput();
-            if (RotationUtils.distanceFromEyeToClosestOnAABB(target) <= aimRangeVal) {
+            if (targetDistance <= aimRangeVal) {
                 int speedVal = (int) speed.getInput();
                 boolean useBackup = !aimThroughBlocks.isToggled();
                 float[] rot = RotationHelper.get().getRotationsToTarget(target, e, speedVal, 100, 100, 0f, useBackup, aimRangeVal);
@@ -136,7 +142,7 @@ public class KillAura extends Module {
     public void onUpdate() {
         if (rotationMode.getInput() == 1 && target != null) {
             double aimRangeVal = aimRange.getInput();
-            if (RotationUtils.distanceFromEyeToClosestOnAABB(target) <= aimRangeVal) {
+            if (targetDistance <= aimRangeVal) {
                 int speedVal = (int) speed.getInput();
                 boolean useBackup = !aimThroughBlocks.isToggled();
                 float[] rot = RotationHelper.get().getRotationsToTarget(target, speedVal, 100, 100, 0f, useBackup, aimRangeVal);
@@ -147,7 +153,7 @@ public class KillAura extends Module {
             }
         }
 
-        if (target != null && RotationUtils.distanceFromEyeToClosestOnAABB(target) <= attackRange.getInput()) {
+        if (target != null && targetDistance <= attackRange.getInput()) {
             attackingEntity = target;
         } else {
             attackingEntity = null;
@@ -158,7 +164,7 @@ public class KillAura extends Module {
     public void onPrePlayerInteract(PrePlayerInteractEvent e) {
         if (!Utils.nullCheck()) return;
         if (target == null) return;
-        if (RotationUtils.distanceFromEyeToClosestOnAABB(target) > attackRange.getInput()) return;
+        if (targetDistance > attackRange.getInput()) return;
 
         int key = mc.gameSettings.keyBindAttack.getKeyCode();
         long now = System.currentTimeMillis();
@@ -175,7 +181,6 @@ public class KillAura extends Module {
         if (notUsingItem.isToggled() && mc.thePlayer.isUsingItem()) return;
 
         for (int i = 0; i < clicks; i++) {
-            //KeyBinding.setKeyBindState(key, true);
             KeyBinding.onTick(key);
             ReflectionUtils.setButton(0, true);
         }
@@ -210,6 +215,7 @@ public class KillAura extends Module {
         if (!(entity instanceof EntityLivingBase)) {
             target = null;
             attackingEntity = null;
+            targetDistance = Double.MAX_VALUE;
             nextClickTime = 0L;
         } else {
             target = (EntityLivingBase) entity;
@@ -217,131 +223,165 @@ public class KillAura extends Module {
     }
 
     private void handleTarget() {
-        List<EntityLivingBase> availableTargets = new ArrayList<>();
         double maxRange = Math.max(attackRange.getInput(), aimRange.getInput());
+        float fovValue = (float) fov.getInput();
+
+        List<KillAuraTarget> candidates = new ArrayList<>();
         for (Entity entity : mc.theWorld.loadedEntityList) {
-            if (entity == null || entity == mc.thePlayer || entity.isDead) {
+            Candidate candidate = getCandidateTarget(entity, maxRange, fovValue);
+            if (candidate == null) {
                 continue;
             }
-            if (entity instanceof EntityPlayer) {
-                if (Utils.isFriended((EntityPlayer) entity)) {
-                    continue;
-                }
-                if (((EntityPlayer) entity).deathTime != 0) {
-                    continue;
-                }
-                if (AntiBot.isBot(entity) || (Utils.isTeammate(entity) && ignoreTeammates.isToggled())) {
-                    continue;
-                }
-            } else if (entity instanceof EntityCreature && attackMobs.isToggled()) {
-                if (((EntityCreature) entity).tasks == null || ((EntityCreature) entity).isAIDisabled() || ((EntityCreature) entity).deathTime != 0) {
-                    continue;
-                }
-                if (!entity.getClass().getCanonicalName().startsWith("net.minecraft.entity.monster.")) {
-                    continue;
-                }
-            } else {
-                continue;
-            }
-            if (entity.isInvisible() && !targetInvis.isToggled()) {
-                continue;
-            }
-            float fovInput = (float) fov.getInput();
-            if (fovInput != 360.0f && !Utils.inFov(fovInput, entity)) {
-                continue;
-            }
-            if (mc.thePlayer.getDistanceToEntity(entity) < maxRange + maxRange / 3) {
-                availableTargets.add((EntityLivingBase) entity);
+
+            KillAuraTarget auraTarget = buildKillAuraTarget(candidate.entity, candidate.distance, maxRange);
+            if (auraTarget != null) {
+                candidates.add(auraTarget);
             }
         }
 
-        List<KillAuraTarget> toClassTargets = new ArrayList<>();
-        for (EntityLivingBase target : availableTargets) {
-            double distanceToBB = RotationUtils.distanceFromEyeToClosestOnAABB(target);
-            if (distanceToBB > maxRange) {
-                continue;
-            }
-            if (!(target instanceof EntityPlayer) && attackMobs.isToggled() && !isHostile((EntityCreature) target)) {
-                continue;
-            }
-            if (!aimThroughBlocks.isToggled()) {
-                double multipointH = 0;
-                double multipointV = 0;
-                if (!RotationUtils.hasValidAimPoint(target, multipointH, multipointV, maxRange)) {
-                    continue;
-                }
-            }
-            toClassTargets.add(new KillAuraTarget(distanceToBB, target.getHealth(), target.hurtTime, RotationUtils.distanceFromYaw(target, false), target.getEntityId(), target instanceof EntityPlayer && Utils.isEnemy((EntityPlayer) target)));
-        }
-
-        Comparator<KillAuraTarget> comparator = null;
-        switch ((int) sortMode.getInput()) {
-            case 0:
-                comparator = Comparator.comparingDouble(entity -> entity.distance);
-                break;
-            case 1:
-                comparator = Comparator.comparingDouble(t -> (double) t.health);
-                break;
-            case 2:
-                comparator = Comparator.comparingDouble(t -> (double) t.hurttime);
-                break;
-            case 3:
-                comparator = Comparator.comparingDouble(t -> t.yawDelta);
-                break;
-        }
         if (prioritizeEnemies.isToggled()) {
             List<KillAuraTarget> enemies = new ArrayList<>();
-            for (KillAuraTarget entity : toClassTargets) {
-                if (entity.isEnemy) {
-                    enemies.add(entity);
+            for (KillAuraTarget candidate : candidates) {
+                if (candidate.isEnemy) {
+                    enemies.add(candidate);
                 }
             }
             if (!enemies.isEmpty()) {
-                toClassTargets = new ArrayList<>(enemies);
+                candidates = enemies;
             }
         }
-        if (sortMode.getInput() != 0) {
-            toClassTargets.sort(Comparator.comparingDouble(entity -> entity.distance));
-        }
-        toClassTargets.sort(comparator);
 
-        double atkRange = attackRange.getInput();
+        candidates.sort(getTargetComparator().thenComparingDouble(c -> c.distance));
+
+        double attackRangeValue = attackRange.getInput();
         List<KillAuraTarget> attackTargets = new ArrayList<>();
-        for (KillAuraTarget killAuraTarget : toClassTargets) {
-            if (killAuraTarget.distance <= atkRange) {
-                attackTargets.add(killAuraTarget);
+        for (KillAuraTarget candidate : candidates) {
+            if (candidate.distance <= attackRangeValue) {
+                attackTargets.add(candidate);
             }
         }
 
         if (!attackTargets.isEmpty()) {
-            int ticksExisted = mc.thePlayer.ticksExisted;
-            int switchDelayTicks = (int) (switchDelay.getInput() / 50);
-            long noHitTicks = (long) Math.min(attackTargets.size(), targets.getInput()) * switchDelayTicks;
-            for (KillAuraTarget auraTarget : attackTargets) {
-                Integer firstHit = hitMap.get(auraTarget.entityId);
-                if (firstHit == null || ticksExisted - firstHit >= switchDelayTicks) {
-                    continue;
-                }
-                if (auraTarget.distance <= atkRange) {
-                    setTarget(mc.theWorld.getEntityByID(auraTarget.entityId));
-                    return;
-                }
+            KillAuraTarget selectedAttackTarget = selectAttackTarget(attackTargets);
+            if (selectedAttackTarget != null) {
+                setTarget(selectedAttackTarget.entity);
+                return;
+            }
+            return;
+        }
+
+        if (!candidates.isEmpty()) {
+            setTarget(candidates.get(0).entity);
+            return;
+        }
+
+        setTarget(null);
+    }
+
+    private Candidate getCandidateTarget(Entity entity, double maxRange, float fovValue) {
+        if (!(entity instanceof EntityLivingBase) || entity == mc.thePlayer || entity.isDead) {
+            return null;
+        }
+
+        if (entity instanceof EntityPlayer) {
+            EntityPlayer player = (EntityPlayer) entity;
+            if (Utils.isFriended(player) || player.deathTime != 0) {
+                return null;
+            }
+            if (AntiBot.isBot(entity) || (ignoreTeammates.isToggled() && Utils.isTeammate(entity))) {
+                return null;
+            }
+        } else if (entity instanceof EntityCreature && attackMobs.isToggled()) {
+            EntityCreature creature = (EntityCreature) entity;
+            if (creature.tasks == null || creature.isAIDisabled() || creature.deathTime != 0) {
+                return null;
             }
 
-            for (KillAuraTarget auraTarget : attackTargets) {
-                Integer firstHit = hitMap.get(auraTarget.entityId);
-                if (firstHit == null || ticksExisted >= firstHit + noHitTicks) {
-                    hitMap.put(auraTarget.entityId, ticksExisted);
-                    setTarget(mc.theWorld.getEntityByID(auraTarget.entityId));
-                    return;
-                }
+            String canonicalName = entity.getClass().getCanonicalName();
+            if (canonicalName == null || !canonicalName.startsWith("net.minecraft.entity.monster.")) {
+                return null;
             }
-        } else if (!toClassTargets.isEmpty()) {
-            KillAuraTarget killAuraTarget = toClassTargets.get(0);
-            setTarget(mc.theWorld.getEntityByID(killAuraTarget.entityId));
         } else {
-            setTarget(null);
+            return null;
         }
+
+        if (entity.isInvisible() && !targetInvis.isToggled()) {
+            return null;
+        }
+
+        if (fovValue != 360.0f && !Utils.inFov(fovValue, entity)) {
+            return null;
+        }
+
+        double distance = RotationUtils.distanceFromEyeToClosestOnAABB(entity);
+        if (distance > maxRange) {
+            return null;
+        }
+
+        return new Candidate((EntityLivingBase) entity, distance);
+    }
+
+    private KillAuraTarget buildKillAuraTarget(EntityLivingBase entity, double distanceToBoundingBox, double maxRange) {
+        if (entity instanceof EntityCreature && attackMobs.isToggled() && !isHostile((EntityCreature) entity)) {
+            return null;
+        }
+
+        if (!aimThroughBlocks.isToggled()) {
+            double multipointH = 100;
+            double multipointV = 100;
+            if (!RotationUtils.hasValidAimPoint(entity, multipointH, multipointV, maxRange)) {
+                return null;
+            }
+        }
+
+        boolean isEnemyPlayer = entity instanceof EntityPlayer && Utils.isEnemy((EntityPlayer) entity);
+        return new KillAuraTarget(
+                entity,
+                distanceToBoundingBox,
+                entity.getHealth(),
+                entity.hurtTime,
+                RotationUtils.distanceFromYaw(entity, false),
+                entity.getEntityId(),
+                isEnemyPlayer
+        );
+    }
+
+    private Comparator<KillAuraTarget> getTargetComparator() {
+        switch ((int) sortMode.getInput()) {
+            case 1:
+                return Comparator.comparingDouble(target -> target.health);
+            case 2:
+                return Comparator.comparingInt(target -> target.hurttime);
+            case 3:
+                return Comparator.comparingDouble(target -> target.yawDelta);
+            case 0:
+            default:
+                return Comparator.comparingDouble(target -> target.distance);
+        }
+    }
+
+    private KillAuraTarget selectAttackTarget(List<KillAuraTarget> attackTargets) {
+        int ticksExisted = mc.thePlayer.ticksExisted;
+        int switchDelayTicks = (int) (switchDelay.getInput() / 50);
+        long noHitTicks = (long) Math.min(attackTargets.size(), targets.getInput()) * switchDelayTicks;
+
+        for (KillAuraTarget candidate : attackTargets) {
+            Integer firstHitTick = hitMap.get(candidate.entityId);
+            if (firstHitTick == null || ticksExisted - firstHitTick >= switchDelayTicks) {
+                continue;
+            }
+            return candidate;
+        }
+
+        for (KillAuraTarget candidate : attackTargets) {
+            Integer firstHitTick = hitMap.get(candidate.entityId);
+            if (firstHitTick == null || ticksExisted >= firstHitTick + noHitTicks) {
+                hitMap.put(candidate.entityId, ticksExisted);
+                return candidate;
+            }
+        }
+
+        return null;
     }
 
     private boolean isHostile(EntityCreature entityCreature) {
@@ -418,15 +458,27 @@ public class KillAura extends Module {
         return Math.max(33, Math.min(180, finalDelay));
     }
 
-    static class KillAuraTarget {
-        double distance;
-        float health;
-        int hurttime;
-        double yawDelta;
-        int entityId;
-        boolean isEnemy;
+    private static final class Candidate {
+        final EntityLivingBase entity;
+        final double distance;
 
-        public KillAuraTarget(double distance, float health, int hurttime, double yawDelta, int entityId, boolean isEnemy) {
+        Candidate(EntityLivingBase entity, double distance) {
+            this.entity = entity;
+            this.distance = distance;
+        }
+    }
+
+    static class KillAuraTarget {
+        final EntityLivingBase entity;
+        final double distance;
+        final float health;
+        final int hurttime;
+        final double yawDelta;
+        final int entityId;
+        final boolean isEnemy;
+
+        public KillAuraTarget(EntityLivingBase entity, double distance, float health, int hurttime, double yawDelta, int entityId, boolean isEnemy) {
+            this.entity = entity;
             this.distance = distance;
             this.health = health;
             this.hurttime = hurttime;
