@@ -44,6 +44,7 @@ public class ModuleManager {
     public static NoSlow noSlow;
     public static KillAura killAura;
     public static AutoClicker autoClicker;
+    public static HitSelect hitSelect;
     public static HitBox hitBox;
     public static Reach reach;
     public static NoRotate noRotate;
@@ -93,6 +94,7 @@ public class ModuleManager {
         this.addModule(blockIn = new BlockIn());
         this.addModule(new BurstClicker());
         this.addModule(new ClickAssist());
+        this.addModule(hitSelect = new HitSelect());
         this.addModule(hitBox = new HitBox());
         this.addModule(new JumpReset());
         this.addModule(killAura = new KillAura());

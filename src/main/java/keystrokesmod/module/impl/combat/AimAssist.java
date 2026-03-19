@@ -35,6 +35,7 @@ public class AimAssist extends Module {
     private ButtonSetting ignoreTeammates;
     private ButtonSetting ignoreBehindWalls;
     private ButtonSetting stopWhenBreaking;
+    private ButtonSetting keepMoveDirection;
     private SliderSetting hoverDelay;
     private ButtonSetting weaponOnly;
 
@@ -58,6 +59,7 @@ public class AimAssist extends Module {
         this.registerSetting(clickAim = new ButtonSetting("Require mouse", true));
         this.registerSetting(ignoreTeammates = new ButtonSetting("Ignore teammates", true));
         this.registerSetting(stopWhenBreaking = new ButtonSetting("Stop when breaking", false));
+        this.registerSetting(keepMoveDirection = new ButtonSetting("Keep move direction", true));
         this.registerSetting(hoverDelay = new SliderSetting("Hover delay", " ms", 100, 0, 500, 10));
         this.registerSetting(weaponOnly = new ButtonSetting("Weapon only", false));
     }
@@ -65,6 +67,7 @@ public class AimAssist extends Module {
     @Override
     public void guiUpdate() {
         hoverDelay.setVisible(stopWhenBreaking.isToggled(), this);
+        keepMoveDirection.setVisible(mode.getInput() == 1, this);
     }
 
     @Override
@@ -89,6 +92,8 @@ public class AimAssist extends Module {
         float randomizationPercent = (float) randomization.getInput();
         float[] rot = RotationHelper.get().getRotationsToTarget(en, e, speedVal, multipointH, multipointV, randomizationPercent, ignoreBehindWalls.isToggled(), range.getInput());
         if (rot == null) return;
+        RotationHelper.get().forceMovementFix = true;
+        RotationHelper.get().setServerRelativeMovementInputs(!keepMoveDirection.isToggled());
         e.yaw = rot[0];
         e.pitch = rot[1];
     }
