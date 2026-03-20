@@ -6,6 +6,7 @@ import keystrokesmod.helper.RotationHelper;
 import keystrokesmod.module.ModuleManager;
 import keystrokesmod.module.impl.render.Freelook;
 import keystrokesmod.mixin.impl.accessor.IAccessorMinecraft;
+import keystrokesmod.module.impl.player.FastMine;
 import org.objectweb.asm.Opcodes;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
@@ -22,8 +23,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(Minecraft.class)
 public class MixinMinecraft {
 
-    // Gather server rotations before tick-time getMouseOver so objectMouseOver
-    // (used by clickMouse/rightClickMouse) uses server yaw/pitch, not vanilla.
     @Inject(method = "runTick", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/EntityRenderer;getMouseOver(F)V", shift = At.Shift.BEFORE))
     public void onBeforeGetMouseOver(CallbackInfo ci) {
         RotationHelper.get().updateServerRotations();
@@ -83,6 +82,21 @@ public class MixinMinecraft {
     @Inject(method = "runTick", at = @At("HEAD"))
     public void onRunTickStart(CallbackInfo ci) {
         MinecraftForge.EVENT_BUS.post(new GameTickEvent());
+    }
+
+    @Inject(
+        method = "runTick",
+        at = @At(
+            value = "INVOKE",
+            target = "Lnet/minecraft/client/Minecraft;sendClickBlockToController(Z)V",
+            shift = At.Shift.AFTER
+        )
+    )
+    private void raven$fastMinePassiveBlockHitDelay(CallbackInfo ci) {
+        FastMine fm = ModuleManager.fastMine;
+        if (fm != null) {
+            fm.tickPassiveBlockHitDecay((Minecraft) (Object) this);
+        }
     }
 
     @Inject(method = "displayGuiScreen(Lnet/minecraft/client/gui/GuiScreen;)V", at = @At("HEAD"))
