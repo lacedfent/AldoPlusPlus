@@ -2,6 +2,7 @@ package keystrokesmod.module.impl.combat;
 
 import keystrokesmod.Raven;
 import keystrokesmod.event.AttackEvent;
+import keystrokesmod.event.GameTickEvent;
 import keystrokesmod.event.PrePlayerInteractEvent;
 import keystrokesmod.lag.api.EnumLagDirection;
 import keystrokesmod.lag.api.LagRequest;
@@ -21,12 +22,10 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemPotion;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.AxisAlignedBB;
+import net.minecraft.util.Vec3;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import org.lwjgl.opengl.GL11;
-
-import java.util.ArrayDeque;
-import java.util.Deque;
 
 public class LagRange extends Module {
     private static final double MINIMUM_DISTANCE_SQ = 3.0 * 3.0;
@@ -37,6 +36,7 @@ public class LagRange extends Module {
     private final ButtonSetting usedSplashPotion;
     private final ButtonSetting holdingWeapon;
     private final ButtonSetting realPositionIndicator;
+    private final ButtonSetting showInFirstPerson;
     private final ColorSetting indicatorColor;
     private final SliderSetting indicatorLineWidth;
     private final ButtonSetting indicatorFilled;
@@ -46,8 +46,6 @@ public class LagRange extends Module {
     private boolean isLagging;
     private int lastSelfHurtTime;
     private boolean lastSprintState;
-    private double realPosX, realPosY, realPosZ;
-    private final Deque<PosSample> delayedPosSamples = new ArrayDeque<>();
     private LagRequest outboundLag;
 
     public LagRange() {
@@ -59,6 +57,7 @@ public class LagRange extends Module {
         this.registerSetting(usedSplashPotion = new ButtonSetting("Used splash potion", true));
         this.registerSetting(new DescriptionSetting("Indicator"));
         this.registerSetting(realPositionIndicator = new ButtonSetting("Real position indicator", true));
+        this.registerSetting(showInFirstPerson = new ButtonSetting("Show in first person", false));
         this.registerSetting(indicatorColor = new ColorSetting("Indicator color", 255, 0, 0, 100));
         this.registerSetting(indicatorLineWidth = new SliderSetting("Indicator line width", 2.0, 1.0, 5.0, 0.5));
         this.registerSetting(indicatorFilled = new ButtonSetting("Indicator filled", false));
@@ -128,7 +127,6 @@ public class LagRange extends Module {
                 lastSelfHurtTime = hurtTime;
 
                 Raven.lagHandler.releaseExpiredPackets(EnumLagDirection.OUTBOUND, (long) maximumDelay.getInput());
-                updateDelayedRealPos((long) maximumDelay.getInput());
 
                 if (holdingWeapon.isToggled() && !Utils.holdingWeapon()) {
                     flushLag();
@@ -187,10 +185,26 @@ public class LagRange extends Module {
     }
 
     @SubscribeEvent
+    public void onGameTick(GameTickEvent e) {
+        if (mc.currentScreen == null) {
+            return;
+        }
+
+        if (isLagging) {
+            flushLag();
+        }
+        resetState();
+    }
+
+    @SubscribeEvent
     public void onRenderWorld(RenderWorldLastEvent e) {
-        if (!isLagging || !realPositionIndicator.isToggled()) return;
         if (!Utils.nullCheck()) return;
-        if (mc.gameSettings.thirdPersonView == 0) return;
+        if (!isLagging) return;
+        if (!realPositionIndicator.isToggled()) return;
+        if (mc.gameSettings.thirdPersonView == 0 && !showInFirstPerson.isToggled()) return;
+
+        Vec3 delayedPos = Raven.lagHandler.getLastReleasedServerPosition();
+        if (delayedPos == null) return;
 
         double viewX = mc.getRenderManager().viewerPosX;
         double viewY = mc.getRenderManager().viewerPosY;
@@ -198,10 +212,13 @@ public class LagRange extends Module {
 
         float halfW = mc.thePlayer.width / 2.0f;
         float height = mc.thePlayer.height;
-        AxisAlignedBB box = new AxisAlignedBB(
-                realPosX - halfW, realPosY, realPosZ - halfW,
-                realPosX + halfW, realPosY + height, realPosZ + halfW
-        ).offset(-viewX, -viewY, -viewZ);
+        AxisAlignedBB worldBox = new AxisAlignedBB(
+                delayedPos.xCoord - halfW, delayedPos.yCoord, delayedPos.zCoord - halfW,
+                delayedPos.xCoord + halfW, delayedPos.yCoord + height, delayedPos.zCoord + halfW
+        );
+        Vec3 cameraPos = Utils.getCameraPos(e.partialTicks);
+        if (worldBox.isVecInside(cameraPos)) return;
+        AxisAlignedBB box = worldBox.offset(-viewX, -viewY, -viewZ);
 
         float r = indicatorColor.getRed() / 255.0f;
         float g = indicatorColor.getGreen() / 255.0f;
@@ -232,11 +249,6 @@ public class LagRange extends Module {
     }
 
     private void startLag() {
-        realPosX = mc.thePlayer.posX;
-        realPosY = mc.thePlayer.posY;
-        realPosZ = mc.thePlayer.posZ;
-        delayedPosSamples.clear();
-        delayedPosSamples.addLast(new PosSample(System.currentTimeMillis(), realPosX, realPosY, realPosZ));
         outboundLag = new LagRequest(EnumLagDirection.ONLY_OUTBOUND, new ModuleBackedTimeout(this));
         Raven.lagHandler.requestLag(outboundLag);
         isLagging = true;
@@ -248,7 +260,6 @@ public class LagRange extends Module {
             outboundLag.getTimeout().forceTimeOut();
             outboundLag = null;
         }
-        delayedPosSamples.clear();
         isLagging = false;
     }
 
@@ -258,7 +269,6 @@ public class LagRange extends Module {
         isLagging = false;
         lastSelfHurtTime = 0;
         lastSprintState = false;
-        delayedPosSamples.clear();
         outboundLag = null;
     }
 
@@ -271,34 +281,5 @@ public class LagRange extends Module {
 
     private boolean isMoving() {
         return mc.thePlayer.moveForward != 0.0f || mc.thePlayer.moveStrafing != 0.0f;
-    }
-
-    private void updateDelayedRealPos(long delayMs) {
-        long now = System.currentTimeMillis();
-        delayedPosSamples.addLast(new PosSample(now, mc.thePlayer.posX, mc.thePlayer.posY, mc.thePlayer.posZ));
-        long cutoff = now - delayMs;
-
-        while (delayedPosSamples.size() > 1) {
-            PosSample next = delayedPosSamples.peekFirst();
-            if (next == null || next.timeMs > cutoff) {
-                break;
-            }
-            realPosX = next.x;
-            realPosY = next.y;
-            realPosZ = next.z;
-            delayedPosSamples.removeFirst();
-        }
-    }
-
-    private static final class PosSample {
-        private final long timeMs;
-        private final double x, y, z;
-
-        private PosSample(long timeMs, double x, double y, double z) {
-            this.timeMs = timeMs;
-            this.x = x;
-            this.y = y;
-            this.z = z;
-        }
     }
 }
