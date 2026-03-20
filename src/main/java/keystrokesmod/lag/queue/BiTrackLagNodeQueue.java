@@ -11,6 +11,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 public final class BiTrackLagNodeQueue {
@@ -67,6 +68,17 @@ public final class BiTrackLagNodeQueue {
         }
     }
 
+    public void releaseExpiredPackets(final @NotNull EnumLagDirection direction, long maxAgeMs) {
+        switch (direction) {
+            case OUTBOUND:
+                outgoingState.releaseExpiredPackets(maxAgeMs);
+                break;
+            case INBOUND:
+                incomingState.releaseExpiredPackets(maxAgeMs);
+                break;
+        }
+    }
+
     private static final class TrackState {
 
         private final @NotNull List<AbstractLagNode> track;
@@ -117,6 +129,21 @@ public final class BiTrackLagNodeQueue {
             currentlyAwaiting = awaiting;
 
             return true;
+        }
+
+        private void releaseExpiredPackets(long maxAgeMs) {
+            long cutoff = System.currentTimeMillis() - maxAgeMs;
+            Iterator<AbstractLagNode> it = track.iterator();
+            while (it.hasNext()) {
+                AbstractLagNode node = it.next();
+                if (node instanceof PacketLagNode) {
+                    PacketLagNode pkt = (PacketLagNode) node;
+                    if (pkt.getQueuedAtMs() <= cutoff) {
+                        pkt.goThrough(fastTrackProvider);
+                        it.remove();
+                    }
+                }
+            }
         }
 
         private void clear() {

@@ -26,6 +26,10 @@ public final class UnifiedLagHandler extends AbstractFastTrackProvider {
         queue.requestLag(request);
     }
 
+    public void releaseExpiredPackets(final @NotNull EnumLagDirection direction, long maxAgeMs) {
+        queue.releaseExpiredPackets(direction, maxAgeMs);
+    }
+
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public void onSendPacket(final @NotNull SendPacketEvent event) {
         if (Minecraft.getMinecraft().getNetHandler() == null) {

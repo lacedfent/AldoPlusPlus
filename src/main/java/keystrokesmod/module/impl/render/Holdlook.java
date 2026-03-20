@@ -26,7 +26,7 @@ public class Holdlook extends Module {
 
         if (mc.currentScreen != null) {
             if (rearActive || frontActive) {
-                mc.gameSettings.thirdPersonView = savedPerspective;
+                mc.gameSettings.thirdPersonView = 0;
                 rearActive = false;
                 frontActive = false;
             }
@@ -41,7 +41,7 @@ public class Holdlook extends Module {
             mc.gameSettings.thirdPersonView = 1;
             rearActive = true;
         } else if (!rearDown && rearActive) {
-            mc.gameSettings.thirdPersonView = frontActive ? 2 : savedPerspective;
+            mc.gameSettings.thirdPersonView = frontActive ? 2 : 0;
             rearActive = false;
         }
 
@@ -52,7 +52,7 @@ public class Holdlook extends Module {
             mc.gameSettings.thirdPersonView = 2;
             frontActive = true;
         } else if (!frontDown && frontActive) {
-            mc.gameSettings.thirdPersonView = rearActive ? 1 : savedPerspective;
+            mc.gameSettings.thirdPersonView = rearActive ? 1 : 0;
             frontActive = false;
         }
     }

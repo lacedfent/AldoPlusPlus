@@ -98,6 +98,7 @@ public class ModuleManager {
         this.addModule(hitBox = new HitBox());
         this.addModule(new JumpReset());
         this.addModule(killAura = new KillAura());
+        this.addModule(new LagRange());
         this.addModule(piercing = new Piercing());
         this.addModule(ghostHand = new GhostHand());
         this.addModule(new RawInput());
