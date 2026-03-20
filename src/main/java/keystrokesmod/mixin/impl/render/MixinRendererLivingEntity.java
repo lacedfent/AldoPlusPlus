@@ -2,6 +2,7 @@ package keystrokesmod.mixin.impl.render;
 
 import keystrokesmod.module.ModuleManager;
 import keystrokesmod.module.impl.render.DamageTint;
+import keystrokesmod.module.impl.render.MobESP;
 import keystrokesmod.module.impl.render.PlayerESP;
 import keystrokesmod.module.impl.world.AntiBot;
 import keystrokesmod.utility.Utils;
@@ -101,7 +102,7 @@ public abstract class MixinRendererLivingEntity<T extends EntityLivingBase> exte
 
     @Inject(method = "canRenderName(Lnet/minecraft/entity/EntityLivingBase;)Z", at = @At("HEAD"), cancellable = true)
     private void suppressNameDuringOutlinePass(T entity, CallbackInfoReturnable<Boolean> cir) {
-        if (PlayerESP.renderingOutlinePass) {
+        if (PlayerESP.renderingOutlinePass || MobESP.renderingOutlinePass) {
             cir.setReturnValue(false);
         }
     }

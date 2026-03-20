@@ -3,7 +3,6 @@ package keystrokesmod.utility;
 import keystrokesmod.Raven;
 import keystrokesmod.helper.PingHelper;
 import keystrokesmod.module.Module;
-import keystrokesmod.module.ModuleManager;
 import keystrokesmod.module.impl.client.Settings;
 import keystrokesmod.module.impl.combat.Velocity;
 import keystrokesmod.module.impl.minigames.DuelsStats;
@@ -217,22 +216,6 @@ public class CommandHandler implements IMinecraftInstance {
         print(args[2], 0);
     }
 
-    private static void handleSprintCommand(String[] args) {
-        if (args == null || args.length != 2) {
-            print(INVALID_SYNTAX, 1);
-            return;
-        }
-        
-        String text = args[1];
-        if (text.trim().isEmpty()) {
-            print("&cInvalid message.", 1);
-            return;
-        }
-        
-        ModuleManager.sprint.text = text;
-        print("&aSprint text updated!", 1);
-    }
-
     private static void handleHideCommand(String[] args) {
         if (args == null || args.length != 2) {
             print(INVALID_SYNTAX, 1);
@@ -416,9 +399,6 @@ public class CommandHandler implements IMinecraftInstance {
             case "ping":
                 PingHelper.checkPing(false);
                 break;
-            case "sprint":
-                handleSprintCommand(args);
-                break;
             case "clear":
                 responseLines.clear();
                 break;
@@ -463,7 +443,6 @@ public class CommandHandler implements IMinecraftInstance {
                 print("2 " + FakeChat.command + " [msg]", 0);
                 print("3 setspeed [fly/bhop/speed] [value]", 0);
                 print("4 setvelocity [h/v] [value]", 0);
-                print("5 sprint [text]", 0);
                 break;
             default:
                 String commandPreview = command.length() > 5 ? command.substring(0, 5) + "..." : command;

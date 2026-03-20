@@ -93,7 +93,7 @@ public class BHop extends Module {
                         break;
                 }
 
-                if (Utils.isMoving() && !Utils.noSlowingBackWithBow() && !ModuleManager.sprint.disableBackwards()) {
+                if (Utils.isMoving() && !Utils.noSlowingBackWithBow()) {
                     Utils.setSpeed(speedModifier - Utils.randomizeDouble(0.0003, 0.0001));
                     didMove = true;
                 }

@@ -1,5 +1,6 @@
 package keystrokesmod.mixin.impl.client;
 
+import keystrokesmod.module.impl.render.MobESP;
 import keystrokesmod.module.impl.render.PlayerESP;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.fml.relauncher.Side;
@@ -14,7 +15,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class MixinItemStack {
     @Inject(method = "hasEffect", at = @At("HEAD"), cancellable = true)
     private void suppressGlintDuringOutlinePass(CallbackInfoReturnable<Boolean> cir) {
-        if (PlayerESP.renderingOutlinePass) {
+        if (PlayerESP.renderingOutlinePass || MobESP.renderingOutlinePass) {
             cir.setReturnValue(false);
         }
     }

@@ -60,6 +60,7 @@ public class ModuleManager {
     public static TargetHUD targetHUD;
     public static NoFall noFall;
     public static PlayerESP playerESP;
+    public static MobESP mobESP;
     public static Reduce reduce;
     public static SafeWalk safeWalk;
     public static KeepSprint keepSprint;
@@ -92,7 +93,6 @@ public class ModuleManager {
         this.addModule(autoClicker = new AutoClicker());
         this.addModule(new Autoblock());
         this.addModule(blockIn = new BlockIn());
-        this.addModule(new BurstClicker());
         this.addModule(new ClickAssist());
         this.addModule(hitSelect = new HitSelect());
         this.addModule(hitBox = new HitBox());
@@ -133,9 +133,11 @@ public class ModuleManager {
         this.addModule(keepSprint = new KeepSprint());
         this.addModule(longJump = new LongJump());
         this.addModule(noSlow = new NoSlow());
+        this.addModule(new NullMove());
         this.addModule(new Speed());
         this.addModule(sprint = new Sprint());
         this.addModule(new StopMotion());
+        this.addModule(new InstantStop());
         this.addModule(new Teleport());
         this.addModule(timer = new Timer());
         this.addModule(new VClip());
@@ -188,7 +190,7 @@ public class ModuleManager {
         this.addModule(new Indicators());
         this.addModule(new ItemESP());
         this.addModule(new ItemPhysics());
-        this.addModule(new MobESP());
+        this.addModule(mobESP = new MobESP());
         // Legacy 2D Nametags module is deprecated in favor of the 3D-based replacement.
         // this.addModule(new Nametags());
         this.addModule(new Nametags());

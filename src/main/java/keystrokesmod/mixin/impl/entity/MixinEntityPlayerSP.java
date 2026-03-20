@@ -8,6 +8,7 @@ import keystrokesmod.event.PreUpdateEvent;
 import keystrokesmod.module.ModuleManager;
 import keystrokesmod.module.impl.combat.WTap;
 import keystrokesmod.module.impl.movement.NoSlow;
+import keystrokesmod.module.impl.movement.Sprint;
 import keystrokesmod.utility.ModuleUtils;
 import keystrokesmod.utility.RotationUtils;
 import net.minecraft.client.Minecraft;
@@ -284,9 +285,20 @@ public abstract class MixinEntityPlayerSP extends AbstractClientPlayer {
             this.setSprinting(true);
         }
 
-        if (this.isSprinting() && ((!ModuleManager.scaffold.sprint() && (this.movementInput.moveForward < f || !flag3)) || this.isCollidedHorizontally || ModuleManager.sprint.disableBackwards() || ModuleUtils.setSlow || (this.movementInput.moveForward == 0 && this.movementInput.moveStrafe == 0) || this.mc.gameSettings.keyBindSneak.isKeyDown() || (ModuleManager.scaffold != null && ModuleManager.scaffold.isEnabled && (!ModuleManager.scaffold.sprint() || ModuleManager.tower.canTower())) || (ModuleManager.wTap.isEnabled() && WTap.stopSprint))) {
+        if (this.isSprinting() && ((!ModuleManager.scaffold.sprint() && (this.movementInput.moveForward < f || !flag3)) || this.isCollidedHorizontally || ModuleUtils.setSlow || (this.movementInput.moveForward == 0 && this.movementInput.moveStrafe == 0) || this.mc.gameSettings.keyBindSneak.isKeyDown() || (ModuleManager.scaffold != null && ModuleManager.scaffold.isEnabled && (!ModuleManager.scaffold.sprint() || ModuleManager.tower.canTower())) || (ModuleManager.wTap.isEnabled() && WTap.stopSprint))) {
             this.setSprinting(false);
             WTap.stopSprint = false;
+        }
+
+        Sprint sprintMod = ModuleManager.sprint;
+        if (!this.isSprinting() && sprintMod != null && sprintMod.isEnabled()
+                && (this.movementInput.moveForward != 0 || this.movementInput.moveStrafe != 0)
+                && !this.mc.gameSettings.keyBindSneak.isKeyDown() && !this.isPotionActive(Potion.blindness)) {
+            boolean force = false;
+            if (sprintMod.allowWhileBackwards() && this.movementInput.moveForward < 0) force = true;
+            if (sprintMod.allowWhileSideways() && this.movementInput.moveForward == 0 && this.movementInput.moveStrafe != 0) force = true;
+            if (sprintMod.allowWhileUsingItem() && this.isUsingItem()) force = true;
+            if (force) this.setSprinting(true);
         }
 
         if (this.capabilities.allowFlying) {

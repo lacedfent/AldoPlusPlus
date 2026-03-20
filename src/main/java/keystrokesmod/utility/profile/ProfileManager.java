@@ -9,7 +9,6 @@ import keystrokesmod.module.Module;
 import keystrokesmod.module.ModuleManager;
 import keystrokesmod.module.impl.client.Gui;
 import keystrokesmod.module.impl.client.Settings;
-import keystrokesmod.module.impl.movement.Sprint;
 import keystrokesmod.module.impl.render.HUD;
 import keystrokesmod.module.impl.render.TargetHUD;
 import keystrokesmod.module.setting.Setting;
@@ -120,11 +119,6 @@ public class ProfileManager implements IMinecraftInstance {
         else if (module instanceof TargetHUD) {
             moduleInformation.addProperty("posX", ModuleManager.targetHUD.posX);
             moduleInformation.addProperty("posY", ModuleManager.targetHUD.posY);
-        }
-        else if (module instanceof Sprint) {
-            moduleInformation.addProperty("posX", ModuleManager.sprint.posX);
-            moduleInformation.addProperty("posY", ModuleManager.sprint.posY);
-            moduleInformation.addProperty("text", ModuleManager.sprint.text);
         }
         else if (module instanceof Gui) {
             for (CategoryComponent c : ClickGui.categories) {
@@ -248,20 +242,6 @@ public class ProfileManager implements IMinecraftInstance {
                         if (moduleInformation.has("posY")) {
                             int posY = moduleInformation.get("posY").getAsInt();
                             ModuleManager.targetHUD.posY = posY;
-                        }
-                    }
-                    else if (module.getName().equals("Sprint")) {
-                        if (moduleInformation.has("posX")) {
-                            float posX = moduleInformation.get("posX").getAsFloat();
-                            ModuleManager.sprint.posX = posX;
-                        }
-                        if (moduleInformation.has("posY")) {
-                            float posY = moduleInformation.get("posY").getAsFloat();
-                            ModuleManager.sprint.posY = posY;
-                        }
-                        if (moduleInformation.has("text")) {
-                            String text = moduleInformation.get("text").getAsString();
-                            ModuleManager.sprint.text = text;
                         }
                     }
                     else if (module.getName().equals("Gui")) {
