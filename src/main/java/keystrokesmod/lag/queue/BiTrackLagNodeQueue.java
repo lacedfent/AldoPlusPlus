@@ -11,7 +11,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
 public final class BiTrackLagNodeQueue {
@@ -133,16 +132,21 @@ public final class BiTrackLagNodeQueue {
 
         private void releaseExpiredPackets(long maxAgeMs) {
             long cutoff = System.currentTimeMillis() - maxAgeMs;
-            Iterator<AbstractLagNode> it = track.iterator();
-            while (it.hasNext()) {
-                AbstractLagNode node = it.next();
+            List<PacketLagNode> toRelease = new ArrayList<>();
+            for (AbstractLagNode node : track) {
                 if (node instanceof PacketLagNode) {
                     PacketLagNode pkt = (PacketLagNode) node;
                     if (pkt.getQueuedAtMs() <= cutoff) {
-                        pkt.goThrough(fastTrackProvider);
-                        it.remove();
+                        toRelease.add(pkt);
                     }
                 }
+            }
+            if (toRelease.isEmpty()) {
+                return;
+            }
+            track.removeAll(toRelease);
+            for (PacketLagNode pkt : toRelease) {
+                pkt.goThrough(fastTrackProvider);
             }
         }
 

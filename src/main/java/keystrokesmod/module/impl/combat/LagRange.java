@@ -29,6 +29,8 @@ import org.lwjgl.opengl.GL11;
 
 public class LagRange extends Module {
     private static final double MINIMUM_DISTANCE_SQ = 3.0 * 3.0;
+    private static final long INDICATOR_INTERP_MS = 80L;
+    private static final double POS_EPS = 1.0e-6;
 
     private final SliderSetting range;
     private final SliderSetting maximumDelay;
@@ -45,8 +47,14 @@ public class LagRange extends Module {
     private double lastDistSq = -1;
     private boolean isLagging;
     private int lastSelfHurtTime;
+    private int lastTargetHurtTime;
+    private int hitMarkedEntityId;
     private boolean lastSprintState;
     private LagRequest outboundLag;
+
+    private Vec3 indicatorInterpFrom;
+    private Vec3 indicatorInterpTo;
+    private long indicatorInterpStartMs;
 
     public LagRange() {
         super("Lag Range", category.combat);
@@ -92,6 +100,8 @@ public class LagRange extends Module {
         if (!sameTarget(nextTarget)) {
             if (isLagging) flushLag();
             lastDistSq = -1;
+            hitMarkedEntityId = -1;
+            lastTargetHurtTime = nextTarget != null ? nextTarget.hurtTime : 0;
         }
         currentTarget = nextTarget;
 
@@ -102,26 +112,37 @@ public class LagRange extends Module {
                 if (!moving) {
                     flushLag();
                     lastDistSq = distSq;
+                    lastTargetHurtTime = currentTarget.hurtTime;
                     return;
                 }
 
                 if (distSq > rangeSq) {
                     flushLag();
                     lastDistSq = distSq;
+                    hitMarkedEntityId = -1;
+                    lastTargetHurtTime = currentTarget.hurtTime;
                     return;
                 }
 
                 if (lastDistSq >= 0 && distSq >= lastDistSq) {
-                    flushLag();
-                    lastDistSq = distSq;
-                    return;
+                    boolean hitHold = hitMarkedEntityId == currentTarget.getEntityId()
+                            && distSq <= MINIMUM_DISTANCE_SQ
+                            && mc.thePlayer.hurtTime == 0;
+                    if (!hitHold) {
+                        flushLag();
+                        lastDistSq = distSq;
+                        lastTargetHurtTime = currentTarget.hurtTime;
+                        return;
+                    }
                 }
 
                 int hurtTime = mc.thePlayer.hurtTime;
                 if (hurtTime > lastSelfHurtTime) {
                     flushLag();
+                    hitMarkedEntityId = -1;
                     lastSelfHurtTime = hurtTime;
                     lastDistSq = distSq;
+                    lastTargetHurtTime = currentTarget.hurtTime;
                     return;
                 }
                 lastSelfHurtTime = hurtTime;
@@ -131,6 +152,7 @@ public class LagRange extends Module {
                 if (holdingWeapon.isToggled() && !Utils.holdingWeapon()) {
                     flushLag();
                     lastDistSq = distSq;
+                    lastTargetHurtTime = currentTarget.hurtTime;
                     return;
                 }
 
@@ -140,6 +162,7 @@ public class LagRange extends Module {
                         flushLag();
                         lastSprintState = sprintingNow;
                         lastDistSq = distSq;
+                        lastTargetHurtTime = currentTarget.hurtTime;
                         return;
                     }
                     lastSprintState = sprintingNow;
@@ -150,30 +173,47 @@ public class LagRange extends Module {
                     if (held != null && held.getItem() instanceof ItemPotion && ItemPotion.isSplash(held.getMetadata())) {
                         flushLag();
                         lastDistSq = distSq;
+                        lastTargetHurtTime = currentTarget.hurtTime;
                         return;
                     }
                 }
 
                 lastDistSq = distSq;
+                lastTargetHurtTime = currentTarget.hurtTime;
                 return;
             }
 
             int hurtTime = mc.thePlayer.hurtTime;
+            if (hurtTime > lastSelfHurtTime) {
+                hitMarkedEntityId = -1;
+            }
             lastSelfHurtTime = hurtTime;
             lastSprintState = mc.thePlayer.isSprinting();
+
+            if (hurtTime == 0
+                    && lastTargetHurtTime == 0
+                    && currentTarget.hurtTime > 0) {
+                hitMarkedEntityId = currentTarget.getEntityId();
+            }
+            lastTargetHurtTime = currentTarget.hurtTime;
 
             boolean closing = lastDistSq >= 0 && distSq < lastDistSq;
             boolean outsideMinDist = distSq > MINIMUM_DISTANCE_SQ;
             boolean weaponOk = !holdingWeapon.isToggled() || Utils.holdingWeapon();
+            boolean hitMarkedHere = hitMarkedEntityId == currentTarget.getEntityId();
+            boolean hitStart = hitMarkedHere && distSq <= MINIMUM_DISTANCE_SQ && hurtTime == 0 && moving && weaponOk;
 
             lastDistSq = distSq;
 
-            if (closing && moving && outsideMinDist && hurtTime == 0 && weaponOk) {
+            if (hurtTime == 0 && weaponOk && moving
+                    && (closing && outsideMinDist || hitStart)) {
                 startLag();
             }
         } else {
             if (isLagging) flushLag();
             lastDistSq = -1;
+            hitMarkedEntityId = -1;
+            lastTargetHurtTime = 0;
         }
     }
 
@@ -199,12 +239,33 @@ public class LagRange extends Module {
     @SubscribeEvent
     public void onRenderWorld(RenderWorldLastEvent e) {
         if (!Utils.nullCheck()) return;
-        if (!isLagging) return;
+        if (!isLagging) {
+            clearIndicatorInterp();
+            return;
+        }
         if (!realPositionIndicator.isToggled()) return;
         if (mc.gameSettings.thirdPersonView == 0 && !showInFirstPerson.isToggled()) return;
 
         Vec3 delayedPos = Raven.lagHandler.getLastReleasedServerPosition();
-        if (delayedPos == null) return;
+        if (delayedPos == null) {
+            clearIndicatorInterp();
+            return;
+        }
+
+        long nowMs = System.currentTimeMillis();
+        if (indicatorInterpTo == null) {
+            indicatorInterpFrom = delayedPos;
+            indicatorInterpTo = delayedPos;
+            indicatorInterpStartMs = nowMs;
+        } else if (serverPosChanged(delayedPos, indicatorInterpTo)) {
+            double te = Math.min(1.0D, (nowMs - indicatorInterpStartMs) / (double) INDICATOR_INTERP_MS);
+            indicatorInterpFrom = lerpVec3(indicatorInterpFrom, indicatorInterpTo, te);
+            indicatorInterpTo = delayedPos;
+            indicatorInterpStartMs = nowMs;
+        }
+
+        double t = Math.min(1.0D, (nowMs - indicatorInterpStartMs) / (double) INDICATOR_INTERP_MS);
+        Vec3 drawPos = lerpVec3(indicatorInterpFrom, indicatorInterpTo, t);
 
         double viewX = mc.getRenderManager().viewerPosX;
         double viewY = mc.getRenderManager().viewerPosY;
@@ -213,8 +274,8 @@ public class LagRange extends Module {
         float halfW = mc.thePlayer.width / 2.0f;
         float height = mc.thePlayer.height;
         AxisAlignedBB worldBox = new AxisAlignedBB(
-                delayedPos.xCoord - halfW, delayedPos.yCoord, delayedPos.zCoord - halfW,
-                delayedPos.xCoord + halfW, delayedPos.yCoord + height, delayedPos.zCoord + halfW
+                drawPos.xCoord - halfW, drawPos.yCoord, drawPos.zCoord - halfW,
+                drawPos.xCoord + halfW, drawPos.yCoord + height, drawPos.zCoord + halfW
         );
         Vec3 cameraPos = Utils.getCameraPos(e.partialTicks);
         if (worldBox.isVecInside(cameraPos)) return;
@@ -261,6 +322,7 @@ public class LagRange extends Module {
             outboundLag = null;
         }
         isLagging = false;
+        clearIndicatorInterp();
     }
 
     private void resetState() {
@@ -268,8 +330,37 @@ public class LagRange extends Module {
         lastDistSq = -1;
         isLagging = false;
         lastSelfHurtTime = 0;
+        lastTargetHurtTime = 0;
+        hitMarkedEntityId = -1;
         lastSprintState = false;
         outboundLag = null;
+        clearIndicatorInterp();
+    }
+
+    private void clearIndicatorInterp() {
+        indicatorInterpFrom = null;
+        indicatorInterpTo = null;
+        indicatorInterpStartMs = 0L;
+    }
+
+    private static boolean serverPosChanged(Vec3 a, Vec3 b) {
+        return Math.abs(a.xCoord - b.xCoord) > POS_EPS
+                || Math.abs(a.yCoord - b.yCoord) > POS_EPS
+                || Math.abs(a.zCoord - b.zCoord) > POS_EPS;
+    }
+
+    private static Vec3 lerpVec3(Vec3 from, Vec3 to, double t) {
+        if (t <= 0.0D) {
+            return from;
+        }
+        if (t >= 1.0D) {
+            return to;
+        }
+        return new Vec3(
+                from.xCoord + (to.xCoord - from.xCoord) * t,
+                from.yCoord + (to.yCoord - from.yCoord) * t,
+                from.zCoord + (to.zCoord - from.zCoord) * t
+        );
     }
 
     private boolean sameTarget(EntityPlayer nextTarget) {
