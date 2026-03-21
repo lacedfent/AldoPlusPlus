@@ -18,6 +18,7 @@ public class TextFieldComponent extends Component implements FocusableTextCompon
     public float xOffset;
 
     private final ClickGuiTextField textField;
+    private String valueWhenFocused;
 
     public TextFieldComponent(TextSetting textSetting, ModuleComponent moduleComponent, float o) {
         this.textSetting = textSetting;
@@ -27,10 +28,23 @@ public class TextFieldComponent extends Component implements FocusableTextCompon
         this.textField.setText(textSetting.getText());
     }
 
+    private void revertToSaved() {
+        if (valueWhenFocused != null) {
+            textField.setText(valueWhenFocused);
+            textSetting.setText(valueWhenFocused);
+            valueWhenFocused = null;
+        }
+    }
+
     @Override
     public void render() {
-        if (!textField.isFocused() && !textField.getText().equals(textSetting.getText())) {
-            textField.setText(textSetting.getText());
+        if (!textField.isFocused()) {
+            if (valueWhenFocused != null) {
+                revertToSaved();
+            }
+            if (!textField.getText().equals(textSetting.getText())) {
+                textField.setText(textSetting.getText());
+            }
         }
 
         float left = moduleComponent.categoryComponent.getX() + 4f + (xOffset / 2f);
@@ -65,11 +79,15 @@ public class TextFieldComponent extends Component implements FocusableTextCompon
         float boxBottom = moduleComponent.categoryComponent.getModuleY() + o + (2f * ROW_HEIGHT) - 1f;
 
         if (textField.contains(mouseX, mouseY, left, boxTop, right, boxBottom)) {
+            if (!textField.isFocused()) {
+                valueWhenFocused = textSetting.getText();
+            }
             textField.setFocused(true);
             return true;
         }
 
         if (textField.isFocused()) {
+            revertToSaved();
             textField.setFocused(false);
         }
         return false;
@@ -82,12 +100,14 @@ public class TextFieldComponent extends Component implements FocusableTextCompon
         }
 
         if (keyCode == Keyboard.KEY_ESCAPE) {
+            revertToSaved();
             textField.setFocused(false);
             return;
         }
 
         if (keyCode == Keyboard.KEY_RETURN || keyCode == Keyboard.KEY_NUMPADENTER) {
             textSetting.submit();
+            valueWhenFocused = null;
             textField.setText(textSetting.getText());
             return;
         }
@@ -129,7 +149,17 @@ public class TextFieldComponent extends Component implements FocusableTextCompon
 
     @Override
     public void unfocusTextInput() {
+        revertToSaved();
         textField.setFocused(false);
+    }
+
+    /** Returns true if the point is inside the text input box. */
+    public boolean containsClick(int mouseX, int mouseY) {
+        float left = moduleComponent.categoryComponent.getX() + 4f + (xOffset / 2f);
+        float right = moduleComponent.categoryComponent.getX() + moduleComponent.categoryComponent.getWidth() - 4f;
+        float boxTop = moduleComponent.categoryComponent.getModuleY() + o + ROW_HEIGHT + 1f;
+        float boxBottom = moduleComponent.categoryComponent.getModuleY() + o + (2f * ROW_HEIGHT) - 1f;
+        return textField.contains(mouseX, mouseY, left, boxTop, right, boxBottom);
     }
 
     private static float centeredScaledTextY(float top, float height) {

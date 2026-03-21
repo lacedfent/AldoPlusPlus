@@ -95,9 +95,9 @@ public class AutoTool extends Module {
             ((IMixinItemRenderer) mc.getItemRenderer()).setCancelReset(true);
         }
         double reach = mc.playerController.getBlockReachDistance();
-        MovingObjectPosition over = RotationUtils.rayTraceBlockIfNoEntityInFront(reach, mc.thePlayer.rotationYaw, mc.thePlayer.rotationPitch);
+        MovingObjectPosition hoverBlock = RotationUtils.rayTraceBlockIfNoEntityInFront(reach, mc.thePlayer.rotationYaw, mc.thePlayer.rotationPitch);
         if (this.hoverDelay.getInput() != 0) {
-            if (over == null || over.typeOfHit != MovingObjectPosition.MovingObjectType.BLOCK) {
+            if (hoverBlock == null || hoverBlock.typeOfHit != MovingObjectPosition.MovingObjectType.BLOCK) {
                 resetSlot();
                 resetVariables(true);
                 return;
@@ -109,7 +109,7 @@ public class AutoTool extends Module {
                 return;
             }
         }
-        if (!mc.inGameHasFocus || mc.currentScreen != null || (rightDisable.isToggled() && Mouse.isButtonDown(1)) || !mc.thePlayer.capabilities.allowEdit || (requireCrouch.isToggled() && !mc.thePlayer.isSneaking()) || disableInteractable(over) || disableBlocks()) {
+        if (!mc.inGameHasFocus || mc.currentScreen != null || (rightDisable.isToggled() && Mouse.isButtonDown(1)) || !mc.thePlayer.capabilities.allowEdit || (requireCrouch.isToggled() && !mc.thePlayer.isSneaking()) || disableInteractable(hoverBlock) || disableBlocks()) {
             resetVariables(false);
             return;
         }
@@ -117,12 +117,17 @@ public class AutoTool extends Module {
             resetSlot();
             return;
         }
-        if (over == null || over.typeOfHit != MovingObjectPosition.MovingObjectType.BLOCK || over.getBlockPos() == null) {
+        if (hoverBlock == null || hoverBlock.typeOfHit != MovingObjectPosition.MovingObjectType.BLOCK || hoverBlock.getBlockPos() == null) {
+            resetVariables(false);
+            return;
+        }
+        MovingObjectPosition target = mc.objectMouseOver;
+        if (target == null || target.typeOfHit != MovingObjectPosition.MovingObjectType.BLOCK || target.getBlockPos() == null) {
             resetVariables(false);
             return;
         }
         if (blockWhitelistToggle.isToggled() && !blockWhitelist.getBlocks().isEmpty()) {
-            IBlockState state = BlockUtils.getBlockState(over.getBlockPos());
+            IBlockState state = BlockUtils.getBlockState(target.getBlockPos());
             Block hoveredBlock = state.getBlock();
             String registryId = hoveredBlock != null && Block.blockRegistry.getNameForObject(hoveredBlock) != null
                     ? Block.blockRegistry.getNameForObject(hoveredBlock).toString() : "";
@@ -138,7 +143,7 @@ public class AutoTool extends Module {
                 return;
             }
         }
-        int slot = Utils.getTool(BlockUtils.getBlock(over.getBlockPos()));
+        int slot = Utils.getTool(BlockUtils.getBlock(target.getBlockPos()));
         if (slot == -1) {
             return;
         }

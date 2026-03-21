@@ -1,4 +1,4 @@
-package keystrokesmod.module.impl.client;
+package keystrokesmod.module.impl.movement;
 
 import keystrokesmod.module.Module;
 import keystrokesmod.module.setting.impl.DescriptionSetting;
@@ -6,7 +6,7 @@ import keystrokesmod.module.setting.impl.DescriptionSetting;
 public class MovementFix extends Module {
 
     public MovementFix() {
-        super("MovementFix", category.client);
+        super("Movement Fix", category.movement);
         this.registerSetting(new DescriptionSetting("Aligns input with rotations"));
     }
 }

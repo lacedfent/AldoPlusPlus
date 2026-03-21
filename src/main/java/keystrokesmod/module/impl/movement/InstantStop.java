@@ -16,7 +16,7 @@ public class InstantStop extends Module {
     private float lastStrafe;
 
     public InstantStop() {
-        super("InstantStop", category.movement, 0);
+        super("Instant Stop", category.movement, 0);
         this.registerSetting(onlyOnGround = new ButtonSetting("Only on ground", true));
         this.registerSetting(disableWhenFlying = new ButtonSetting("Disable when flying", true));
     }

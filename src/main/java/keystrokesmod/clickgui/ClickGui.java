@@ -6,6 +6,7 @@ import keystrokesmod.clickgui.components.FocusableTextComponent;
 import keystrokesmod.clickgui.components.impl.BindComponent;
 import keystrokesmod.clickgui.components.impl.BlockSearchComponent;
 import keystrokesmod.clickgui.components.impl.CategoryComponent;
+import keystrokesmod.clickgui.components.impl.TextFieldComponent;
 import keystrokesmod.clickgui.components.impl.ModuleComponent;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.impl.client.CommandLine;
@@ -194,6 +195,23 @@ public class ClickGui extends GuiScreen {
     }
 
     public void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException {
+        // Unfocus profile/script name text fields when clicking outside them (reverts to saved name)
+        if (mouseButton == 0 || mouseButton == 1) {
+            for (CategoryComponent category : categories) {
+                if (!category.isOpened()) continue;
+                for (ModuleComponent mod : category.getModules()) {
+                    for (Component comp : mod.settings) {
+                        if (comp instanceof TextFieldComponent) {
+                            TextFieldComponent tc = (TextFieldComponent) comp;
+                            if (tc.isTextInputFocused() && !tc.containsClick(mouseX, mouseY)) {
+                                tc.unfocusTextInput();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // categories is sorted ascending by lastInteractedTime after drawScreen;
         // iterate in reverse for input priority (most recently interacted = last drawn = topmost)
         List<CategoryComponent> inputOrder = new ArrayList<>(categories);

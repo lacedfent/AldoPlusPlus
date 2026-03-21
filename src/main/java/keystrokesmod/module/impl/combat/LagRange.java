@@ -35,6 +35,7 @@ public class LagRange extends Module {
     private final SliderSetting range;
     private final SliderSetting maximumDelay;
     private final ButtonSetting sprintReset;
+    private final ButtonSetting blockSword;
     private final ButtonSetting usedSplashPotion;
     private final ButtonSetting holdingWeapon;
     private final ButtonSetting realPositionIndicator;
@@ -50,6 +51,7 @@ public class LagRange extends Module {
     private int lastTargetHurtTime;
     private int hitMarkedEntityId;
     private boolean lastSprintState;
+    private boolean lastBlockingState;
     private LagRequest outboundLag;
 
     private Vec3 indicatorInterpFrom;
@@ -62,6 +64,7 @@ public class LagRange extends Module {
         this.registerSetting(maximumDelay = new SliderSetting("Maximum delay", "ms", 200, 50, 1000, 10));
         this.registerSetting(new DescriptionSetting("Flush conditions"));
         this.registerSetting(sprintReset = new ButtonSetting("Sprint reset", true));
+        this.registerSetting(blockSword = new ButtonSetting("Block sword", true));
         this.registerSetting(usedSplashPotion = new ButtonSetting("Used splash potion", true));
         this.registerSetting(new DescriptionSetting("Indicator"));
         this.registerSetting(realPositionIndicator = new ButtonSetting("Real position indicator", true));
@@ -168,6 +171,18 @@ public class LagRange extends Module {
                     lastSprintState = sprintingNow;
                 }
 
+                if (blockSword.isToggled()) {
+                    boolean blockingNow = mc.thePlayer.isBlocking();
+                    if (blockingNow && !lastBlockingState) {
+                        flushLag();
+                        lastBlockingState = blockingNow;
+                        lastDistSq = distSq;
+                        lastTargetHurtTime = currentTarget.hurtTime;
+                        return;
+                    }
+                    lastBlockingState = blockingNow;
+                }
+
                 if (usedSplashPotion.isToggled() && mc.thePlayer.isUsingItem()) {
                     ItemStack held = mc.thePlayer.getHeldItem();
                     if (held != null && held.getItem() instanceof ItemPotion && ItemPotion.isSplash(held.getMetadata())) {
@@ -189,6 +204,7 @@ public class LagRange extends Module {
             }
             lastSelfHurtTime = hurtTime;
             lastSprintState = mc.thePlayer.isSprinting();
+            lastBlockingState = mc.thePlayer.isBlocking();
 
             if (hurtTime == 0
                     && lastTargetHurtTime == 0
@@ -333,6 +349,7 @@ public class LagRange extends Module {
         lastTargetHurtTime = 0;
         hitMarkedEntityId = -1;
         lastSprintState = false;
+        lastBlockingState = false;
         outboundLag = null;
         clearIndicatorInterp();
     }

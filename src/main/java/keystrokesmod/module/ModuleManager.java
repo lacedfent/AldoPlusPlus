@@ -3,7 +3,7 @@ package keystrokesmod.module;
 import keystrokesmod.module.impl.client.ChatCommands;
 import keystrokesmod.module.impl.client.CommandLine;
 import keystrokesmod.module.impl.client.Gui;
-import keystrokesmod.module.impl.client.MovementFix;
+import keystrokesmod.module.impl.movement.MovementFix;
 import keystrokesmod.module.impl.client.Settings;
 import keystrokesmod.module.impl.combat.*;
 import keystrokesmod.module.impl.fun.*;
@@ -90,7 +90,6 @@ public class ModuleManager {
         this.addModule(commandLine = new CommandLine());
         this.addModule(new Gui());
         this.addModule(new Settings());
-        this.addModule(movementFix = new MovementFix());
 
         this.addModule(new AimAssist());
         this.addModule(antiKnockback = new AntiKnockback());
@@ -130,6 +129,7 @@ public class ModuleManager {
         this.addModule(new WoolWars());
 
         this.addModule(bHop = new BHop());
+        this.addModule(movementFix = new MovementFix());
         this.addModule(new Boost());
         this.addModule(new Dolphin());
         this.addModule(fly = new Fly());

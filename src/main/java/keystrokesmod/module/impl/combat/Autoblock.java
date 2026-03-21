@@ -7,13 +7,12 @@ import keystrokesmod.lag.api.LagRequest;
 import keystrokesmod.lag.timeout.ModuleBackedTimeout;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.ModuleManager;
-import keystrokesmod.module.impl.world.AntiBot;
 import keystrokesmod.event.SendPacketEvent;
+import keystrokesmod.utility.CombatTargeting;
 import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.DescriptionSetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
 import keystrokesmod.utility.ReflectionUtils;
-import keystrokesmod.utility.RotationUtils;
 import keystrokesmod.utility.Utils;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.entity.player.EntityPlayer;
@@ -127,7 +126,7 @@ public class Autoblock extends Module {
             return;
         }
 
-        currentTarget = findTarget();
+        currentTarget = CombatTargeting.findTarget(range.getInput() * range.getInput());
         boolean killAuraAttacking = ModuleManager.killAura != null && ModuleManager.killAura.isEnabled() && !ModuleManager.killAura.isRequireMouseDown() && currentTarget != null;
         boolean rmbDown = Mouse.isButtonDown(1);
         boolean lmbDown = Mouse.isButtonDown(0) || killAuraAttacking;
@@ -203,33 +202,6 @@ public class Autoblock extends Module {
         lastSelfHurtTime = selfHurtTime;
     }
 
-    private EntityPlayer findTarget() {
-        EntityPlayer closest = null;
-        double closestDistanceSq = Double.MAX_VALUE;
-        double maxDistanceSq = range.getInput() * range.getInput();
-
-        for (EntityPlayer player : mc.theWorld.playerEntities) {
-            if (player == null || player == mc.thePlayer || player.isDead || player.deathTime != 0) {
-                continue;
-            }
-            if (Utils.isFriended(player) || Utils.isTeammate(player) || AntiBot.isBot(player)) {
-                continue;
-            }
-
-            double distanceSq = RotationUtils.distanceSqFromEyeToClosestOnAABB(player);
-            if (distanceSq > maxDistanceSq) {
-                continue;
-            }
-
-            if (distanceSq < closestDistanceSq) {
-                closestDistanceSq = distanceSq;
-                closest = player;
-            }
-        }
-
-        return closest;
-    }
-
     private boolean checkConditions(boolean lmbDown, boolean rmbDown) {
         if (requireLmb.isToggled() && !lmbDown) return false;
         if (requireRmb.isToggled() && !rmbDown) return false;
@@ -293,7 +265,7 @@ public class Autoblock extends Module {
         if (forceBlockAnimation.isToggled() && wasActive) {
             ReflectionUtils.setItemInUse(false);
         }
-        if (wasActive && Mouse.isButtonDown(1) && mc.currentScreen == null) {
+        if (Mouse.isButtonDown(1) && mc.currentScreen == null) {
             KeyBinding.setKeyBindState(mc.gameSettings.keyBindUseItem.getKeyCode(), true);
         }
         currentTarget = null;
