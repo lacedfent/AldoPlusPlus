@@ -1,6 +1,5 @@
 package keystrokesmod.module.impl.combat;
 
-import keystrokesmod.Raven;
 import keystrokesmod.event.PostMotionEvent;
 import keystrokesmod.event.PreUpdateEvent;
 import keystrokesmod.module.Module;
@@ -17,7 +16,6 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
 public class JumpReset extends Module {
     private SliderSetting chance;
-    private SliderSetting minimizeMode;
     private ButtonSetting requireMouseDown;
     private ButtonSetting requireMovingForward;
     private ButtonSetting requireAim;
@@ -27,12 +25,9 @@ public class JumpReset extends Module {
     private int lastHurtTime;
     private double lastFallDistance;
 
-    private String[] minimizeModes = new String[] { "§cDisabled", "Vertical", "Horizontal" };
-
     public JumpReset() {
         super("Jump Reset", category.combat);
         this.registerSetting(chance = new SliderSetting("Chance", "%", 80, 0, 100, 1));
-        this.registerSetting(minimizeMode = new  SliderSetting("Minimize", 2, minimizeModes));
         this.registerSetting(requireMouseDown = new ButtonSetting("Require mouse down", false));
         this.registerSetting(requireMovingForward = new ButtonSetting("Require moving forward", true));
         this.registerSetting(requireAim = new ButtonSetting("Require aim", true));
@@ -58,19 +53,9 @@ public class JumpReset extends Module {
             boolean aimingAt = !requireAim.isToggled() || checkAim();
             boolean forward = mc.gameSettings.keyBindForward.isKeyDown() || !requireMovingForward.isToggled();
             boolean randomization = (int) chance.getInput() == 100 || Utils.randomizeDouble(0, 100) < chance.getInput();
-            boolean minimizing = true;
             boolean fov = Utils.inFov(Utils.getDirection(), 330, RotationUtils.deltaAngle(mc.thePlayer.motionX, mc.thePlayer.motionZ));
 
-            switch ((int) minimizeMode.getInput()) {
-                case 1: {
-                    minimizing = mc.thePlayer.motionY >= 0.42f;
-                } break;
-                case 2: {
-                    minimizing = Math.sqrt(Math.pow(mc.thePlayer.motionX, 2) + Math.pow(mc.thePlayer.motionZ, 2)) > 0.2;
-                } break;
-            }
-
-            if (!ignoreNext && !mc.thePlayer.isBurning() && onGround && aimingAt && forward && mouseDown && randomization && minimizing && !hasBadEffect() && fov) {
+            if (!ignoreNext && !mc.thePlayer.isBurning() && onGround && aimingAt && forward && mouseDown && randomization && !hasBadEffect() && fov) {
                 KeyBinding.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), setJump = true);
             }
 

@@ -105,7 +105,6 @@ public class AutoClicker extends Module {
             }
 
             for (int i = 0; i < clicks; i++) {
-                KeyBinding.setKeyBindState(key, true);
                 KeyBinding.onTick(key);
                 ReflectionUtils.setButton(0, true);
             }

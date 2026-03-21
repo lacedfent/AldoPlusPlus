@@ -7,6 +7,7 @@ import keystrokesmod.module.ModuleManager;
 import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.ColorSetting;
 import keystrokesmod.module.setting.impl.GroupSetting;
+import keystrokesmod.module.setting.impl.SliderSetting;
 import keystrokesmod.utility.RenderUtils;
 import keystrokesmod.utility.Utils;
 import keystrokesmod.utility.shader.GlowShader;
@@ -49,6 +50,8 @@ public class MobESP extends Module {
     public ButtonSetting redOnDamage;
     public ButtonSetting showInvis;
 
+    private final SliderSetting maxDistance;
+
     private final List<MobEntry> mobEntries = new ArrayList<>();
     private final Map<EntityLivingBase, Integer> renderAsTwoD = new HashMap<>();
 
@@ -88,6 +91,7 @@ public class MobESP extends Module {
         this.registerSetting(healthBar = new ButtonSetting(espTypes, "Health bar", false));
         this.registerSetting(redOnDamage = new ButtonSetting("Red on damage", true));
         this.registerSetting(showInvis = new ButtonSetting("Show invis", true));
+        this.registerSetting(maxDistance = new SliderSetting("Max distance", 128.0, 32.0, 256.0, 8.0));
 
         registerMobGroups();
     }
@@ -180,6 +184,7 @@ public class MobESP extends Module {
         if (!Utils.nullCheck() || !this.isEnabled()) {
             return;
         }
+        double maxDistSq = maxDistance.getInput() * maxDistance.getInput();
         for (Entity entity : mc.theWorld.loadedEntityList) {
             if (!(entity instanceof EntityLivingBase) || entity == mc.thePlayer) {
                 continue;
@@ -189,6 +194,9 @@ public class MobESP extends Module {
                 continue;
             }
             if (!showInvis.isToggled() && living.isInvisible()) {
+                continue;
+            }
+            if (!RenderUtils.isWithinDistanceSqToRenderView(living, maxDistSq)) {
                 continue;
             }
             MobEntry entry = resolveEntry(living);
@@ -221,6 +229,16 @@ public class MobESP extends Module {
         if (!outlineShader.isValid() || !glowShader.isValid() || renderAsTwoD.isEmpty()) {
             return;
         }
+        boolean anyVisible = false;
+        for (EntityLivingBase ent : renderAsTwoD.keySet()) {
+            if (RenderUtils.isInViewFrustum(ent)) {
+                anyVisible = true;
+                break;
+            }
+        }
+        if (!anyVisible) {
+            return;
+        }
         outlineFramebuffer = RenderUtils.createFrameBuffer(outlineFramebuffer, false);
         if (outlineFramebuffer == null) {
             return;
@@ -237,6 +255,9 @@ public class MobESP extends Module {
         glowShader.use();
         for (Map.Entry<EntityLivingBase, Integer> e : renderAsTwoD.entrySet()) {
             EntityLivingBase ent = e.getKey();
+            if (!RenderUtils.isInViewFrustum(ent)) {
+                continue;
+            }
             int col = redOnDamage.isToggled() && ent.hurtTime != 0 ? 0xFFFF0000 : e.getValue();
             glowShader.setColor((col >> 16) & 0xFF, (col >> 8) & 0xFF, col & 0xFF, (col >> 24) & 0xFF);
             boolean invis = ent.isInvisible();
@@ -263,6 +284,12 @@ public class MobESP extends Module {
     }
 
     private void render(Entity en, int rgb) {
+        if (!box.isToggled() && !shaded.isToggled() && !healthBar.isToggled() && !ring.isToggled()) {
+            return;
+        }
+        if (!RenderUtils.isInViewFrustum(en)) {
+            return;
+        }
         if (box.isToggled()) {
             RenderUtils.renderEntity(en, 1, 0, 0, rgb, redOnDamage.isToggled());
         }

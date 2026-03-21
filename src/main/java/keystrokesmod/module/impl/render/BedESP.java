@@ -1,14 +1,18 @@
 package keystrokesmod.module.impl.render;
 
-import keystrokesmod.Raven;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.setting.impl.ButtonSetting;
+import keystrokesmod.module.setting.impl.ColorSetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
-import keystrokesmod.utility.*;
+import keystrokesmod.utility.RenderUtils;
+import keystrokesmod.utility.SharedBlockHighlightCache;
+import keystrokesmod.utility.Theme;
+import keystrokesmod.utility.Utils;
+
+import java.awt.Color;
 import net.minecraft.block.BlockBed;
 import net.minecraft.block.properties.IProperty;
 import net.minecraft.block.state.IBlockState;
-import net.minecraft.init.Blocks;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.BlockPos;
 import net.minecraft.util.EnumFacing;
@@ -18,84 +22,75 @@ import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import org.lwjgl.opengl.GL11;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Iterator;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class BedESP extends Module {
-    public SliderSetting theme;
+
+    private static final String[] COLOR_MODES = {"Static", "Gradient", "Rainbow"};
+
+    private SliderSetting colorMode;
+    private ColorSetting color;
+    private ColorSetting color2;
+    private SliderSetting gradientSpeed;
     private SliderSetting range;
-    private SliderSetting rate;
+    private SliderSetting scanSpeed;
     private ButtonSetting firstBed;
     private ButtonSetting renderFullBlock;
 
-    private BlockPos[] bed;
-
-    private Timer firstBedTimer;
-
-    private final Map<BlockPos[], Timer> beds = Collections.synchronizedMap(new HashMap<>());
-
-    private long lastScanMS = 0;
+    private final List<BlockPos[]> lastRenderedBedPairs = new ArrayList<>();
 
     public BedESP() {
         super("BedESP", category.render);
-        this.registerSetting(theme = new SliderSetting("Theme", 0, Theme.themes));
+        this.registerSetting(colorMode = new SliderSetting("Color mode", 0, COLOR_MODES));
+        this.registerSetting(color = new ColorSetting("Color", 255, 85, 85, 64));
+        this.registerSetting(color2 = new ColorSetting("Color 2", 85, 85, 255, 64));
+        this.registerSetting(gradientSpeed = new SliderSetting("Gradient speed", 1.0, 0.1, 8.0, 0.1));
         this.registerSetting(range = new SliderSetting("Range", 10.0, 2.0, 200.0, 2.0));
-        this.registerSetting(rate = new SliderSetting("Rate", " second", 0.4, 0.1, 3.0, 0.1));
+        this.registerSetting(scanSpeed = new SliderSetting("Scan speed", 8.0, 1.0, 32.0, 1.0));
         this.registerSetting(firstBed = new ButtonSetting("Only render first bed", false));
         this.registerSetting(renderFullBlock = new ButtonSetting("Render full block", false));
     }
 
     @Override
-    public void onDisable() {
-        this.bed = null;
-        this.beds.clear();
+    public void guiUpdate() {
+        int mode = (int) colorMode.getInput();
+        color.setVisible(true, this);
+        color2.setVisible(mode == 1, this);
+        gradientSpeed.setVisible(mode == 1, this);
     }
 
     @Override
-    public void onUpdate() {
-        if (System.currentTimeMillis() - this.lastScanMS < this.rate.getInput() * 1000) {
-            return;
-        }
-        this.lastScanMS = System.currentTimeMillis();
-        Raven.getCachedExecutor().execute(() -> {
-            int dy;
-            priorityLoop:
-            for (int radius = dy = (int) range.getInput(); dy >= -radius; --dy) {
-                for (int dx = -radius; dx <= radius; ++dx) {
-                    for (int dz = -radius; dz <= radius; ++dz) {
-                        BlockPos blockPos = new BlockPos(mc.thePlayer.posX + dx, mc.thePlayer.posY + dy, mc.thePlayer.posZ + dz);
-                        IBlockState blockState = mc.theWorld.getBlockState(blockPos);
-                        if (blockState.getBlock() == Blocks.bed && blockState.getValue((IProperty) BlockBed.PART) == BlockBed.EnumPartType.FOOT) {
-                            if (firstBed.isToggled()) {
-                                if (this.bed != null && BlockUtils.isSamePos(blockPos, this.bed[0])) {
-                                    return;
-                                }
-                                this.bed = new BlockPos[]{blockPos, blockPos.offset((EnumFacing) blockState.getValue((IProperty) BlockBed.FACING))};
-                                return;
-                            }
-                            else {
-                                for (BlockPos[] pos : beds.keySet()) {
-                                    if (BlockUtils.isSamePos(blockPos, pos[0])) {
-                                        continue priorityLoop;
-                                    }
-                                }
-                                this.beds.putIfAbsent(new BlockPos[] { blockPos, blockPos.offset((EnumFacing) blockState.getValue((IProperty) BlockBed.FACING)) }, null);
-                            }
-                        }
-                    }
-                }
-            }
-        });
+    public void onEnable() {
+        SharedBlockHighlightCache cache = SharedBlockHighlightCache.get();
+        cache.attachBed();
+        cache.enqueueLoadedChunks();
+    }
+
+    @Override
+    public void onDisable() {
+        SharedBlockHighlightCache.get().detachBed();
+        lastRenderedBedPairs.clear();
     }
 
     @SubscribeEvent
     public void onEntityJoin(EntityJoinWorldEvent e) {
         if (e.entity == mc.thePlayer) {
-            this.beds.clear();
-            this.bed = null;
+            lastRenderedBedPairs.clear();
         }
+    }
+
+    public int getScanSpeedBudget() {
+        return isEnabled() ? (int) scanSpeed.getInput() : 0;
+    }
+
+    @Override
+    public String getInfo() {
+        int n = SharedBlockHighlightCache.get().totalBedFeet();
+        return n > 0 ? String.valueOf(n) : "";
     }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
@@ -103,54 +98,149 @@ public class BedESP extends Module {
         if (!Utils.nullCheck()) {
             return;
         }
-        float blockHeight = getBlockHeight();
-        if (firstBed.isToggled() && this.bed != null) {
-            float customAlpha = 0.25f;
-            if (!isBed(bed[0])) {
-                if (firstBedTimer == null) {
-                    (firstBedTimer = (new Timer(300))).start();
-                }
-                int alpha = firstBedTimer == null ? 230 : 230 - firstBedTimer.getValueInt(0, 230, 1);
-                if (alpha <= 0) {
-                    this.bed = null;
-                    return;
-                }
-                customAlpha = alpha / 255.0f;
-            }
-            else {
-                firstBedTimer = null;
-            }
-            renderBed(this.bed, blockHeight, customAlpha);
+        SharedBlockHighlightCache cache = SharedBlockHighlightCache.get();
+        if (!cache.anyConsumerActive()) {
+            return;
         }
-        else {
-            synchronized (beds) {
-                Iterator<Map.Entry<BlockPos[], Timer>> iterator = this.beds.entrySet().iterator();
-                while (iterator.hasNext()) {
-                    float customAlpha = 0.25f;
-                    Map.Entry<BlockPos[], Timer> entry = iterator.next();
-                    BlockPos[] blockPos = entry.getKey();
-                    if (!isBed(blockPos[0])) {
-                        if (entry.getValue() == null) {
-                            entry.setValue(new Timer(300));
-                            entry.getValue().start();
-                        }
-                        int alpha = entry.getValue() == null ? 230 : 230 - entry.getValue().getValueInt(0, 230, 1);
-                        if (alpha <= 0) {
-                            iterator.remove();
-                            continue;
-                        }
-                        customAlpha = alpha / 255.0f;
-                    }
-                    else {
-                        entry.setValue(null);
-                    }
-                    renderBed(blockPos, blockHeight, customAlpha);
+        float blockHeight = getBlockHeight();
+        double rangeSq = range.getInput() * range.getInput();
+        double px = mc.thePlayer.posX;
+        double py = mc.thePlayer.posY;
+        double pz = mc.thePlayer.posZ;
+
+        Set<BlockPos> currentFeet = new HashSet<>();
+        for (Map.Entry<Long, Set<BlockPos>> chunk : cache.entriesBedFeet()) {
+            for (BlockPos foot : chunk.getValue()) {
+                double dx = foot.getX() + 0.5 - px;
+                double dy = foot.getY() + 0.5 - py;
+                double dz = foot.getZ() + 0.5 - pz;
+                if (dx * dx + dy * dy + dz * dz > rangeSq) {
+                    continue;
+                }
+                BlockPos[] pair = footAndHead(foot);
+                if (pair == null) {
+                    continue;
+                }
+                AxisAlignedBB bedBb = bedWorldBounds(pair[0], pair[1], blockHeight);
+                if (!RenderUtils.isInViewFrustum(bedBb)) {
+                    continue;
+                }
+                currentFeet.add(foot);
+            }
+        }
+
+        if (firstBed.isToggled() && !currentFeet.isEmpty()) {
+            BlockPos best = null;
+            double bestD = Double.MAX_VALUE;
+            for (BlockPos foot : currentFeet) {
+                double dx = foot.getX() + 0.5 - px;
+                double dy = foot.getY() + 0.5 - py;
+                double dz = foot.getZ() + 0.5 - pz;
+                double d = dx * dx + dy * dy + dz * dz;
+                if (d < bestD) {
+                    bestD = d;
+                    best = foot;
                 }
             }
+            currentFeet.clear();
+            if (best != null) {
+                currentFeet.add(best);
+            }
+        }
+
+        List<BlockPos[]> pairsToRender = new ArrayList<>();
+        Set<BlockPos> addedFeet = new HashSet<>();
+
+        for (BlockPos foot : currentFeet) {
+            BlockPos[] pair = footAndHead(foot);
+            if (pair == null) {
+                continue;
+            }
+            AxisAlignedBB bb = bedWorldBounds(pair[0], pair[1], blockHeight);
+            if (!RenderUtils.isInViewFrustum(bb)) {
+                continue;
+            }
+            if (addedFeet.add(foot)) {
+                pairsToRender.add(copyBedPair(pair));
+            }
+        }
+
+        for (BlockPos[] prev : new ArrayList<>(lastRenderedBedPairs)) {
+            if (prev == null || prev.length < 2) {
+                continue;
+            }
+            BlockPos foot = prev[0];
+            BlockPos head = prev[1];
+            if (addedFeet.contains(foot)) {
+                continue;
+            }
+            IBlockState footSt = mc.theWorld.getBlockState(foot);
+            IBlockState headSt = mc.theWorld.getBlockState(head);
+            if (!(headSt.getBlock() instanceof BlockBed)) {
+                continue;
+            }
+            if (isBedFoot(footSt)) {
+                continue;
+            }
+            double dx = foot.getX() + 0.5 - px;
+            double dy = foot.getY() + 0.5 - py;
+            double dz = foot.getZ() + 0.5 - pz;
+            if (dx * dx + dy * dy + dz * dz > rangeSq) {
+                continue;
+            }
+            AxisAlignedBB bb = bedWorldBounds(foot, head, blockHeight);
+            if (!RenderUtils.isInViewFrustum(bb)) {
+                continue;
+            }
+            pairsToRender.add(copyBedPair(prev));
+            addedFeet.add(foot);
+        }
+
+        for (BlockPos[] pair : pairsToRender) {
+            renderBed(pair, blockHeight);
+        }
+
+        lastRenderedBedPairs.clear();
+        for (BlockPos[] pair : pairsToRender) {
+            lastRenderedBedPairs.add(copyBedPair(pair));
         }
     }
 
-    private void renderBed(BlockPos[] blocks, float height, float alpha) {
+    private static BlockPos[] copyBedPair(BlockPos[] pair) {
+        return new BlockPos[]{new BlockPos(pair[0]), new BlockPos(pair[1])};
+    }
+
+    private static boolean isBedFoot(IBlockState st) {
+        return st != null && st.getBlock() instanceof BlockBed
+                && st.getValue((IProperty) BlockBed.PART) == BlockBed.EnumPartType.FOOT;
+    }
+
+    /** World-space bed outline bounds; matches {@link #renderBed} geometry. */
+    private static AxisAlignedBB bedWorldBounds(BlockPos foot, BlockPos head, float height) {
+        int fx = foot.getX(), fy = foot.getY(), fz = foot.getZ();
+        double h = fy + height;
+        if (foot.getX() != head.getX()) {
+            if (foot.getX() > head.getX()) {
+                return new AxisAlignedBB(fx - 1.0, fy, fz, fx + 1.0, h, fz + 1.0);
+            }
+            return new AxisAlignedBB(fx, fy, fz, fx + 2.0, h, fz + 1.0);
+        }
+        if (foot.getZ() > head.getZ()) {
+            return new AxisAlignedBB(fx, fy, fz - 1.0, fx + 1.0, h, fz + 1.0);
+        }
+        return new AxisAlignedBB(fx, fy, fz, fx + 1.0, h, fz + 2.0);
+    }
+
+    private BlockPos[] footAndHead(BlockPos foot) {
+        IBlockState st = mc.theWorld.getBlockState(foot);
+        if (!(st.getBlock() instanceof BlockBed)) {
+            return null;
+        }
+        EnumFacing facing = (EnumFacing) st.getValue((IProperty) BlockBed.FACING);
+        return new BlockPos[]{foot, foot.offset(facing)};
+    }
+
+    private void renderBed(BlockPos[] blocks, float height) {
         double x = blocks[0].getX() - mc.getRenderManager().viewerPosX;
         double y = blocks[0].getY() - mc.getRenderManager().viewerPosY;
         double z = blocks[0].getZ() - mc.getRenderManager().viewerPosZ;
@@ -160,28 +250,25 @@ public class BedESP extends Module {
         GL11.glDisable(3553);
         GL11.glDisable(2929);
         GL11.glDepthMask(false);
-        int color = Theme.getGradient((int) theme.getInput(), 0);
-        float a = (color >> 24 & 0xFF) / 255.0f;
-        float r = (color >> 16 & 0xFF) / 255.0f;
-        float g = (color >> 8 & 0xFF) / 255.0f;
-        float b = (color & 0xFF) / 255.0f;
-        GL11.glColor4d(r, g, b, a);
+        int col = getCurrentColor();
+        float drawA = (col >> 24 & 0xFF) / 255.0f;
+        float r = (col >> 16 & 0xFF) / 255.0f;
+        float g = (col >> 8 & 0xFF) / 255.0f;
+        float b = (col & 0xFF) / 255.0f;
+        GL11.glColor4d(r, g, b, drawA);
         AxisAlignedBB axisAlignedBB;
         if (blocks[0].getX() != blocks[1].getX()) {
             if (blocks[0].getX() > blocks[1].getX()) {
                 axisAlignedBB = new AxisAlignedBB(x - 1.0, y, z, x + 1.0, y + height, z + 1.0);
-            }
-            else {
+            } else {
                 axisAlignedBB = new AxisAlignedBB(x, y, z, x + 2.0, y + height, z + 1.0);
             }
-        }
-        else if (blocks[0].getZ() > blocks[1].getZ()) {
+        } else if (blocks[0].getZ() > blocks[1].getZ()) {
             axisAlignedBB = new AxisAlignedBB(x, y, z - 1.0, x + 1.0, y + height, z + 1.0);
-        }
-        else {
+        } else {
             axisAlignedBB = new AxisAlignedBB(x, y, z, x + 1.0, y + height, z + 2.0);
         }
-        RenderUtils.drawBoundingBox(axisAlignedBB, r, g, b, alpha);
+        RenderUtils.drawBoundingBox(axisAlignedBB, r, g, b, drawA);
         GL11.glEnable(3553);
         GL11.glEnable(2929);
         GL11.glDepthMask(true);
@@ -192,7 +279,24 @@ public class BedESP extends Module {
         return renderFullBlock.isToggled() ? 1 : 0.5625F;
     }
 
-    public boolean isBed(BlockPos blockPos) {
-        return mc.theWorld.getBlockState(blockPos).getBlock() instanceof BlockBed;
+    /** Used by BedESP rendering and BedAura outline. */
+    public int getCurrentColor() {
+        int mode = (int) colorMode.getInput();
+        switch (mode) {
+            case 0: // Static
+                return color.getColor();
+            case 1: { // Gradient — higher speed = faster blend between color and color 2
+                double pct = Math.sin(System.currentTimeMillis() * gradientSpeed.getInput() / 1000.0) * 0.5 + 0.5;
+                Color c1 = new Color(color.getRed(), color.getGreen(), color.getBlue(), color.getAlpha());
+                Color c2 = new Color(color2.getRed(), color2.getGreen(), color2.getBlue(), color2.getAlpha());
+                Color blended = Theme.convert(c1, c2, pct);
+                int a = (int) (color.getAlpha() * pct + color2.getAlpha() * (1 - pct));
+                return Utils.mergeAlpha(blended.getRGB(), a);
+            }
+            case 2: // Rainbow
+                return Utils.mergeAlpha(Utils.getChroma(2L, 0L), color.getAlpha());
+            default:
+                return color.getColor();
+        }
     }
 }

@@ -33,7 +33,6 @@ public class Settings extends Module {
 
     public static ButtonSetting rotateBody;
     public static ButtonSetting fullBody;
-    public static ButtonSetting movementFix;
     public static SliderSetting randomYawFactor;
 
     public static ButtonSetting loadGuiPositions;
@@ -65,7 +64,6 @@ public class Settings extends Module {
         this.registerSetting(new DescriptionSetting("Rotations"));
         this.registerSetting(rotateBody = new ButtonSetting("Rotate body", true));
         this.registerSetting(fullBody = new ButtonSetting("Full body", false));
-        this.registerSetting(movementFix = new ButtonSetting("Movement fix", true));
         this.registerSetting(randomYawFactor = new SliderSetting("Random yaw factor", 0, 0.0, 10.0, 1.0));
         this.registerSetting(new DescriptionSetting("Profiles"));
         this.registerSetting(loadGuiPositions = new ButtonSetting("Load gui state", false));

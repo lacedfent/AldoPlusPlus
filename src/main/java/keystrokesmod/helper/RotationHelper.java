@@ -1,6 +1,7 @@
 package keystrokesmod.helper;
 
 import keystrokesmod.event.*;
+import keystrokesmod.module.ModuleManager;
 import keystrokesmod.module.impl.client.Settings;
 import keystrokesmod.utility.RotationUtils;
 import keystrokesmod.utility.Utils;
@@ -325,7 +326,7 @@ public class RotationHelper {
     }
 
     public boolean fixMovement() {
-        return ((Settings.movementFix != null && Settings.movementFix.isToggled()) || this.forceMovementFix) && this.setRotations;
+        return ((ModuleManager.movementFix != null && ModuleManager.movementFix.isEnabled()) || this.forceMovementFix) && this.setRotations;
     }
 
     public static double getDirection(float rotationYaw, double moveForward, double moveStrafing) {

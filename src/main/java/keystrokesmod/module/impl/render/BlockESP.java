@@ -1,25 +1,19 @@
 package keystrokesmod.module.impl.render;
 
-import keystrokesmod.event.ReceivePacketEvent;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.setting.impl.BlockListSetting;
 import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
-import keystrokesmod.utility.BlockESPCache;
 import keystrokesmod.utility.BlockUtils;
 import keystrokesmod.utility.RenderUtils;
+import keystrokesmod.utility.SharedBlockHighlightCache;
 import keystrokesmod.utility.Utils;
 import net.minecraft.block.material.MapColor;
 import net.minecraft.block.state.IBlockState;
-import net.minecraft.network.play.server.S21PacketChunkData;
-import net.minecraft.network.play.server.S22PacketMultiBlockChange;
-import net.minecraft.network.play.server.S23PacketBlockChange;
-import net.minecraft.network.play.server.S26PacketMapChunkBulk;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.BlockPos;
 import net.minecraft.util.EnumFacing;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
-import net.minecraftforge.event.entity.EntityJoinWorldEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
 import java.util.EnumSet;
@@ -34,7 +28,6 @@ public class BlockESP extends Module {
     private final SliderSetting maxRenders;
     private final SliderSetting scanSpeed;
 
-    private BlockESPCache cache;
     private int prevListHash;
 
     public BlockESP() {
@@ -49,7 +42,8 @@ public class BlockESP extends Module {
 
     @Override
     public void onEnable() {
-        cache = new BlockESPCache(blockList);
+        SharedBlockHighlightCache cache = SharedBlockHighlightCache.get();
+        cache.attachBlockList(blockList);
         prevListHash = blockList.getBlocks().hashCode();
         if (!blockList.getBlocks().isEmpty()) {
             cache.enqueueLoadedChunks();
@@ -58,33 +52,33 @@ public class BlockESP extends Module {
 
     @Override
     public void onDisable() {
-        if (cache != null) {
-            cache.clear();
-            cache = null;
-        }
+        SharedBlockHighlightCache.get().detachBlockList();
     }
 
     @Override
     public void onUpdate() {
-        if (cache == null || !Utils.nullCheck()) return;
+        if (!Utils.nullCheck()) return;
         int h = blockList.getBlocks().hashCode();
         if (h != prevListHash) {
             prevListHash = h;
-            cache.onSettingsChanged();
+            SharedBlockHighlightCache.get().onBlockListSettingsChanged();
         }
-        cache.tickScan((int) scanSpeed.getInput());
+    }
+
+    public int getScanSpeedBudget() {
+        return isEnabled() && !blockList.getBlocks().isEmpty() ? (int) scanSpeed.getInput() : 0;
     }
 
     @Override
     public String getInfo() {
-        if (cache == null) return "";
-        int total = cache.totalCached();
+        int total = SharedBlockHighlightCache.get().totalBlockList();
         return total > 0 ? String.valueOf(total) : "";
     }
 
     @SubscribeEvent
     public void onRenderWorld(RenderWorldLastEvent ev) {
-        if (cache == null || !Utils.nullCheck()) return;
+        SharedBlockHighlightCache cache = SharedBlockHighlightCache.get();
+        if (!cache.anyConsumerActive() || !Utils.nullCheck()) return;
         double rangeSq = range.getInput() * range.getInput();
         double px = mc.thePlayer.posX;
         double py = mc.thePlayer.posY;
@@ -94,7 +88,7 @@ public class BlockESP extends Module {
         int max = (int) maxRenders.getInput();
         int rendered = 0;
 
-        for (Map.Entry<Long, Set<BlockPos>> entry : cache.entries()) {
+        for (Map.Entry<Long, Set<BlockPos>> entry : cache.entriesBlockList()) {
             if (rendered >= max) break;
             for (BlockPos pos : entry.getValue()) {
                 if (rendered >= max) break;
@@ -106,7 +100,7 @@ public class BlockESP extends Module {
                 if (box != null && !RenderUtils.isInViewFrustum(box)) continue;
                 EnumSet<EnumFacing> visibleFaces = EnumSet.noneOf(EnumFacing.class);
                 for (EnumFacing f : EnumFacing.VALUES) {
-                    if (!cache.contains(pos.offset(f))) visibleFaces.add(f);
+                    if (!cache.containsBlockList(pos.offset(f))) visibleFaces.add(f);
                 }
                 if (visibleFaces.isEmpty()) continue;
                 IBlockState state = mc.theWorld.getBlockState(pos);
@@ -114,44 +108,6 @@ public class BlockESP extends Module {
                 int rgb = mapColor != null ? (0xFF << 24 | mapColor.colorValue) : 0xFFFF0000;
                 RenderUtils.renderBlockShape(pos, state, rgb, doOutline, doShade, visibleFaces);
                 rendered++;
-            }
-        }
-    }
-
-    @SubscribeEvent
-    public void onEntityJoin(EntityJoinWorldEvent e) {
-        if (e.entity == mc.thePlayer && cache != null) {
-            cache.clear();
-            cache.enqueueLoadedChunks();
-        }
-    }
-
-    @SubscribeEvent
-    public void onReceivePacket(ReceivePacketEvent e) {
-        if (cache == null) return;
-
-        if (e.getPacket() instanceof S23PacketBlockChange) {
-            S23PacketBlockChange pkt = (S23PacketBlockChange) e.getPacket();
-            cache.onBlockChange(pkt.getBlockPosition(), pkt.getBlockState());
-        }
-        else if (e.getPacket() instanceof S22PacketMultiBlockChange) {
-            S22PacketMultiBlockChange pkt = (S22PacketMultiBlockChange) e.getPacket();
-            for (S22PacketMultiBlockChange.BlockUpdateData data : pkt.getChangedBlocks()) {
-                cache.onBlockChange(data.getPos(), data.getBlockState());
-            }
-        }
-        else if (e.getPacket() instanceof S21PacketChunkData) {
-            S21PacketChunkData pkt = (S21PacketChunkData) e.getPacket();
-            if (pkt.getExtractedSize() == 0) {
-                cache.removeChunk(pkt.getChunkX(), pkt.getChunkZ());
-            } else {
-                cache.enqueueChunk(pkt.getChunkX(), pkt.getChunkZ());
-            }
-        }
-        else if (e.getPacket() instanceof S26PacketMapChunkBulk) {
-            S26PacketMapChunkBulk pkt = (S26PacketMapChunkBulk) e.getPacket();
-            for (int i = 0; i < pkt.getChunkCount(); i++) {
-                cache.enqueueChunk(pkt.getChunkX(i), pkt.getChunkZ(i));
             }
         }
     }

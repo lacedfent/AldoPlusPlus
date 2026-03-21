@@ -4,6 +4,7 @@ import keystrokesmod.mixin.impl.accessor.IAccessorMinecraft;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.impl.player.Freecam;
 import keystrokesmod.module.setting.impl.ButtonSetting;
+import keystrokesmod.module.setting.impl.SliderSetting;
 import keystrokesmod.utility.RenderUtils;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.entity.Entity;
@@ -24,6 +25,7 @@ import java.util.Map;
 public class ItemESP extends Module {
     private final ButtonSetting renderIron;
     private final ButtonSetting renderGold;
+    private final SliderSetting maxDistance;
 
     private final HashMap<Item, ArrayList<EntityItem>> itemsMap = new HashMap<>();
     private final HashMap<Double, Integer> colorMap = new HashMap<>();
@@ -32,6 +34,7 @@ public class ItemESP extends Module {
         super("ItemESP", category.render);
         this.registerSetting(renderIron = new ButtonSetting("Render iron", true));
         this.registerSetting(renderGold = new ButtonSetting("Render gold", true));
+        this.registerSetting(maxDistance = new SliderSetting("Max distance", 128.0, 32.0, 256.0, 8.0));
     }
 
     @SubscribeEvent
@@ -39,8 +42,12 @@ public class ItemESP extends Module {
         itemsMap.clear();
         colorMap.clear();
 
+        double maxDistSq = maxDistance.getInput() * maxDistance.getInput();
         for (Entity entity : mc.theWorld.loadedEntityList) {
             if (entity instanceof EntityItem) {
+                if (!RenderUtils.isWithinDistanceSqToRenderView(entity, maxDistSq)) {
+                    continue;
+                }
                 if (entity.ticksExisted < 3) {
                     continue;
                 }

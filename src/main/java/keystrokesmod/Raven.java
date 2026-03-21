@@ -18,6 +18,7 @@ import keystrokesmod.script.ScriptDefaults;
 import keystrokesmod.script.ScriptManager;
 import keystrokesmod.script.model.Entity;
 import keystrokesmod.script.model.NetworkPlayer;
+import keystrokesmod.utility.BlockHighlightSharedHandler;
 import keystrokesmod.utility.ModuleUtils;
 import keystrokesmod.utility.PacketsHandler;
 import keystrokesmod.utility.ReflectionUtils;
@@ -86,6 +87,7 @@ public class Raven {
 
         ReflectionUtils.setupFields();
         moduleManager.register();
+        MinecraftForge.EVENT_BUS.register(new BlockHighlightSharedHandler());
         scriptManager = new ScriptManager();
         keyStrokeRenderer = new KeyStrokeRenderer();
         clickGui = new ClickGui();

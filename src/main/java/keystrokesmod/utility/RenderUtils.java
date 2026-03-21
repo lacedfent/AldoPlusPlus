@@ -38,6 +38,7 @@ import java.awt.image.BufferedImage;
 import java.io.InputStream;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
+import java.util.List;
 
 import static org.lwjgl.opengl.GL11.*;
 
@@ -55,6 +56,45 @@ public class RenderUtils implements IMinecraftInstance {
 
     public static void renderChest(BlockPos blockPos, int color, boolean outline, boolean shade) {
         renderBox(blockPos.getX() + 0.0625F, blockPos.getY(), blockPos.getZ() + 0.0625F, 0.875f, 0.875f, 0.875f, color, outline, shade);
+    }
+
+    public static void renderChestBatch(List<BlockPos> positions, int color, boolean outline, boolean shade) {
+        if (positions == null || positions.isEmpty()) {
+            return;
+        }
+        double vx = mc.getRenderManager().viewerPosX;
+        double vy = mc.getRenderManager().viewerPosY;
+        double vz = mc.getRenderManager().viewerPosZ;
+        GL11.glPushMatrix();
+        GL11.glBlendFunc(770, 771);
+        glEnable(3042);
+        GL11.glLineWidth(2.0f);
+        GL11.glDisable(3553);
+        GL11.glDisable(2929);
+        GL11.glDepthMask(false);
+        float n8 = (color >> 24 & 0xFF) / 255.0f;
+        float n9 = (color >> 16 & 0xFF) / 255.0f;
+        float n10 = (color >> 8 & 0xFF) / 255.0f;
+        float n11 = (color & 0xFF) / 255.0f;
+        GL11.glColor4f(n9, n10, n11, n8);
+        for (BlockPos blockPos : positions) {
+            double xPos = blockPos.getX() + 0.0625 - vx;
+            double yPos = blockPos.getY() - vy;
+            double zPos = blockPos.getZ() + 0.0625 - vz;
+            AxisAlignedBB axisAlignedBB = new AxisAlignedBB(xPos, yPos, zPos, xPos + 0.875, yPos + 0.875, zPos + 0.875);
+            if (outline) {
+                RenderGlobal.drawSelectionBoundingBox(axisAlignedBB);
+            }
+            if (shade) {
+                drawBoundingBox(axisAlignedBB, n9, n10, n11);
+            }
+        }
+        GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+        glEnable(3553);
+        glEnable(2929);
+        GL11.glDepthMask(true);
+        GL11.glDisable(3042);
+        GL11.glPopMatrix();
     }
 
     public static void renderBlock(BlockPos blockPos, int color, double y2, boolean outline, boolean shade) {
@@ -135,13 +175,33 @@ public class RenderUtils implements IMinecraftInstance {
     }
 
     public static boolean isInViewFrustum(final Entity entity) {
+        if (entity == null) return false;
         return isInViewFrustum(entity.getEntityBoundingBox()) || entity.ignoreFrustumCheck;
     }
 
     public static boolean isInViewFrustum(final AxisAlignedBB bb) {
         if (bb == null) return false;
-        frustum.setPosition(mc.getRenderViewEntity().posX, mc.getRenderViewEntity().posY, mc.getRenderViewEntity().posZ);
+        Entity view = mc.getRenderViewEntity();
+        if (view == null) return true;
+        frustum.setPosition(view.posX, view.posY, view.posZ);
         return frustum.isBoundingBoxInFrustum(bb);
+    }
+
+    public static boolean isWithinDistanceSqToRenderView(final Entity entity, final double maxDistSq) {
+        if (entity == null) return false;
+        Entity view = mc.getRenderViewEntity();
+        if (view == null) return false;
+        return entity.getDistanceSqToEntity(view) <= maxDistSq;
+    }
+
+    public static boolean isBlockPosWithinDistanceSqToView(final BlockPos pos, final double maxDistSq) {
+        if (pos == null) return false;
+        Entity view = mc.getRenderViewEntity();
+        if (view == null) return false;
+        double dx = pos.getX() + 0.5 - view.posX;
+        double dy = pos.getY() + 0.5 - view.posY;
+        double dz = pos.getZ() + 0.5 - view.posZ;
+        return dx * dx + dy * dy + dz * dz <= maxDistSq;
     }
 
     public static void drawRect(double left, double top, double right, double bottom, int color) {

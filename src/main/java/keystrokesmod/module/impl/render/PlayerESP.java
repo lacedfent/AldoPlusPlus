@@ -11,6 +11,7 @@ import keystrokesmod.module.impl.world.AntiBot;
 import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.ColorSetting;
 import keystrokesmod.module.setting.impl.GroupSetting;
+import keystrokesmod.module.setting.impl.SliderSetting;
 import keystrokesmod.utility.RenderUtils;
 import keystrokesmod.utility.Utils;
 import keystrokesmod.utility.shader.GlowShader;
@@ -52,6 +53,8 @@ public class PlayerESP extends Module {
     public ButtonSetting renderSelf;
     public ButtonSetting showInvis;
 
+    private final SliderSetting maxDistance;
+
     private static final float RAD_TO_DEG = 57.29578f;
     public static boolean renderingOutlinePass = false;
 
@@ -77,6 +80,7 @@ public class PlayerESP extends Module {
         this.registerSetting(renderSelf = new ButtonSetting("Render self", false));
         this.registerSetting(teamColor = new ButtonSetting("Team color", false));
         this.registerSetting(showInvis = new ButtonSetting("Show invis", true));
+        this.registerSetting(maxDistance = new SliderSetting("Max distance", 128.0, 32.0, 256.0, 8.0));
     }
 
     private int getColorRGB() {
@@ -97,6 +101,9 @@ public class PlayerESP extends Module {
                 if (mc.thePlayer != player && AntiBot.isBot(player)) {
                     return;
                 }
+                if (!RenderUtils.isWithinDistanceSqToRenderView(player, maxDistance.getInput() * maxDistance.getInput())) {
+                    return;
+                }
                 int rgb = getColorRGB();
                 if (teamColor.isToggled()) {
                     rgb = Utils.getColorFromEntity(player);
@@ -113,9 +120,13 @@ public class PlayerESP extends Module {
             return;
         }
         int rgb = getColorRGB();
+        double maxDistSq = maxDistance.getInput() * maxDistance.getInput();
         if (Raven.DEBUG) {
             for (final Entity entity : mc.theWorld.loadedEntityList) {
                 if (entity instanceof EntityLivingBase && entity != mc.thePlayer) {
+                    if (!RenderUtils.isWithinDistanceSqToRenderView(entity, maxDistSq)) {
+                        continue;
+                    }
                     if (teamColor.isToggled()) {
                         rgb = Utils.getColorFromEntity(entity);
                     }
@@ -136,6 +147,9 @@ public class PlayerESP extends Module {
                         continue;
                     }
                     if (selfPlayer != player && AntiBot.isBot(player)) {
+                        continue;
+                    }
+                    if (!RenderUtils.isWithinDistanceSqToRenderView(player, maxDistSq)) {
                         continue;
                     }
                     if (teamColor.isToggled()) {
@@ -162,6 +176,14 @@ public class PlayerESP extends Module {
 
     private void runOutlinePass(float partialTicks) {
         if (!outlineShader.isValid() || !glowShader.isValid() || renderAsTwoD.isEmpty()) return;
+        boolean anyVisible = false;
+        for (EntityLivingBase ent : renderAsTwoD.keySet()) {
+            if (RenderUtils.isInViewFrustum(ent)) {
+                anyVisible = true;
+                break;
+            }
+        }
+        if (!anyVisible) return;
         outlineFramebuffer = RenderUtils.createFrameBuffer(outlineFramebuffer, false);
         if (outlineFramebuffer == null) return;
 
@@ -176,6 +198,9 @@ public class PlayerESP extends Module {
         glowShader.use();
         for (Map.Entry<EntityLivingBase, Integer> e : renderAsTwoD.entrySet()) {
             EntityLivingBase ent = e.getKey();
+            if (!RenderUtils.isInViewFrustum(ent)) {
+                continue;
+            }
             int col = redOnDamage.isToggled() && ent.hurtTime != 0 ? 0xFFFF0000 : e.getValue();
             glowShader.setColor((col >> 16) & 0xFF, (col >> 8) & 0xFF, col & 0xFF, (col >> 24) & 0xFF);
             boolean invis = ent.isInvisible();
@@ -200,6 +225,12 @@ public class PlayerESP extends Module {
     }
 
     public void render(Entity en, int rgb) {
+        if (!box.isToggled() && !shaded.isToggled() && !healthBar.isToggled() && !ring.isToggled()) {
+            return;
+        }
+        if (!RenderUtils.isInViewFrustum(en)) {
+            return;
+        }
         if (box.isToggled()) {
             RenderUtils.renderEntity(en, 1, 0, 0, rgb, redOnDamage.isToggled());
         }

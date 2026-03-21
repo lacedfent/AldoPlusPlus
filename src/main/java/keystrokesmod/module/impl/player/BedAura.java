@@ -197,7 +197,7 @@ public class BedAura extends Module {
             return;
         }
         if (ModuleManager.bedESP != null && ModuleManager.bedESP.isEnabled()) {
-            OUTLINE_COLOR = Theme.getGradient((int) ModuleManager.bedESP.theme.getInput(), 0);
+            OUTLINE_COLOR = Utils.mergeAlpha(ModuleManager.bedESP.getCurrentColor(), 255);
         }
         else if (ModuleManager.hud != null && ModuleManager.hud.isEnabled()) {
             OUTLINE_COLOR = Theme.getGradient((int) ModuleManager.hud.theme.getInput(), 0);

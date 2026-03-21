@@ -3,6 +3,7 @@ package keystrokesmod.module;
 import keystrokesmod.module.impl.client.ChatCommands;
 import keystrokesmod.module.impl.client.CommandLine;
 import keystrokesmod.module.impl.client.Gui;
+import keystrokesmod.module.impl.client.MovementFix;
 import keystrokesmod.module.impl.client.Settings;
 import keystrokesmod.module.impl.combat.*;
 import keystrokesmod.module.impl.fun.*;
@@ -38,6 +39,7 @@ public class ModuleManager {
     public static BedAura bedAura;
     public static FastMine fastMine;
     public static AntiShuffle antiShuffle;
+    public static MovementFix movementFix;
     public static CommandLine commandLine;
     public static LongJump longJump;
     public static AntiBot antiBot;
@@ -48,6 +50,7 @@ public class ModuleManager {
     public static HitBox hitBox;
     public static Reach reach;
     public static NoRotate noRotate;
+    public static BlockESP blockESP;
     public static BedESP bedESP;
     public static Blink blink;
     public static Chams chams;
@@ -87,6 +90,7 @@ public class ModuleManager {
         this.addModule(commandLine = new CommandLine());
         this.addModule(new Gui());
         this.addModule(new Settings());
+        this.addModule(movementFix = new MovementFix());
 
         this.addModule(new AimAssist());
         this.addModule(antiKnockback = new AntiKnockback());
@@ -176,7 +180,7 @@ public class ModuleManager {
         this.addModule(antiShuffle = new AntiShuffle());
         this.addModule(new Arrows());
         this.addModule(bedESP = new BedESP());
-        this.addModule(new BlockESP());
+        this.addModule(blockESP = new BlockESP());
         this.addModule(new BlockOverlay());
         this.addModule(new BreakProgress());
         this.addModule(chams = new Chams());
@@ -210,6 +214,7 @@ public class ModuleManager {
 
         this.addModule(new keystrokesmod.script.Manager());
         
+        movementFix.enable();
         antiBot.enable();
         modules.sort(Comparator.comparing(Module::getName));
     }
