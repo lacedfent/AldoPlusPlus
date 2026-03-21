@@ -257,6 +257,10 @@ public class Autoblock extends Module {
         lagStartMs = 0L;
     }
 
+    public boolean isActive() {
+        return isEnabled() && (isBlocking || isLagging);
+    }
+
     private void resetState(boolean releaseUseKey) {
         boolean wasActive = isBlocking || isLagging;
         releaseLag();

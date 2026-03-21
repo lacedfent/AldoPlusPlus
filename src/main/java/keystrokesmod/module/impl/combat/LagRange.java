@@ -8,6 +8,7 @@ import keystrokesmod.lag.api.EnumLagDirection;
 import keystrokesmod.lag.api.LagRequest;
 import keystrokesmod.lag.timeout.ModuleBackedTimeout;
 import keystrokesmod.module.Module;
+import keystrokesmod.module.ModuleManager;
 import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.ColorSetting;
 import keystrokesmod.module.setting.impl.DescriptionSetting;
@@ -93,6 +94,12 @@ public class LagRange extends Module {
         if (!Utils.nullCheck() || mc.thePlayer.isDead || mc.theWorld == null) {
             if (isLagging) flushLag();
             resetState();
+            return;
+        }
+
+        Autoblock autoblock = (Autoblock) ModuleManager.getModule(Autoblock.class);
+        if (autoblock != null && autoblock.isActive()) {
+            if (isLagging) flushLag();
             return;
         }
 
