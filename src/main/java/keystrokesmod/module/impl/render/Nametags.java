@@ -35,6 +35,7 @@ public class Nametags extends Module {
     private SliderSetting bgOpacity;
     private ButtonSetting bgBorder;
     private ButtonSetting showHealth;
+    private ButtonSetting showHeartSymbol;
     private ButtonSetting textShadow;
     private ButtonSetting showDistance;
     private ButtonSetting showInvis;
@@ -73,6 +74,7 @@ public class Nametags extends Module {
         this.registerSetting(bgOpacity = new SliderSetting("Background Opacity", 0.5, 0.0, 1.0, 0.05));
         this.registerSetting(bgBorder = new ButtonSetting("Background Border", false));
         this.registerSetting(showHealth = new ButtonSetting("Show Health", false));
+        this.registerSetting(showHeartSymbol = new ButtonSetting("Show Heart Symbol", true));
         this.registerSetting(textShadow = new ButtonSetting("Text Shadow", false));
         this.registerSetting(showDistance = new ButtonSetting("Show Distance", false));
         this.registerSetting(showInvis = new ButtonSetting("Show Invis", true));
@@ -83,6 +85,11 @@ public class Nametags extends Module {
         this.registerSetting(hideVanilla = new ButtonSetting("Hide Vanilla", true));
         this.registerSetting(friendColor = new ColorSetting("Friend color", 85, 255, 255));
         this.registerSetting(enemyColor = new ColorSetting("Enemy color", 255, 85, 85));
+    }
+
+    @Override
+    public void guiUpdate() {
+        showHeartSymbol.setVisible(showHealth.isToggled(), this);
     }
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
@@ -342,13 +349,14 @@ public class Nametags extends Module {
 
         String color = ratio < 0.3 ? "\u00a7c" : (ratio < 0.5 ? "\u00a76" : (ratio < 0.7 ? "\u00a7e" : "\u00a7a"));
         String heartStr = fastOneDecimal(hearts);
-        name = name + " " + color + heartStr + " \u2764";
+        String heart = showHeartSymbol.isToggled() ? " \u2764" : "";
+        name = name + " " + color + heartStr + heart;
 
         float absorption = entity.getAbsorptionAmount();
         if (absorption > 0) {
             float absorptionHearts = absorption / 2.0f;
             String absStr = fastOneDecimal(absorptionHearts);
-            name = name + " \u00a76+" + absStr + " \u2764";
+            name = name + " \u00a76+" + absStr + heart;
         }
         name = name + "\u00a7r";
         return name;
