@@ -27,6 +27,7 @@ import java.util.*;
 public class Nametags extends Module {
     private static final float AUTO_SCALE_THRESHOLD = 5.0F;
     private static final Comparator<NametagRenderTarget> FAR_TO_NEAR = (a, b) -> Double.compare(b.distanceSq, a.distanceSq);
+    private static final String[] HEALTH_DISPLAY_MODES = {"Hearts", "Health"};
 
     private SliderSetting scale;
     private ButtonSetting autoScale;
@@ -35,6 +36,7 @@ public class Nametags extends Module {
     private SliderSetting bgOpacity;
     private ButtonSetting bgBorder;
     private ButtonSetting showHealth;
+    private SliderSetting healthDisplayMode;
     private ButtonSetting showHeartSymbol;
     private ButtonSetting textShadow;
     private ButtonSetting showDistance;
@@ -74,6 +76,7 @@ public class Nametags extends Module {
         this.registerSetting(bgOpacity = new SliderSetting("Background Opacity", 0.5, 0.0, 1.0, 0.05));
         this.registerSetting(bgBorder = new ButtonSetting("Background Border", false));
         this.registerSetting(showHealth = new ButtonSetting("Show Health", false));
+        this.registerSetting(healthDisplayMode = new SliderSetting("Health display", 0, HEALTH_DISPLAY_MODES));
         this.registerSetting(showHeartSymbol = new ButtonSetting("Show Heart Symbol", true));
         this.registerSetting(textShadow = new ButtonSetting("Text Shadow", false));
         this.registerSetting(showDistance = new ButtonSetting("Show Distance", false));
@@ -89,7 +92,9 @@ public class Nametags extends Module {
 
     @Override
     public void guiUpdate() {
-        showHeartSymbol.setVisible(showHealth.isToggled(), this);
+        boolean healthOn = showHealth.isToggled();
+        healthDisplayMode.setVisible(healthOn, this);
+        showHeartSymbol.setVisible(healthOn && (int) healthDisplayMode.getInput() == 0, this);
     }
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
@@ -344,19 +349,21 @@ public class Nametags extends Module {
         float maxHealth = entity.getMaxHealth();
         if (maxHealth <= 0.0f) maxHealth = 20.0f;
 
-        float hearts = (float) Math.ceil(health / 2.0f);
+        boolean heartsMode = (int) healthDisplayMode.getInput() == 0;
         double ratio = health / maxHealth;
 
         String color = ratio < 0.3 ? "\u00a7c" : (ratio < 0.5 ? "\u00a76" : (ratio < 0.7 ? "\u00a7e" : "\u00a7a"));
-        String heartStr = fastOneDecimal(hearts);
-        String heart = showHeartSymbol.isToggled() ? " \u2764" : "";
-        name = name + " " + color + heartStr + heart;
+        float displayValue = heartsMode ? health / 2.0f : health;
+        String valueStr = fastOneDecimal(displayValue);
+        String heartSuffix = heartsMode && showHeartSymbol.isToggled() ? " \u2764" : "";
+        name = name + " " + color + valueStr + heartSuffix;
 
         float absorption = entity.getAbsorptionAmount();
         if (absorption > 0) {
-            float absorptionHearts = absorption / 2.0f;
-            String absStr = fastOneDecimal(absorptionHearts);
-            name = name + " \u00a76+" + absStr + heart;
+            float absDisplay = heartsMode ? absorption / 2.0f : absorption;
+            String absStr = fastOneDecimal(absDisplay);
+            String absSuffix = heartsMode && showHeartSymbol.isToggled() ? " \u2764" : "";
+            name = name + " \u00a76+" + absStr + absSuffix;
         }
         name = name + "\u00a7r";
         return name;
