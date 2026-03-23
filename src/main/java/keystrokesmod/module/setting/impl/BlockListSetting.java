@@ -11,9 +11,15 @@ import java.util.List;
 
 public class BlockListSetting extends Setting {
     private final List<String> blocks = new ArrayList<>();
+    public GroupSetting group;
 
     public BlockListSetting(String name) {
         super(name);
+    }
+
+    public BlockListSetting(GroupSetting group, String name) {
+        super(name);
+        this.group = group;
     }
 
     public void addBlock(String registryName) {
@@ -36,6 +42,11 @@ public class BlockListSetting extends Setting {
         return registryId != null && blocks.contains(registryId + ":*");
     }
 
+    @Override
+    public String getProfileKey() {
+        return group == null ? getName() : group.getName() + "." + getName();
+    }
+
     private static String extractRegistryId(String storageId) {
         if (storageId == null || storageId.isEmpty()) return null;
         if (storageId.endsWith(":*")) return storageId.substring(0, storageId.length() - 2);
@@ -47,9 +58,10 @@ public class BlockListSetting extends Setting {
 
     @Override
     public void loadProfile(JsonObject data) {
-        if (!data.has(getProfileKey())) return;
+        String key = data.has(getProfileKey()) ? getProfileKey() : getName();
+        if (!data.has(key)) return;
         blocks.clear();
-        JsonElement el = data.get(getProfileKey());
+        JsonElement el = data.get(key);
         if (el.isJsonArray()) {
             for (JsonElement entry : el.getAsJsonArray()) {
                 blocks.add(entry.getAsString());

@@ -23,7 +23,7 @@ public abstract class Setting {
             if (categoryComponent.category == module.moduleCategory()) {
                 for (ModuleComponent moduleComponent : categoryComponent.modules) {
                     if (moduleComponent.mod.getName().equals(module.getName())) {
-                        moduleComponent.updateSettingPositions();
+                        moduleComponent.reloadSettings();
                         break;
                     }
                 }

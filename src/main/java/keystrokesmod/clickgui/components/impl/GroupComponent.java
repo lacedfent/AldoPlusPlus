@@ -27,6 +27,7 @@ public class GroupComponent extends Component {
         this.o = o;
         this.x = moduleComponent.categoryComponent.getX() + moduleComponent.categoryComponent.getWidth();
         this.y = moduleComponent.categoryComponent.getY() + moduleComponent.yPos;
+        this.opened = setting.isOpened();
         this.animationProgress = opened ? 1f : 0f;
         this.animationStartProgress = this.animationProgress;
         this.animationTargetProgress = this.animationProgress;
@@ -103,6 +104,7 @@ public class GroupComponent extends Component {
             float currentProgress = getAnimationProgress();
             this.animationStartProgress = currentProgress;
             this.opened = !this.opened;
+            this.setting.setOpened(this.opened);
             this.animationTargetProgress = this.opened ? 1f : 0f;
             (this.smoothTimer = new Timer(ANIMATION_DURATION)).start();
             this.component.updateSettingPositions();

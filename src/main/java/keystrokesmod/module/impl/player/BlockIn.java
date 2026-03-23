@@ -4,6 +4,8 @@ import keystrokesmod.event.ClientRotationEvent;
 import keystrokesmod.event.PreUpdateEvent;
 import keystrokesmod.helper.RotationHelper;
 import keystrokesmod.module.Module;
+import keystrokesmod.module.setting.impl.ButtonSetting;
+import keystrokesmod.module.setting.impl.ItemListSetting;
 import keystrokesmod.module.setting.impl.KeySetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
 import keystrokesmod.utility.BlockUtils;
@@ -49,6 +51,8 @@ public class BlockIn extends Module {
     private final SliderSetting randomization;
     private final SliderSetting rotationTol;
     private final KeySetting selectKeybind;
+    private final ButtonSetting ignoreBlocksToggle;
+    private final ItemListSetting ignoredBlocks;
 
     private boolean placing;
     private boolean slotWasSwapped;
@@ -80,6 +84,8 @@ public class BlockIn extends Module {
         this.registerSetting(randomization = new SliderSetting("Randomization", "%", 10, 0, 100, 1));
         this.registerSetting(rotationTol = new SliderSetting("Rotation Tolerance", "\u00B0", 25, 20, 100, 1));
         this.registerSetting(selectKeybind = new KeySetting("Select Keybind", 0));
+        this.registerSetting(ignoreBlocksToggle = new ButtonSetting("Ignore blocks", false));
+        this.registerSetting(ignoredBlocks = new ItemListSetting("Items"));
         this.closetModule = true;
     }
 
@@ -94,6 +100,11 @@ public class BlockIn extends Module {
         fillCount = 0;
         lastFillCount = -1;
         circleProgress = 0;
+    }
+
+    @Override
+    public void guiUpdate() {
+        ignoredBlocks.setVisible(ignoreBlocksToggle.isToggled(), this);
     }
 
     @SubscribeEvent
@@ -307,6 +318,7 @@ public class BlockIn extends Module {
             ItemStack s = mc.thePlayer.inventory.mainInventory[slot];
             if (s == null || s.stackSize == 0) continue;
             if (!(s.getItem() instanceof ItemBlock)) continue;
+            if (ignoreBlocksToggle.isToggled() && ignoredBlocks.matches(s)) continue;
 
             Block block = ((ItemBlock) s.getItem()).getBlock();
             float score = BlockUtils.getFistBreakTicks(block);

@@ -9,12 +9,22 @@ public class ButtonSetting extends Setting {
     public boolean isMethodButton;
     private Runnable method;
     public GroupSetting group;
+    private final String[] legacyProfileKeys;
 
     public ButtonSetting(String name, boolean isEnabled) {
         super(name);
         this.name = name;
         this.isEnabled = isEnabled;
         this.isMethodButton = false;
+        this.legacyProfileKeys = new String[0];
+    }
+
+    public ButtonSetting(String name, boolean isEnabled, String... legacyProfileKeys) {
+        super(name);
+        this.name = name;
+        this.isEnabled = isEnabled;
+        this.isMethodButton = false;
+        this.legacyProfileKeys = legacyProfileKeys != null ? legacyProfileKeys : new String[0];
     }
 
     public ButtonSetting(GroupSetting group, String name, boolean isEnabled) {
@@ -23,6 +33,16 @@ public class ButtonSetting extends Setting {
         this.name = name;
         this.isEnabled = isEnabled;
         this.isMethodButton = false;
+        this.legacyProfileKeys = new String[0];
+    }
+
+    public ButtonSetting(GroupSetting group, String name, boolean isEnabled, String... legacyProfileKeys) {
+        super(name);
+        this.group = group;
+        this.name = name;
+        this.isEnabled = isEnabled;
+        this.isMethodButton = false;
+        this.legacyProfileKeys = legacyProfileKeys != null ? legacyProfileKeys : new String[0];
     }
 
     public ButtonSetting(String name, Runnable method) {
@@ -31,6 +51,7 @@ public class ButtonSetting extends Setting {
         this.isEnabled = false;
         this.isMethodButton = true;
         this.method = method;
+        this.legacyProfileKeys = new String[0];
     }
 
     public void runMethod() {
@@ -72,8 +93,22 @@ public class ButtonSetting extends Setting {
     public void loadProfile(JsonObject data) {
         String profileKey = getProfileKey();
         String legacyKey = getName();
-        String key = data.has(profileKey) ? profileKey : legacyKey;
-        if (data.has(key) && data.get(key).isJsonPrimitive() && !this.isMethodButton) {
+        String key = null;
+        if (data.has(profileKey)) {
+            key = profileKey;
+        }
+        else if (data.has(legacyKey)) {
+            key = legacyKey;
+        }
+        else {
+            for (String legacyProfileKey : legacyProfileKeys) {
+                if (data.has(legacyProfileKey)) {
+                    key = legacyProfileKey;
+                    break;
+                }
+            }
+        }
+        if (key != null && data.get(key).isJsonPrimitive() && !this.isMethodButton) {
             boolean booleanValue = isEnabled;
             try {
                 booleanValue = data.getAsJsonPrimitive(key).getAsBoolean();

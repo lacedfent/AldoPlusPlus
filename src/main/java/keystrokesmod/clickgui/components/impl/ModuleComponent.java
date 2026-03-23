@@ -57,6 +57,11 @@ public class ModuleComponent extends Component {
         this.smoothingY = collapsedHeight;
         this.animationStartY = collapsedHeight;
         this.animationTargetY = collapsedHeight;
+        rebuildSettingsList();
+    }
+
+    private void rebuildSettingsList() {
+        this.settings = new ArrayList();
         float y = yPos + getSettingStartOffset();
         if (mod != null && !mod.getSettings().isEmpty()) {
             for (Setting v : mod.getSettings()) {
@@ -99,6 +104,12 @@ public class ModuleComponent extends Component {
                     this.settings.add(cc);
                     y += 12;
                 }
+                else if (v instanceof ItemListSetting) {
+                    ItemListSetting ils = (ItemListSetting) v;
+                    ItemSearchComponent isc = new ItemSearchComponent(ils, this, y);
+                    this.settings.add(isc);
+                    y += 12;
+                }
                 else if (v instanceof keystrokesmod.module.setting.impl.BlockListSetting) {
                     keystrokesmod.module.setting.impl.BlockListSetting bls = (keystrokesmod.module.setting.impl.BlockListSetting) v;
                     BlockSearchComponent bsc = new BlockSearchComponent(bls, this, y);
@@ -116,6 +127,22 @@ public class ModuleComponent extends Component {
         if (!categoryManager) {
             this.settings.add(new BindComponent(this, y));
         }
+    }
+
+    public void reloadSettings() {
+        boolean wasOpened = this.isOpened;
+        rebuildSettingsList();
+        restoreOpenState(wasOpened);
+        updateSettingPositions();
+    }
+
+    public void restoreOpenState(boolean opened) {
+        this.isOpened = categoryManager || opened;
+        this.smoothTimer = null;
+        float height = this.isOpened ? getHeightF() : getCollapsedHeight();
+        this.smoothingY = height;
+        this.animationStartY = height;
+        this.animationTargetY = height;
     }
 
     public void updateAnimationState() {
@@ -177,6 +204,8 @@ public class ModuleComponent extends Component {
                         ((ColorComponent) child).xOffset = GROUP_CHILD_INDENT;
                     } else if (child instanceof BlockSearchComponent) {
                         ((BlockSearchComponent) child).xOffset = GROUP_CHILD_INDENT;
+                    } else if (child instanceof ItemSearchComponent) {
+                        ((ItemSearchComponent) child).xOffset = GROUP_CHILD_INDENT;
                     } else if (child instanceof TextFieldComponent) {
                         ((TextFieldComponent) child).xOffset = GROUP_CHILD_INDENT;
                     }
@@ -200,6 +229,8 @@ public class ModuleComponent extends Component {
                     ((ColorComponent) co).xOffset = indent;
                 } else if (co instanceof BlockSearchComponent) {
                     ((BlockSearchComponent) co).xOffset = indent;
+                } else if (co instanceof ItemSearchComponent) {
+                    ((ItemSearchComponent) co).xOffset = indent;
                 } else if (co instanceof TextFieldComponent) {
                     ((TextFieldComponent) co).xOffset = indent;
                 }
@@ -440,6 +471,12 @@ public class ModuleComponent extends Component {
         if (component instanceof TextFieldComponent && ((TextFieldComponent) component).textSetting.group != null) {
             return ((TextFieldComponent) component).textSetting.group.getName();
         }
+        if (component instanceof BlockSearchComponent && ((BlockSearchComponent) component).setting.group != null) {
+            return ((BlockSearchComponent) component).setting.group.getName();
+        }
+        if (component instanceof ItemSearchComponent && ((ItemSearchComponent) component).setting.group != null) {
+            return ((ItemSearchComponent) component).setting.group.getName();
+        }
         return "";
     }
 
@@ -455,6 +492,9 @@ public class ModuleComponent extends Component {
         }
         if (component instanceof BlockSearchComponent) {
             return ((BlockSearchComponent) component).getCurrentHeight();
+        }
+        if (component instanceof ItemSearchComponent) {
+            return ((ItemSearchComponent) component).getCurrentHeight();
         }
         if (component instanceof TextFieldComponent) {
             return component.getHeightF();

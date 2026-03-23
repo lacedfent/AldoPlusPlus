@@ -59,6 +59,10 @@ public class RenderUtils implements IMinecraftInstance {
     }
 
     public static void renderChestBatch(List<BlockPos> positions, int color, boolean outline, boolean shade) {
+        renderChestBatch(positions, color, color, outline, shade);
+    }
+
+    public static void renderChestBatch(List<BlockPos> positions, int outlineColor, int shadeColor, boolean outline, boolean shade) {
         if (positions == null || positions.isEmpty()) {
             return;
         }
@@ -72,21 +76,25 @@ public class RenderUtils implements IMinecraftInstance {
         GL11.glDisable(3553);
         GL11.glDisable(2929);
         GL11.glDepthMask(false);
-        float n8 = (color >> 24 & 0xFF) / 255.0f;
-        float n9 = (color >> 16 & 0xFF) / 255.0f;
-        float n10 = (color >> 8 & 0xFF) / 255.0f;
-        float n11 = (color & 0xFF) / 255.0f;
-        GL11.glColor4f(n9, n10, n11, n8);
+        float outlineA = (outlineColor >> 24 & 0xFF) / 255.0f;
+        float outlineR = (outlineColor >> 16 & 0xFF) / 255.0f;
+        float outlineG = (outlineColor >> 8 & 0xFF) / 255.0f;
+        float outlineB = (outlineColor & 0xFF) / 255.0f;
+        float shadeA = (shadeColor >> 24 & 0xFF) / 255.0f;
+        float shadeR = (shadeColor >> 16 & 0xFF) / 255.0f;
+        float shadeG = (shadeColor >> 8 & 0xFF) / 255.0f;
+        float shadeB = (shadeColor & 0xFF) / 255.0f;
         for (BlockPos blockPos : positions) {
             double xPos = blockPos.getX() + 0.0625 - vx;
             double yPos = blockPos.getY() - vy;
             double zPos = blockPos.getZ() + 0.0625 - vz;
             AxisAlignedBB axisAlignedBB = new AxisAlignedBB(xPos, yPos, zPos, xPos + 0.875, yPos + 0.875, zPos + 0.875);
             if (outline) {
+                GL11.glColor4f(outlineR, outlineG, outlineB, outlineA);
                 RenderGlobal.drawSelectionBoundingBox(axisAlignedBB);
             }
             if (shade) {
-                drawBoundingBox(axisAlignedBB, n9, n10, n11);
+                drawBoundingBox(axisAlignedBB, shadeR, shadeG, shadeB, shadeA);
             }
         }
         GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);

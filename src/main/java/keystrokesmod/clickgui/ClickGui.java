@@ -6,6 +6,7 @@ import keystrokesmod.clickgui.components.FocusableTextComponent;
 import keystrokesmod.clickgui.components.impl.BindComponent;
 import keystrokesmod.clickgui.components.impl.BlockSearchComponent;
 import keystrokesmod.clickgui.components.impl.CategoryComponent;
+import keystrokesmod.clickgui.components.impl.ItemSearchComponent;
 import keystrokesmod.clickgui.components.impl.TextFieldComponent;
 import keystrokesmod.clickgui.components.impl.ModuleComponent;
 import keystrokesmod.module.Module;
@@ -90,6 +91,13 @@ public class ClickGui extends GuiScreen {
         this.sr = new ScaledResolution(this.mc);
         for (CategoryComponent categoryComponent : categories) {
             categoryComponent.setScreenHeight(this.sr.getScaledHeight());
+            if (categoryComponent.category == Module.category.profiles) {
+                categoryComponent.reloadModules(true);
+            } else if (categoryComponent.category == Module.category.scripts) {
+                categoryComponent.reloadModules(false);
+            } else {
+                categoryComponent.reloadModules();
+            }
         }
         (this.commandLineInput = new GuiTextField(1, this.mc.fontRendererObj, 22, this.height - 100, 150, 20)).setMaxStringLength(256);
         this.buttonList.add(this.commandLineSend = new GuiButtonExt(2, 22, this.height - 70, 150, 20, "Send"));
@@ -343,6 +351,10 @@ public class ClickGui extends GuiScreen {
                     for (Component comp : mod.settings) {
                         if (comp instanceof BlockSearchComponent && ((BlockSearchComponent) comp).isSearchFocused()) {
                             ((BlockSearchComponent) comp).unfocusSearch();
+                            return;
+                        }
+                        if (comp instanceof ItemSearchComponent && ((ItemSearchComponent) comp).isSearchFocused()) {
+                            ((ItemSearchComponent) comp).unfocusSearch();
                             return;
                         }
                     }

@@ -5,8 +5,8 @@ import keystrokesmod.clickgui.animation.ScrollOffsetAnimation;
 import keystrokesmod.clickgui.components.Component;
 import keystrokesmod.clickgui.components.FocusableTextComponent;
 import keystrokesmod.module.impl.client.Gui;
-import keystrokesmod.module.setting.impl.BlockListSetting;
-import keystrokesmod.utility.BlockSearchIndex;
+import keystrokesmod.module.setting.impl.ItemListSetting;
+import keystrokesmod.utility.ItemSearchIndex;
 import keystrokesmod.utility.RenderUtils;
 import keystrokesmod.utility.Theme;
 import keystrokesmod.utility.Timer;
@@ -24,7 +24,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class BlockSearchComponent extends Component implements FocusableTextComponent {
+public class ItemSearchComponent extends Component implements FocusableTextComponent {
     private static final ResourceLocation CLOSE_ICON = new ResourceLocation("keystrokesmod", "textures/gui/close.png");
     private static final ResourceLocation ARROW_ICON = new ResourceLocation("keystrokesmod", "textures/gui/arrow_left.png");
     private static ResourceLocation processedClose;
@@ -37,10 +37,9 @@ public class BlockSearchComponent extends Component implements FocusableTextComp
     private static final int CLOSE_SIZE = 6;
     private static final float CLOSE_PAD = 3f;
     private static final float SELECTED_LIST_GAP = 4f;
-
     private static final float STATIC_TEXT_SCALE = 0.5f;
 
-    public final BlockListSetting setting;
+    public final ItemListSetting setting;
     public final ModuleComponent moduleComponent;
     public float o;
     public float xOffset;
@@ -48,12 +47,19 @@ public class BlockSearchComponent extends Component implements FocusableTextComp
     private ClickGuiTextField searchField;
     private final ScrollOffsetAnimation dropdownScrollAnim = new ScrollOffsetAnimation(200);
     private final ScrollOffsetAnimation selectedScrollAnim = new ScrollOffsetAnimation(200);
-    private List<BlockSearchIndex.GroupedBlockResult> cachedResults = Collections.emptyList();
+    private List<ItemSearchIndex.GroupedItemResult> cachedResults = Collections.emptyList();
     private String expandedGroupId;
-    private List<BlockSearchIndex.BlockEntry> expandedVariants = Collections.emptyList();
+    private String expandedGroupLabel;
+    private String expandedAllSelectionStorageId;
+    private List<ItemSearchIndex.ItemEntry> expandedVariants = Collections.emptyList();
 
     private float lastMouseX;
     private float lastMouseY;
+
+    private Timer dropdownAnimTimer;
+    private float dropdownAnimStartH;
+    private float dropdownAnimTargetH;
+    private float dropdownAnimH;
 
     private static final class CachedSelectedRow {
         final String storageId;
@@ -69,38 +75,39 @@ public class BlockSearchComponent extends Component implements FocusableTextComp
         }
     }
 
-    private List<CachedSelectedRow> selectedRowsCache;
-
-    private Timer dropdownAnimTimer;
-    private float dropdownAnimStartH;
-    private float dropdownAnimTargetH;
-    private float dropdownAnimH;
-
     private static final class Layout {
-        float cx, cy, cw, left, right, searchTop, contentTop;
+        float cx;
+        float cy;
+        float cw;
+        float left;
+        float right;
+        float searchTop;
+        float contentTop;
     }
 
-    public BlockSearchComponent(BlockListSetting setting, ModuleComponent moduleComponent, float o) {
+    private List<CachedSelectedRow> selectedRowsCache;
+
+    public ItemSearchComponent(ItemListSetting setting, ModuleComponent moduleComponent, float o) {
         this.setting = setting;
         this.moduleComponent = moduleComponent;
         this.o = o;
     }
 
     private Layout layout(boolean useModuleY) {
-        Layout L = new Layout();
-        L.cx = moduleComponent.categoryComponent.getX();
-        L.cy = useModuleY ? moduleComponent.categoryComponent.getModuleY() : moduleComponent.categoryComponent.getY();
-        L.cw = moduleComponent.categoryComponent.getWidth();
-        L.left = L.cx + 4 + (xOffset / 2);
-        L.right = L.cx + L.cw - 4;
-        L.searchTop = L.cy + o + ROW_HEIGHT;
-        L.contentTop = L.cy + o + 2 * ROW_HEIGHT;
-        return L;
+        Layout layout = new Layout();
+        layout.cx = moduleComponent.categoryComponent.getX();
+        layout.cy = useModuleY ? moduleComponent.categoryComponent.getModuleY() : moduleComponent.categoryComponent.getY();
+        layout.cw = moduleComponent.categoryComponent.getWidth();
+        layout.left = layout.cx + 4 + (xOffset / 2);
+        layout.right = layout.cx + layout.cw - 4;
+        layout.searchTop = layout.cy + o + ROW_HEIGHT;
+        layout.contentTop = layout.cy + o + 2 * ROW_HEIGHT;
+        return layout;
     }
 
     private static float centeredScaledTextY(float top, float height) {
-        int fontH = Minecraft.getMinecraft().fontRendererObj.FONT_HEIGHT;
-        return top + (height - fontH * STATIC_TEXT_SCALE) / 2f;
+        int fontHeight = Minecraft.getMinecraft().fontRendererObj.FONT_HEIGHT;
+        return top + (height - fontHeight * STATIC_TEXT_SCALE) / 2f;
     }
 
     private static void drawScaledText(String text, float x, float y, int color) {
@@ -133,7 +140,7 @@ public class BlockSearchComponent extends Component implements FocusableTextComp
 
     private void ensureSearchField() {
         if (searchField == null) {
-            searchField = new ClickGuiTextField("Search blocks...", 128, STATIC_TEXT_SCALE);
+            searchField = new ClickGuiTextField("Search items...", 128, STATIC_TEXT_SCALE);
         }
     }
 
@@ -159,32 +166,43 @@ public class BlockSearchComponent extends Component implements FocusableTextComp
     }
 
     private int getDropdownRowCount() {
-        if (expandedGroupId != null) return 2 + expandedVariants.size();
+        if (expandedGroupId != null) {
+            return 2 + expandedVariants.size();
+        }
         return cachedResults.size();
     }
 
     public boolean isMouseOverDropdown(float mouseX, float mouseY) {
-        if (getDropdownRowCount() == 0) return false;
-        float dropdownH = getAnimatedDropdownHeight();
-        if (dropdownH <= 0) return false;
+        if (getDropdownRowCount() == 0) {
+            return false;
+        }
+
+        float dropdownHeight = getAnimatedDropdownHeight();
+        if (dropdownHeight <= 0) {
+            return false;
+        }
+
         float cx = moduleComponent.categoryComponent.getX();
         float cw = moduleComponent.categoryComponent.getWidth();
         float left = cx + 4 + (xOffset / 2);
         float right = cx + cw - 4;
         float top = moduleComponent.categoryComponent.getModuleY() + o + 2 * ROW_HEIGHT;
-        return mouseX >= left && mouseX <= right && mouseY >= top && mouseY < top + dropdownH;
+        return mouseX >= left && mouseX <= right && mouseY >= top && mouseY < top + dropdownHeight;
     }
 
     public boolean isMouseOverSelectedList(float mouseX, float mouseY) {
-        if (setting.getBlocks().isEmpty()) return false;
-        float dropdownH = getAnimatedDropdownHeight();
+        if (setting.getItems().isEmpty()) {
+            return false;
+        }
+
+        float dropdownHeight = getAnimatedDropdownHeight();
         float cx = moduleComponent.categoryComponent.getX();
         float cw = moduleComponent.categoryComponent.getWidth();
         float left = cx + 4 + (xOffset / 2);
         float right = cx + cw - 4;
-        float top = moduleComponent.categoryComponent.getModuleY() + o + 2 * ROW_HEIGHT + dropdownH + SELECTED_LIST_GAP;
-        float selectedListH = Math.min(MAX_VISIBLE_SELECTED, setting.getBlocks().size()) * ROW_HEIGHT;
-        return mouseX >= left && mouseX <= right && mouseY >= top && mouseY < top + selectedListH;
+        float top = moduleComponent.categoryComponent.getModuleY() + o + 2 * ROW_HEIGHT + dropdownHeight + SELECTED_LIST_GAP;
+        float selectedListHeight = Math.min(MAX_VISIBLE_SELECTED, setting.getItems().size()) * ROW_HEIGHT;
+        return mouseX >= left && mouseX <= right && mouseY >= top && mouseY < top + selectedListHeight;
     }
 
     public boolean capturesCategoryScroll(float mouseX, float mouseY) {
@@ -196,7 +214,7 @@ public class BlockSearchComponent extends Component implements FocusableTextComp
             return true;
         }
 
-        return isMouseOverSelectedList(mouseX, mouseY) && setting.getBlocks().size() > MAX_VISIBLE_SELECTED;
+        return isMouseOverSelectedList(mouseX, mouseY) && setting.getItems().size() > MAX_VISIBLE_SELECTED;
     }
 
     private boolean isMouseOverSelectedList() {
@@ -209,7 +227,8 @@ public class BlockSearchComponent extends Component implements FocusableTextComp
                 dropdownAnimTimer = null;
                 dropdownAnimH = dropdownAnimTargetH;
                 dropdownAnimStartH = dropdownAnimTargetH;
-            } else {
+            }
+            else {
                 dropdownAnimH = dropdownAnimTimer.getValueFloat(dropdownAnimStartH, dropdownAnimTargetH, 1);
                 if (dropdownAnimH == dropdownAnimTargetH) {
                     dropdownAnimTimer = null;
@@ -221,90 +240,123 @@ public class BlockSearchComponent extends Component implements FocusableTextComp
     }
 
     public float getCurrentHeight() {
-        int n = setting.getBlocks().size();
-        float selectedH = n == 0 ? 0 : SELECTED_LIST_GAP + Math.min(MAX_VISIBLE_SELECTED, n) * ROW_HEIGHT;
-        return 2 * ROW_HEIGHT + getAnimatedDropdownHeight() + selectedH;
+        int selected = setting.getItems().size();
+        float selectedHeight = selected == 0 ? 0 : SELECTED_LIST_GAP + Math.min(MAX_VISIBLE_SELECTED, selected) * ROW_HEIGHT;
+        return 2 * ROW_HEIGHT + getAnimatedDropdownHeight() + selectedHeight;
     }
 
-    @Override public float getHeightF() { return getCurrentHeight(); }
-    @Override public int getHeight() { return Math.round(getHeightF()); }
-    @Override public void updateHeight(float n) { this.o = n; }
-    @Override public float getOffset() { return this.o; }
-    @Override public boolean isBaseVisible() { return setting.visible; }
+    @Override
+    public float getHeightF() {
+        return getCurrentHeight();
+    }
+
+    @Override
+    public int getHeight() {
+        return Math.round(getHeightF());
+    }
+
+    @Override
+    public void updateHeight(float n) {
+        this.o = n;
+    }
+
+    @Override
+    public float getOffset() {
+        return this.o;
+    }
+
+    @Override
+    public boolean isBaseVisible() {
+        return setting.visible;
+    }
 
     @Override
     public void render() {
-        Layout L = layout(false);
-        renderLabel(L);
-        renderSearchBox(L);
-        renderDropdown(L);
-        renderSelectedBlocks(L);
+        Layout layout = layout(false);
+        renderLabel(layout);
+        renderSearchBox(layout);
+        renderDropdown(layout);
+        renderSelectedItems(layout);
     }
 
-    private void renderLabel(Layout L) {
+    private void renderLabel(Layout layout) {
         int labelColor = Theme.getGradient(Theme.descriptor[0], Theme.descriptor[1], 0);
-        int n = setting.getBlocks().size();
-        String label = setting.getName() + (n > 0 ? " (" + n + ")" : "");
-        drawScaledText(label, L.left, centeredScaledTextY(L.cy + o, ROW_HEIGHT), labelColor);
+        int count = setting.getItems().size();
+        String label = setting.getName() + (count > 0 ? " (" + count + ")" : "");
+        drawScaledText(label, layout.left, centeredScaledTextY(layout.cy + o, ROW_HEIGHT), labelColor);
     }
 
-    private void renderSearchBox(Layout L) {
+    private void renderSearchBox(Layout layout) {
         ensureSearchField();
-        float boxTop = L.searchTop + 1;
-        float boxBot = L.searchTop + ROW_HEIGHT - 1;
-        searchField.render(L.left, boxTop, L.right, boxBot);
+        float boxTop = layout.searchTop + 1;
+        float boxBottom = layout.searchTop + ROW_HEIGHT - 1;
+        searchField.render(layout.left, boxTop, layout.right, boxBottom);
     }
 
-    private void renderDropdown(Layout L) {
+    private void renderDropdown(Layout layout) {
         int rowCount = getDropdownRowCount();
-        float dropdownH = getAnimatedDropdownHeight();
-        float scrollOffset = moduleComponent.categoryComponent.moduleY - L.cy;
-        if (dropdownH <= 0 || rowCount == 0) return;
-        float dropdownTopScreen = L.contentTop + scrollOffset;
-        RenderUtils.scissorPushGui(L.left, dropdownTopScreen, L.right - L.left, dropdownH);
+        float dropdownHeight = getAnimatedDropdownHeight();
+        float scrollOffset = moduleComponent.categoryComponent.moduleY - layout.cy;
+        if (dropdownHeight <= 0 || rowCount == 0) {
+            return;
+        }
+
+        float dropdownTopScreen = layout.contentTop + scrollOffset;
+        RenderUtils.scissorPushGui(layout.left, dropdownTopScreen, layout.right - layout.left, dropdownHeight);
         float offsetPx = dropdownScrollAnim.getValue();
         int firstRow = (int) (offsetPx / ROW_HEIGHT);
         int end = Math.min(firstRow + MAX_VISIBLE_RESULTS + 1, rowCount);
         int rowUnderMouse = -1;
-        if (lastMouseX >= L.left && lastMouseX <= L.right && lastMouseY >= dropdownTopScreen && lastMouseY < dropdownTopScreen + dropdownH) {
+
+        if (lastMouseX >= layout.left && lastMouseX <= layout.right && lastMouseY >= dropdownTopScreen && lastMouseY < dropdownTopScreen + dropdownHeight) {
             float relY = lastMouseY - dropdownTopScreen;
             rowUnderMouse = (int) ((relY + offsetPx) / ROW_HEIGHT);
-            if (rowUnderMouse < 0 || rowUnderMouse >= rowCount) rowUnderMouse = -1;
+            if (rowUnderMouse < 0 || rowUnderMouse >= rowCount) {
+                rowUnderMouse = -1;
+            }
         }
+
         if (expandedGroupId != null) {
-            List<BlockSearchIndex.BlockEntry> variants = expandedVariants;
-            String groupName = !variants.isEmpty() ? variants.get(0).displayName : expandedGroupId;
+            List<ItemSearchIndex.ItemEntry> variants = expandedVariants;
+            String groupName = expandedGroupLabel != null ? expandedGroupLabel : expandedGroupId;
             for (int i = firstRow; i < end; i++) {
-                float rowTop = L.contentTop - offsetPx + i * ROW_HEIGHT;
+                float rowTop = layout.contentTop - offsetPx + i * ROW_HEIGHT;
                 int bg = (i == rowUnderMouse) ? 0xFF2A2A3C : ((i % 2 == 0) ? 0xFF1A1A2A : 0xFF1E1E2E);
                 if (i == 0) {
-                    renderBackRow(L.left, L.right, rowTop, bg, groupName);
-                } else if (i == 1) {
-                    ItemStack cycleIcon = getExpandedAllCyclingIcon();
-                    renderBlockRow(groupName + " (All)", cycleIcon, L.left, L.right, rowTop, bg, false);
-                } else {
-                    BlockSearchIndex.BlockEntry entry = variants.get(i - 2);
-                    renderBlockRow(entry.displayName, entry.toItemStack(), L.left, L.right, rowTop, bg, false);
+                    renderBackRow(layout.left, layout.right, rowTop, bg, groupName);
                 }
-            }
-        } else {
-            for (int i = firstRow; i < end; i++) {
-                BlockSearchIndex.GroupedBlockResult result = cachedResults.get(i);
-                float rowTop = L.contentTop - offsetPx + i * ROW_HEIGHT;
-                int bg = (i == rowUnderMouse) ? 0xFF2A2A3C : ((i % 2 == 0) ? 0xFF1A1A2A : 0xFF1E1E2E);
-                if (result.isSingleVariant()) {
-                    BlockSearchIndex.BlockEntry single = result.variants.get(0);
-                    renderBlockRow(single.displayName, single.toItemStack(), L.left, L.right, rowTop, bg, false);
-                } else {
-                    renderBlockRow(result.getGroupLabel(), result.getCyclingIcon(), L.left, L.right, rowTop, bg, false);
+                else if (i == 1) {
+                    ItemStack cycleIcon = getExpandedAllCyclingIcon();
+                    renderItemRow(groupName + " (All)", cycleIcon, layout.left, layout.right, rowTop, bg, false);
+                }
+                else {
+                    ItemSearchIndex.ItemEntry entry = variants.get(i - 2);
+                    renderItemRow(entry.displayName, entry.toItemStack(), layout.left, layout.right, rowTop, bg, false);
                 }
             }
         }
+        else {
+            for (int i = firstRow; i < end; i++) {
+                ItemSearchIndex.GroupedItemResult result = cachedResults.get(i);
+                float rowTop = layout.contentTop - offsetPx + i * ROW_HEIGHT;
+                int bg = (i == rowUnderMouse) ? 0xFF2A2A3C : ((i % 2 == 0) ? 0xFF1A1A2A : 0xFF1E1E2E);
+                if (result.isSingleVariant()) {
+                    ItemSearchIndex.ItemEntry single = result.variants.get(0);
+                    renderItemRow(single.displayName, single.toItemStack(), layout.left, layout.right, rowTop, bg, false);
+                }
+                else {
+                    renderItemRow(result.getGroupLabel(), result.getCyclingIcon(), layout.left, layout.right, rowTop, bg, false);
+                }
+            }
+        }
+
         RenderUtils.scissorPop();
     }
 
     private ItemStack getExpandedAllCyclingIcon() {
-        if (expandedVariants.isEmpty()) return null;
+        if (expandedVariants.isEmpty()) {
+            return null;
+        }
         int idx = (int) ((System.currentTimeMillis() / 1000) % expandedVariants.size());
         return expandedVariants.get(idx).toItemStack();
     }
@@ -329,48 +381,55 @@ public class BlockSearchComponent extends Component implements FocusableTextComp
         drawScaledText(groupName != null ? groupName : "Back", left + 13, centeredScaledTextY(rowTop, ROW_HEIGHT), 0xFFCCCCCC);
     }
 
-    private void renderSelectedBlocks(Layout L) {
-        List<String> blocks = setting.getBlocks();
-        if (blocks.isEmpty()) return;
-        if (selectedRowsCache == null || selectedRowsCache.size() != blocks.size()) {
-            selectedRowsCache = new ArrayList<>();
-            for (String storageId : blocks) {
-                String displayName = BlockSearchIndex.getDisplayName(storageId);
-                ItemStack stack = BlockSearchIndex.getItemStack(storageId);
+    private void renderSelectedItems(Layout layout) {
+        List<String> items = setting.getItems();
+        if (items.isEmpty()) {
+            return;
+        }
+
+        if (selectedRowsCache == null || selectedRowsCache.size() != items.size()) {
+            selectedRowsCache = new ArrayList<CachedSelectedRow>();
+            for (String storageId : items) {
+                String displayName = ItemSearchIndex.getDisplayName(storageId);
+                ItemStack stack = ItemSearchIndex.getItemStack(storageId);
                 List<ItemStack> cyclingStacks = null;
-                if (BlockSearchIndex.isWildcard(storageId)) {
-                    String registryId = BlockSearchIndex.getRegistryId(storageId);
-                    List<BlockSearchIndex.BlockEntry> variants = BlockSearchIndex.getVariants(registryId);
+                if (ItemSearchIndex.isGroupedSelection(storageId)) {
+                    List<ItemSearchIndex.ItemEntry> variants = ItemSearchIndex.getSelectionVariants(storageId);
                     if (!variants.isEmpty()) {
-                        cyclingStacks = new ArrayList<>();
-                        for (BlockSearchIndex.BlockEntry e : variants) cyclingStacks.add(e.toItemStack());
+                        cyclingStacks = new ArrayList<ItemStack>();
+                        for (ItemSearchIndex.ItemEntry variant : variants) {
+                            cyclingStacks.add(variant.toItemStack());
+                        }
                     }
                 }
                 selectedRowsCache.add(new CachedSelectedRow(storageId, displayName, stack, cyclingStacks));
             }
         }
-        float dropdownH = getAnimatedDropdownHeight();
-        float selY = L.contentTop + dropdownH + SELECTED_LIST_GAP;
-        float selectedListH = Math.min(MAX_VISIBLE_SELECTED, selectedRowsCache.size()) * ROW_HEIGHT;
-        float scrollOffset = moduleComponent.categoryComponent.moduleY - L.cy;
-        RenderUtils.scissorPushGui(L.left, selY + scrollOffset, L.right - L.left, selectedListH);
+
+        float dropdownHeight = getAnimatedDropdownHeight();
+        float selectedY = layout.contentTop + dropdownHeight + SELECTED_LIST_GAP;
+        float selectedListHeight = Math.min(MAX_VISIBLE_SELECTED, selectedRowsCache.size()) * ROW_HEIGHT;
+        float scrollOffset = moduleComponent.categoryComponent.moduleY - layout.cy;
+        RenderUtils.scissorPushGui(layout.left, selectedY + scrollOffset, layout.right - layout.left, selectedListHeight);
         float offsetPx = selectedScrollAnim.getValue();
         int firstRow = (int) (offsetPx / ROW_HEIGHT);
         int end = Math.min(firstRow + MAX_VISIBLE_SELECTED + 1, selectedRowsCache.size());
         ensureProcessedCloseTexture();
+
         for (int i = firstRow; i < end; i++) {
             CachedSelectedRow row = selectedRowsCache.get(i);
-            float rowTop = selY - offsetPx + i * ROW_HEIGHT;
+            float rowTop = selectedY - offsetPx + i * ROW_HEIGHT;
             int bg = (i % 2 == 0) ? 0xFF1A1A2A : 0xFF1E1E2E;
             ItemStack icon = row.cyclingStacks != null && !row.cyclingStacks.isEmpty()
                 ? row.cyclingStacks.get((int) ((System.currentTimeMillis() / 1000) % row.cyclingStacks.size()))
                 : row.stack;
-            renderBlockRow(row.displayName, icon, L.left, L.right, rowTop, bg, true);
+            renderItemRow(row.displayName, icon, layout.left, layout.right, rowTop, bg, true);
         }
+
         RenderUtils.scissorPop();
     }
 
-    private void renderBlockRow(String label, ItemStack stack, float left, float right, float rowTop, int bgColor, boolean showClose) {
+    private void renderItemRow(String label, ItemStack stack, float left, float right, float rowTop, int bgColor, boolean showClose) {
         RenderUtils.drawRect(left, rowTop, right, rowTop + ROW_HEIGHT, bgColor);
         renderItemInRow(stack, left + 2, rowTop);
         drawScaledText(label != null ? label : "", left + 13, centeredScaledTextY(rowTop, ROW_HEIGHT), 0xFFCCCCCC);
@@ -392,14 +451,18 @@ public class BlockSearchComponent extends Component implements FocusableTextComp
     }
 
     private void renderItemInRow(ItemStack stack, float x, float rowTop) {
-        if (stack == null) return;
+        if (stack == null) {
+            return;
+        }
+
         RenderItem renderItem = Minecraft.getMinecraft().getRenderItem();
         double scale = 0.55;
-        float itemH = (float) (16 * scale);
-        float pad = (ROW_HEIGHT - itemH) / 2f;
+        float itemHeight = (float) (16 * scale);
+        float pad = (ROW_HEIGHT - itemHeight) / 2f;
         float itemY = rowTop + pad;
         float px = (float) (x / scale);
         float py = (float) (itemY / scale);
+
         GlStateManager.pushMatrix();
         GlStateManager.scale(scale, scale, scale);
         GlStateManager.translate(px, py, 0);
@@ -423,11 +486,20 @@ public class BlockSearchComponent extends Component implements FocusableTextComp
 
     @Override
     public boolean onClick(int mouseX, int mouseY, int button) {
-        if (!moduleComponent.isOpened || !moduleComponent.isVisible(this)) return false;
-        Layout L = layout(true);
-        if (button == 0 && handleResultClick(mouseX, mouseY, L)) return true;
-        if (button == 0 && handleSelectedRemoveClick(mouseX, mouseY, L)) return true;
-        if (handleSearchFocusClick(mouseX, mouseY, L)) return true;
+        if (!moduleComponent.isOpened || !moduleComponent.isVisible(this)) {
+            return false;
+        }
+
+        Layout layout = layout(true);
+        if (button == 0 && handleResultClick(mouseX, mouseY, layout)) {
+            return true;
+        }
+        if (button == 0 && handleSelectedRemoveClick(mouseX, mouseY, layout)) {
+            return true;
+        }
+        if (handleSearchFocusClick(mouseX, mouseY, layout)) {
+            return true;
+        }
         if (searchField != null && searchField.isFocused()) {
             searchField.setFocused(false);
             updateDropdownAnimation();
@@ -435,20 +507,33 @@ public class BlockSearchComponent extends Component implements FocusableTextComp
         return false;
     }
 
-    private boolean handleResultClick(int mouseX, int mouseY, Layout L) {
-        if (!isSearchFocused()) return false;
+    private boolean handleResultClick(int mouseX, int mouseY, Layout layout) {
+        if (!isSearchFocused()) {
+            return false;
+        }
+
         int rowCount = getDropdownRowCount();
-        if (rowCount == 0) return false;
+        if (rowCount == 0) {
+            return false;
+        }
+
         float offsetPx = dropdownScrollAnim.getValue();
-        float relY = mouseY - L.contentTop;
+        float relY = mouseY - layout.contentTop;
         int rowIdx = (int) ((relY + offsetPx) / ROW_HEIGHT);
-        if (rowIdx < 0 || rowIdx >= rowCount || mouseX <= L.left || mouseX >= L.right) return false;
-        float rowTop = L.contentTop - offsetPx + rowIdx * ROW_HEIGHT;
-        if (mouseY < rowTop || mouseY >= rowTop + ROW_HEIGHT) return false;
+        if (rowIdx < 0 || rowIdx >= rowCount || mouseX <= layout.left || mouseX >= layout.right) {
+            return false;
+        }
+
+        float rowTop = layout.contentTop - offsetPx + rowIdx * ROW_HEIGHT;
+        if (mouseY < rowTop || mouseY >= rowTop + ROW_HEIGHT) {
+            return false;
+        }
 
         if (expandedGroupId != null) {
             if (rowIdx == 0) {
                 expandedGroupId = null;
+                expandedGroupLabel = null;
+                expandedAllSelectionStorageId = null;
                 expandedVariants = Collections.emptyList();
                 dropdownScrollAnim.reset(0);
                 updateDropdownAnimation();
@@ -456,30 +541,36 @@ public class BlockSearchComponent extends Component implements FocusableTextComp
                 return true;
             }
             if (rowIdx == 1) {
-                setting.addBlock(expandedGroupId + ":*");
+                setting.addItem(expandedAllSelectionStorageId != null ? expandedAllSelectionStorageId : expandedGroupId + ":*");
                 closeDropdownAndClearExpansion();
                 return true;
             }
+
             int variantIdx = rowIdx - 2;
             if (variantIdx >= 0 && variantIdx < expandedVariants.size()) {
-                BlockSearchIndex.BlockEntry entry = expandedVariants.get(variantIdx);
-                setting.addBlock(entry.storageId);
+                ItemSearchIndex.ItemEntry entry = expandedVariants.get(variantIdx);
+                setting.addItem(entry.storageId);
                 closeDropdownAndClearExpansion();
                 return true;
             }
             return true;
         }
 
-        BlockSearchIndex.GroupedBlockResult result = cachedResults.get(rowIdx);
+        ItemSearchIndex.GroupedItemResult result = cachedResults.get(rowIdx);
         if (result.isSingleVariant()) {
-            setting.addBlock(result.variants.get(0).storageId);
+            setting.addItem(result.variants.get(0).storageId);
             closeDropdownAndClearExpansion();
             return true;
         }
+
         expandedGroupId = result.registryId;
-        expandedVariants = new ArrayList<>();
-        for (BlockSearchIndex.BlockEntry e : result.variants) {
-            if (!setting.contains(e.storageId)) expandedVariants.add(e);
+        expandedGroupLabel = result.getGroupDisplayName();
+        expandedAllSelectionStorageId = result.getAllSelectionStorageId();
+        expandedVariants = new ArrayList<ItemSearchIndex.ItemEntry>();
+        for (ItemSearchIndex.ItemEntry entry : result.variants) {
+            if (!setting.containsItem(entry.storageId)) {
+                expandedVariants.add(entry);
+            }
         }
         dropdownScrollAnim.reset(0);
         updateDropdownAnimation();
@@ -492,6 +583,8 @@ public class BlockSearchComponent extends Component implements FocusableTextComp
         searchField.setFocused(false);
         cachedResults = Collections.emptyList();
         expandedGroupId = null;
+        expandedGroupLabel = null;
+        expandedAllSelectionStorageId = null;
         expandedVariants = Collections.emptyList();
         dropdownScrollAnim.reset(0);
         markUnsaved();
@@ -500,17 +593,17 @@ public class BlockSearchComponent extends Component implements FocusableTextComp
         moduleComponent.updateSettingPositions();
     }
 
-    private boolean handleSelectedRemoveClick(int mouseX, int mouseY, Layout L) {
-        float dropdownH = getAnimatedDropdownHeight();
-        float selY = L.contentTop + dropdownH + SELECTED_LIST_GAP;
+    private boolean handleSelectedRemoveClick(int mouseX, int mouseY, Layout layout) {
+        float dropdownHeight = getAnimatedDropdownHeight();
+        float selectedY = layout.contentTop + dropdownHeight + SELECTED_LIST_GAP;
         float offsetPx = selectedScrollAnim.getValue();
-        List<String> blocks = new ArrayList<>(setting.getBlocks());
-        for (int i = 0; i < blocks.size(); i++) {
-            float rowTop = selY - offsetPx + i * ROW_HEIGHT;
-            float closeX = L.right - CLOSE_SIZE - CLOSE_PAD;
+        List<String> items = new ArrayList<String>(setting.getItems());
+        for (int i = 0; i < items.size(); i++) {
+            float rowTop = selectedY - offsetPx + i * ROW_HEIGHT;
+            float closeX = layout.right - CLOSE_SIZE - CLOSE_PAD;
             float closeY = rowTop + (ROW_HEIGHT - CLOSE_SIZE) / 2f;
             if (mouseX >= closeX && mouseX <= closeX + CLOSE_SIZE && mouseY >= closeY && mouseY <= closeY + CLOSE_SIZE) {
-                setting.removeBlock(blocks.get(i));
+                setting.removeItem(items.get(i));
                 markUnsaved();
                 selectedRowsCache = null;
                 updateDropdownAnimation();
@@ -521,14 +614,15 @@ public class BlockSearchComponent extends Component implements FocusableTextComp
         return false;
     }
 
-    private boolean handleSearchFocusClick(int mouseX, int mouseY, Layout L) {
+    private boolean handleSearchFocusClick(int mouseX, int mouseY, Layout layout) {
         ensureSearchField();
-        float boxTop = L.contentTop - ROW_HEIGHT + 1f;
-        float boxBottom = L.contentTop - 1f;
-        if (searchField.contains(mouseX, mouseY, L.left, boxTop, L.right, boxBottom)) {
+        float boxTop = layout.contentTop - ROW_HEIGHT + 1f;
+        float boxBottom = layout.contentTop - 1f;
+        if (searchField.contains(mouseX, mouseY, layout.left, boxTop, layout.right, boxBottom)) {
             searchField.setFocused(true);
-            if (!searchField.getText().isEmpty() && cachedResults.isEmpty())
-                cachedResults = BlockSearchIndex.searchGrouped(searchField.getText(), setting);
+            if (!searchField.getText().isEmpty() && cachedResults.isEmpty()) {
+                cachedResults = ItemSearchIndex.searchGrouped(searchField.getText(), setting);
+            }
             updateDropdownAnimation();
             return true;
         }
@@ -537,42 +631,57 @@ public class BlockSearchComponent extends Component implements FocusableTextComp
 
     @Override
     public void onScroll(int scroll) {
-        if (!moduleComponent.isOpened || !moduleComponent.isVisible(this)) return;
+        if (!moduleComponent.isOpened || !moduleComponent.isVisible(this)) {
+            return;
+        }
+
         float scrollSpeed = (float) Gui.scrollSpeed.getInput();
         float delta = scrollSpeed * (scroll / 120f);
         if (isMouseOverDropdown()) {
-            if (delta != 0f) dropdownScrollAnim.extend(-delta);
+            if (delta != 0f) {
+                dropdownScrollAnim.extend(-delta);
+            }
             float maxScrollPx = Math.max(0f, (getDropdownRowCount() - MAX_VISIBLE_RESULTS) * ROW_HEIGHT);
             dropdownScrollAnim.clampTarget(0f, maxScrollPx);
             return;
         }
-        if (isMouseOverSelectedList() && setting.getBlocks().size() > MAX_VISIBLE_SELECTED) {
-            if (delta != 0f) selectedScrollAnim.extend(-delta);
-            float maxScrollPx = Math.max(0f, (setting.getBlocks().size() - MAX_VISIBLE_SELECTED) * ROW_HEIGHT);
+        if (isMouseOverSelectedList() && setting.getItems().size() > MAX_VISIBLE_SELECTED) {
+            if (delta != 0f) {
+                selectedScrollAnim.extend(-delta);
+            }
+            float maxScrollPx = Math.max(0f, (setting.getItems().size() - MAX_VISIBLE_SELECTED) * ROW_HEIGHT);
             selectedScrollAnim.clampTarget(0f, maxScrollPx);
         }
     }
 
     @Override
     public void keyTyped(char typedChar, int keyCode) {
-        if (!moduleComponent.isOpened) return;
+        if (!moduleComponent.isOpened) {
+            return;
+        }
         if (keyCode == Keyboard.KEY_ESCAPE && isSearchFocused()) {
             if (expandedGroupId != null) {
                 expandedGroupId = null;
+                expandedGroupLabel = null;
+                expandedAllSelectionStorageId = null;
                 expandedVariants = Collections.emptyList();
                 dropdownScrollAnim.reset(0);
                 updateDropdownAnimation();
                 moduleComponent.updateSettingPositions();
-            } else {
+            }
+            else {
                 unfocusSearch();
             }
             return;
         }
+
         ensureSearchField();
         if (searchField.textboxKeyTyped(typedChar, keyCode)) {
             expandedGroupId = null;
+            expandedGroupLabel = null;
+            expandedAllSelectionStorageId = null;
             expandedVariants = Collections.emptyList();
-            cachedResults = BlockSearchIndex.searchGrouped(searchField.getText(), setting);
+            cachedResults = ItemSearchIndex.searchGrouped(searchField.getText(), setting);
             dropdownScrollAnim.reset(0);
             updateDropdownAnimation();
             moduleComponent.updateSettingPositions();
@@ -587,6 +696,8 @@ public class BlockSearchComponent extends Component implements FocusableTextComp
         }
         cachedResults = Collections.emptyList();
         expandedGroupId = null;
+        expandedGroupLabel = null;
+        expandedAllSelectionStorageId = null;
         expandedVariants = Collections.emptyList();
         selectedRowsCache = null;
         dropdownScrollAnim.reset(0);
@@ -598,17 +709,20 @@ public class BlockSearchComponent extends Component implements FocusableTextComp
     }
 
     private void markUnsaved() {
-        if (Raven.currentProfile != null)
+        if (Raven.currentProfile != null) {
             Raven.currentProfile.getModule().saved = false;
+        }
     }
 
     private static void ensureProcessedCloseTexture() {
-        if (processedClose == null)
+        if (processedClose == null) {
             processedClose = RenderUtils.buildWhiteMaskedTexture("/assets/keystrokesmod/textures/gui/close.png", "raven_close_white", CLOSE_ICON);
+        }
     }
 
     private static void ensureProcessedArrowTexture() {
-        if (processedArrow == null)
+        if (processedArrow == null) {
             processedArrow = RenderUtils.buildWhiteMaskedTexture("/assets/keystrokesmod/textures/gui/arrow_left.png", "raven_arrow_left_white", ARROW_ICON);
+        }
     }
 }

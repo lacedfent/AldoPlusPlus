@@ -8,201 +8,290 @@ import keystrokesmod.mixin.interfaces.IMixinItemRenderer;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.setting.impl.BlockListSetting;
 import keystrokesmod.module.setting.impl.ButtonSetting;
+import keystrokesmod.module.setting.impl.GroupSetting;
+import keystrokesmod.module.setting.impl.ItemListSetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
 import keystrokesmod.utility.BlockUtils;
 import keystrokesmod.utility.RotationUtils;
 import keystrokesmod.utility.Utils;
 import net.minecraft.block.Block;
 import net.minecraft.block.state.IBlockState;
-import net.minecraft.item.ItemBlock;
-import net.minecraft.item.ItemStack;
+import net.minecraft.util.BlockPos;
 import net.minecraft.util.MovingObjectPosition;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import org.lwjgl.input.Mouse;
 
 public class AutoTool extends Module {
-    private SliderSetting hoverDelay;
-    private SliderSetting swapDelay;
+    private final GroupSetting timingGroup;
+    private final SliderSetting activationTime;
+    private final SliderSetting hoverDelay;
 
-    private ButtonSetting disableOnInteractable;
-    private ButtonSetting disableWhileHoldingBlocks;
-    private ButtonSetting rightDisable;
-    private ButtonSetting requireCrouch;
-    private ButtonSetting requireMouse;
-    public ButtonSetting spoofItem;
-    private ButtonSetting swapBack;
-    private ButtonSetting overrideSwapBack;
-    private ButtonSetting blockWhitelistToggle;
-    private BlockListSetting blockWhitelist;
+    private final ButtonSetting ignoredHeldItemsToggle;
+    private final ItemListSetting ignoredHeldItems;
 
-    private boolean hasSwapped = false;
-    private int swapDelayTick = 0;
+    private final GroupSetting conditionsGroup;
+    private final ButtonSetting onlyWhileCrouching;
+    private final ButtonSetting requireLeftMouse;
+
+    private final GroupSetting swapGroup;
+    private final ButtonSetting switchBackWhenDone;
+    private final ButtonSetting overrideSwapBack;
+    public final ButtonSetting spoofItem;
+
+    private final ButtonSetting restrictAllowedBlocks;
+    private final BlockListSetting allowedBlocks;
+
+    private boolean hasSwapped;
     public int previousSlot = -1;
-    private long ticksHovered;
+    private int tickCounter;
+    private int leftMouseDownSinceTick = -1;
+    private int hoverStartTick = -1;
 
     public AutoTool() {
         super("AutoTool", category.player);
-        this.registerSetting(hoverDelay = new SliderSetting("Hover delay", "ms", 0.0, 0.0, 1000.0, 50.0));
-        this.registerSetting(swapDelay = new SliderSetting("Swap delay", "ms", 0.0, 0.0, 1000.0, 50.0));
-        this.registerSetting(disableOnInteractable = new ButtonSetting("Disable on interactable", true));
-        this.registerSetting(disableWhileHoldingBlocks = new ButtonSetting("Disable while holding blocks", true));
-        this.registerSetting(rightDisable = new ButtonSetting("Disable while right click", true));
-        this.registerSetting(requireCrouch = new ButtonSetting("Only while crouching", false));
-        this.registerSetting(requireMouse = new ButtonSetting("Require mouse down", true));
-        this.registerSetting(spoofItem = new ButtonSetting("Spoof item", false));
-        this.registerSetting(swapBack = new ButtonSetting("Swap to previous slot", true));
-        this.registerSetting(overrideSwapBack = new ButtonSetting("Override swap back", false));
-        this.registerSetting(blockWhitelistToggle = new ButtonSetting("Block whitelist", false));
-        this.registerSetting(blockWhitelist = new BlockListSetting("Blocks"));
+
+        this.registerSetting(timingGroup = new GroupSetting("Timing"));
+        this.registerSetting(activationTime = new SliderSetting(timingGroup, "Activation time", "ms", 0.0, 0.0, 1000.0, 25.0));
+        this.registerSetting(hoverDelay = new SliderSetting(timingGroup, "Hover delay", "ms", 0.0, 0.0, 1000.0, 25.0));
+
+        this.registerSetting(conditionsGroup = new GroupSetting("Conditions"));
+        this.registerSetting(onlyWhileCrouching = new ButtonSetting(conditionsGroup, "Only while crouching", false));
+        this.registerSetting(requireLeftMouse = new ButtonSetting(conditionsGroup, "Require Left mouse", true, "Require mouse down"));
+
+        this.registerSetting(swapGroup = new GroupSetting("Swap"));
+        this.registerSetting(switchBackWhenDone = new ButtonSetting(swapGroup, "Switch back when done", true, "Swap to previous slot"));
+        this.registerSetting(overrideSwapBack = new ButtonSetting(swapGroup, "Override swap back", true));
+        this.registerSetting(spoofItem = new ButtonSetting(swapGroup, "Spoof item", false));
+
+        this.registerSetting(ignoredHeldItemsToggle = new ButtonSetting("Ignore held items", false, "Restrict held items", "Allow while holding"));
+        this.registerSetting(ignoredHeldItems = new ItemListSetting("Items"));
+        this.registerSetting(restrictAllowedBlocks = new ButtonSetting("Restrict allowed blocks", false, "Block whitelist"));
+        this.registerSetting(allowedBlocks = new BlockListSetting("Blocks"));
         this.closetModule = true;
     }
 
     @Override
     public void guiUpdate() {
-        blockWhitelist.setVisible(blockWhitelistToggle.isToggled(), this);
+        activationTime.setVisible(requireLeftMouse.isToggled(), this);
+        ignoredHeldItems.setVisible(ignoredHeldItemsToggle.isToggled(), this);
+        allowedBlocks.setVisible(restrictAllowedBlocks.isToggled(), this);
+    }
+
+    @Override
+    public void onEnable() {
+        resetState(true);
     }
 
     @Override
     public void onDisable() {
-        resetVariables(true);
+        resetState(true);
     }
 
     @SubscribeEvent
     public void onScrollSlot(PreSlotScrollEvent e) {
-        if (!overrideSwapBack.isToggled() || !hasSwapped) {
+        if (!hasSwapped) {
             return;
         }
-        int slot = e.slot;
-        slot = Integer.compare(slot, 0);
-        slot = Math.floorMod(mc.thePlayer.inventory.currentItem - slot, 9);
-        previousSlot = slot;
+        if (overrideSwapBack.isToggled()) {
+            int slot = Integer.compare(e.slot, 0);
+            previousSlot = Math.floorMod(mc.thePlayer.inventory.currentItem - slot, 9);
+        }
         e.setCanceled(true);
     }
 
     @SubscribeEvent
     public void onSlotUpdate(SlotUpdateEvent e) {
-        if (!overrideSwapBack.isToggled() || !hasSwapped) {
+        if (!hasSwapped) {
             return;
         }
-        previousSlot = e.slot;
+        if (overrideSwapBack.isToggled()) {
+            previousSlot = e.slot;
+        }
         e.setCanceled(true);
     }
 
     @SubscribeEvent
     public void onPrePlayerInteract(PrePlayerInteractEvent e) {
-        if (spoofItem.isToggled() && previousSlot != mc.thePlayer.inventory.currentItem && this.previousSlot != -1) {
+        if (!Utils.nullCheck()) {
+            resetState(true);
+            return;
+        }
+
+        if (spoofItem.isToggled() && previousSlot != mc.thePlayer.inventory.currentItem && previousSlot != -1) {
             ((IMixinItemRenderer) mc.getItemRenderer()).setCancelUpdate(true);
             ((IMixinItemRenderer) mc.getItemRenderer()).setCancelReset(true);
         }
-        double reach = mc.playerController.getBlockReachDistance();
-        MovingObjectPosition hoverBlock = RotationUtils.rayTraceBlockIfNoEntityInFront(reach, mc.thePlayer.rotationYaw, mc.thePlayer.rotationPitch);
-        if (this.hoverDelay.getInput() != 0) {
-            if (hoverBlock == null || hoverBlock.typeOfHit != MovingObjectPosition.MovingObjectType.BLOCK) {
-                resetSlot();
-                resetVariables(true);
-                return;
-            }
-            long ticks = this.ticksHovered + 1L;
-            this.ticksHovered = ticks;
-            long hoverDelayTicks = (long) (this.hoverDelay.getInput() / 50.0); // ms to ticks (50ms = 1 tick)
-            if (ticks < hoverDelayTicks) {
-                return;
-            }
-        }
-        if (!mc.inGameHasFocus || mc.currentScreen != null || (rightDisable.isToggled() && Mouse.isButtonDown(1)) || !mc.thePlayer.capabilities.allowEdit || (requireCrouch.isToggled() && !mc.thePlayer.isSneaking()) || disableInteractable(hoverBlock) || disableBlocks()) {
-            resetVariables(false);
+
+        int currentTick = ++tickCounter;
+        boolean leftMouseDown = Mouse.isButtonDown(0);
+        updateLeftMouseState(leftMouseDown, currentTick);
+
+        if (!mc.inGameHasFocus || mc.currentScreen != null || mc.thePlayer.isDead || !mc.thePlayer.capabilities.allowEdit) {
+            resetState(true);
             return;
         }
-        if (!mc.gameSettings.keyBindAttack.isKeyDown() && requireMouse.isToggled()) {
+
+        MovingObjectPosition hoverResult = RotationUtils.rayTraceBlockIfNoEntityInFront(
+            mc.playerController.getBlockReachDistance(),
+            mc.thePlayer.rotationYaw,
+            mc.thePlayer.rotationPitch
+        );
+        BlockPos hoverPos = hoverResult != null
+            && hoverResult.typeOfHit == MovingObjectPosition.MovingObjectType.BLOCK
+            ? hoverResult.getBlockPos()
+            : null;
+        updateHoverState(hoverPos, currentTick);
+
+        if (hoverPos == null) {
             resetSlot();
             return;
         }
-        if (hoverBlock == null || hoverBlock.typeOfHit != MovingObjectPosition.MovingObjectType.BLOCK || hoverBlock.getBlockPos() == null) {
-            resetVariables(false);
+
+        if (onlyWhileCrouching.isToggled() && !mc.thePlayer.isSneaking()) {
+            resetSlot();
             return;
         }
-        MovingObjectPosition target = mc.objectMouseOver;
-        if (target == null || target.typeOfHit != MovingObjectPosition.MovingObjectType.BLOCK || target.getBlockPos() == null) {
-            resetVariables(false);
-            return;
-        }
-        if (blockWhitelistToggle.isToggled() && !blockWhitelist.getBlocks().isEmpty()) {
-            IBlockState state = BlockUtils.getBlockState(target.getBlockPos());
-            Block hoveredBlock = state.getBlock();
-            String registryId = hoveredBlock != null && Block.blockRegistry.getNameForObject(hoveredBlock) != null
-                    ? Block.blockRegistry.getNameForObject(hoveredBlock).toString() : "";
-            if (!registryId.isEmpty()) {
-                int meta = hoveredBlock.getMetaFromState(state);
-                String storageId = meta != 0 ? registryId + ":" + meta : registryId;
-                if (!blockWhitelist.contains(storageId) && !blockWhitelist.contains(registryId)) {
-                    resetVariables(false);
-                    return;
-                }
-            } else {
-                resetVariables(false);
+
+        if (requireLeftMouse.isToggled()) {
+            if (!leftMouseDown) {
+                resetSlot();
+                return;
+            }
+            if (!hasElapsed(leftMouseDownSinceTick, activationTime.getInput(), currentTick)) {
+                resetSlot();
                 return;
             }
         }
-        int slot = Utils.getTool(BlockUtils.getBlock(target.getBlockPos()));
+
+        if (!hasElapsed(hoverStartTick, hoverDelay.getInput(), currentTick)) {
+            resetSlot();
+            return;
+        }
+
+        if (isUseBlocked()) {
+            resetSlot();
+            return;
+        }
+
+        if (restrictAllowedBlocks.isToggled() && !isAllowedBlock(hoverPos)) {
+            resetSlot();
+            return;
+        }
+
+        MovingObjectPosition swapResult = mc.objectMouseOver;
+        BlockPos swapPos = swapResult != null
+            && swapResult.typeOfHit == MovingObjectPosition.MovingObjectType.BLOCK
+            ? swapResult.getBlockPos()
+            : null;
+        if (swapPos == null) {
+            resetSlot();
+            return;
+        }
+
+        int slot = Utils.getTool(BlockUtils.getBlock(swapPos));
         if (slot == -1) {
             return;
         }
-        if (previousSlot == -1) {
+
+        if (previousSlot == -1 && slot != mc.thePlayer.inventory.currentItem) {
             previousSlot = mc.thePlayer.inventory.currentItem;
         }
+
         if (!hasSwapped) {
             setSlot(slot);
+            return;
         }
-        else if (slot != mc.thePlayer.inventory.currentItem) {
-            if (swapDelayTick-- <= 0) {
-                setSlot(slot);
-                swapDelayTick = (int) (swapDelay.getInput() / 50.0); // ms to ticks (50ms = 1 tick)
+
+        if (slot != mc.thePlayer.inventory.currentItem) {
+            setSlot(slot);
+        }
+    }
+
+    private void updateLeftMouseState(boolean leftMouseDown, int currentTick) {
+        if (leftMouseDown) {
+            if (leftMouseDownSinceTick == -1) {
+                leftMouseDownSinceTick = currentTick;
             }
         }
-    }
-
-    private boolean disableBlocks() {
-        if (disableWhileHoldingBlocks.isToggled()) {
-            ItemStack heldItem = mc.thePlayer.getHeldItem();
-            return heldItem != null && heldItem.getItem() instanceof ItemBlock && Utils.canBePlaced((ItemBlock) heldItem.getItem());
+        else {
+            leftMouseDownSinceTick = -1;
         }
-        return false;
     }
 
-    private boolean disableInteractable(MovingObjectPosition over) {
-        if (disableOnInteractable.isToggled()) {
-            return BlockUtils.isInteractable(over);
+    private void updateHoverState(BlockPos hoverPos, int currentTick) {
+        if (hoverPos == null) {
+            hoverStartTick = -1;
+            return;
         }
-        return false;
+
+        if (hoverStartTick == -1) {
+            hoverStartTick = currentTick;
+        }
     }
 
-    private void resetVariables(boolean resetHover) {
-        if (resetHover) {
-            ticksHovered = 0;
+    private boolean isUseBlocked() {
+        boolean useActive = Utils.isBindDown(mc.gameSettings.keyBindUseItem) || mc.thePlayer.isUsingItem();
+        if (ignoredHeldItemsToggle.isToggled() && ignoredHeldItems.matches(mc.thePlayer.getHeldItem())) {
+            return true;
+        }
+        return useActive;
+    }
+
+    private boolean isAllowedBlock(BlockPos blockPos) {
+        if (allowedBlocks.getBlocks().isEmpty()) {
+            return false;
+        }
+
+        IBlockState state = BlockUtils.getBlockState(blockPos);
+        Block hoveredBlock = state.getBlock();
+        if (hoveredBlock == null || Block.blockRegistry.getNameForObject(hoveredBlock) == null) {
+            return false;
+        }
+
+        String registryId = Block.blockRegistry.getNameForObject(hoveredBlock).toString();
+        int meta = hoveredBlock.getMetaFromState(state);
+        String storageId = meta != 0 ? registryId + ":" + meta : registryId;
+        return allowedBlocks.contains(storageId) || allowedBlocks.contains(registryId);
+    }
+
+    private boolean hasElapsed(int startTick, double requiredMs, int currentTick) {
+        int requiredTicks = getRequiredTicks(requiredMs);
+        if (requiredTicks <= 0) {
+            return true;
+        }
+        return startTick != -1 && currentTick - startTick >= requiredTicks;
+    }
+
+    private int getRequiredTicks(double requiredMs) {
+        if (requiredMs <= 0.0) {
+            return 0;
+        }
+        return (int) Math.ceil(requiredMs / 50.0);
+    }
+
+    private void resetState(boolean resetTimers) {
+        if (resetTimers) {
+            tickCounter = 0;
+            leftMouseDownSinceTick = -1;
+            hoverStartTick = -1;
         }
         resetSlot();
-        previousSlot = -1;
-        hasSwapped = false;
-        swapDelayTick = 0;
     }
 
     private void resetSlot() {
-        if (previousSlot == -1 || !swapBack.isToggled()) {
-            return;
+        if (previousSlot != -1 && switchBackWhenDone.isToggled()) {
+            setSlot(previousSlot);
         }
-        setSlot(previousSlot);
         previousSlot = -1;
         hasSwapped = false;
-        swapDelayTick = 0;
     }
 
-    public void setSlot(int currentItem) {
+    private void setSlot(int currentItem) {
         if (currentItem == -1 || currentItem == mc.thePlayer.inventory.currentItem) {
             return;
         }
         mc.thePlayer.inventory.currentItem = currentItem;
         hasSwapped = true;
-        swapDelayTick = (int) (swapDelay.getInput() / 50.0); // ms to ticks (50ms = 1 tick)
         ((IAccessorPlayerControllerMP) mc.playerController).callSyncCurrentPlayItem();
     }
 }

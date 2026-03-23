@@ -81,7 +81,15 @@ public class AutoClicker extends Module {
             if (mc.currentScreen != null || !mc.inGameHasFocus) return;
             if (weaponOnly.isToggled() && !Utils.holdingWeapon()) return;
 
-            if (breakBlocks.isToggled() && mc.objectMouseOver != null) {
+            if (breakBlocks.isToggled()) {
+                if (!mc.thePlayer.capabilities.allowEdit) {
+                    if (this.isHoldingBlockBreak) {
+                        KeyBinding.setKeyBindState(key, false);
+                        ReflectionUtils.setButton(0, false);
+                        this.isHoldingBlockBreak = false;
+                    }
+                }
+                else if (mc.objectMouseOver != null) {
                 BlockPos pos = mc.objectMouseOver.getBlockPos();
                 if (pos != null) {
                     Block block = mc.theWorld.getBlockState(pos).getBlock();
@@ -101,6 +109,7 @@ public class AutoClicker extends Module {
                     }
                 } else {
                     this.isHoldingBlockBreak = false;
+                }
                 }
             }
 

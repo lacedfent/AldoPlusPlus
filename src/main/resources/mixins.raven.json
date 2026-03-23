@@ -30,6 +30,8 @@
     "client.MixinPlayerControllerMP",
     "world.MixinBlock",
     "render.MixinRenderPlayer",
+    "render.MixinTileEntityChestRenderer",
+    "render.MixinTileEntityEnderChestRenderer",
     "client.MixinGameSettings",
     "client.MixinItemStack",
     "accessor.IAccessorEntityPlayerSP",

@@ -25,7 +25,9 @@ import org.lwjgl.opengl.GL11;
 import java.awt.*;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
@@ -90,13 +92,31 @@ public class CategoryComponent {
         return this.modules;
     }
 
+    public void reloadModules() {
+        Map<String, Boolean> openStates = captureModuleOpenStates();
+        this.modules.clear();
+        this.titleHeight = 13;
+        float moduleRenderY = this.titleHeight + 3;
+
+        for (Module mod : Raven.getModuleManager().inCategory(this.category)) {
+            ModuleComponent component = new ModuleComponent(mod, this, moduleRenderY);
+            component.restoreOpenState(Boolean.TRUE.equals(openStates.get(mod.getName())));
+            this.modules.add(component);
+            moduleRenderY += 16;
+        }
+
+        syncAfterModuleReload();
+    }
+
     public void reloadModules(boolean isProfile) {
+        Map<String, Boolean> openStates = captureModuleOpenStates();
         this.modules.clear();
         this.titleHeight = 13;
         float moduleRenderY = this.titleHeight + 3;
 
         if ((this.category == Module.category.profiles && isProfile) || (this.category == Module.category.scripts && !isProfile)) {
             ModuleComponent manager = new ModuleComponent(isProfile ? new Manager() : new keystrokesmod.script.Manager(), this, moduleRenderY);
+            manager.restoreOpenState(Boolean.TRUE.equals(openStates.get(manager.mod.getName())));
             this.modules.add(manager);
 
             if ((Raven.profileManager == null && isProfile) || (Raven.scriptManager == null && !isProfile)) {
@@ -107,6 +127,7 @@ public class CategoryComponent {
                 for (Profile profile : Raven.profileManager.profiles) {
                     moduleRenderY += 16;
                     ModuleComponent b = new ModuleComponent(profile.getModule(), this, moduleRenderY);
+                    b.restoreOpenState(Boolean.TRUE.equals(openStates.get(profile.getModule().getName())));
                     this.modules.add(b);
                 }
             }
@@ -116,12 +137,23 @@ public class CategoryComponent {
                 for (Module module : sortedModules) {
                     moduleRenderY += 16;
                     ModuleComponent b = new ModuleComponent(module, this, moduleRenderY);
+                    b.restoreOpenState(Boolean.TRUE.equals(openStates.get(module.getName())));
                     this.modules.add(b);
                 }
             }
         }
 
         syncAfterModuleReload();
+    }
+
+    private Map<String, Boolean> captureModuleOpenStates() {
+        Map<String, Boolean> openStates = new HashMap<String, Boolean>();
+        for (ModuleComponent moduleComponent : this.modules) {
+            if (moduleComponent.mod != null) {
+                openStates.put(moduleComponent.mod.getName(), moduleComponent.isOpened);
+            }
+        }
+        return openStates;
     }
 
     private void syncAfterModuleReload() {
@@ -215,9 +247,16 @@ public class CategoryComponent {
         if (!Float.isNaN(mouseX) && !Float.isNaN(mouseY)) {
             for (ModuleComponent mod : this.modules) {
                 for (Component comp : mod.settings) {
+                    if (!mod.isOpened || !mod.isVisible(comp)) {
+                        continue;
+                    }
                     if (comp instanceof BlockSearchComponent) {
                         BlockSearchComponent bsc = (BlockSearchComponent) comp;
-                        if (bsc.isMouseOverDropdown(mouseX, mouseY) || bsc.isMouseOverSelectedList(mouseX, mouseY))
+                        if (bsc.capturesCategoryScroll(mouseX, mouseY))
+                            return;
+                    } else if (comp instanceof ItemSearchComponent) {
+                        ItemSearchComponent isc = (ItemSearchComponent) comp;
+                        if (isc.capturesCategoryScroll(mouseX, mouseY))
                             return;
                     }
                 }

@@ -4,6 +4,8 @@ import keystrokesmod.mixin.impl.accessor.IAccessorMinecraft;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.impl.world.AntiBot;
 import keystrokesmod.module.setting.impl.ButtonSetting;
+import keystrokesmod.module.setting.impl.ItemListSetting;
+import keystrokesmod.utility.ItemSearchIndex;
 import keystrokesmod.utility.RenderUtils;
 import keystrokesmod.utility.Utils;
 import net.minecraft.client.renderer.GlStateManager;
@@ -14,6 +16,7 @@ import net.minecraft.init.Blocks;
 import net.minecraft.init.Items;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemBow;
+import net.minecraft.item.ItemStack;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.MathHelper;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
@@ -25,22 +28,58 @@ import java.util.*;
 import java.util.List;
 
 public class MurderMystery extends Module {
-    private ButtonSetting alert;
-    private ButtonSetting highlightMurderer;
-    private ButtonSetting highlightBow;
-    private ButtonSetting highlightInnocent;
-    private ButtonSetting highlightDead;
-    private ButtonSetting goldEsp;
+    private final ItemListSetting murderWeapons;
+    private final ButtonSetting alert;
+    private final ButtonSetting highlightMurderer;
+    private final ButtonSetting highlightBow;
+    private final ButtonSetting highlightInnocent;
+    private final ButtonSetting highlightDead;
+    private final ButtonSetting goldEsp;
 
-    private final List<EntityPlayer> murderers = new ArrayList();
-    private final List<EntityPlayer> hasBow = new ArrayList();
+    private final List<EntityPlayer> murderers = new ArrayList<EntityPlayer>();
+    private final List<EntityPlayer> hasBow = new ArrayList<EntityPlayer>();
 
     private boolean override;
 
-    private List<Item> murderItems = Arrays.asList(Items.iron_sword, Items.stone_sword, Items.iron_shovel, Items.stick, Items.wooden_axe, Items.wooden_sword, Items.stone_shovel, Items.blaze_rod, Items.diamond_shovel, Items.quartz, Items.pumpkin_pie, Items.golden_pickaxe, Items.apple, Items.name_tag, Items.carrot_on_a_stick, Items.bone, Items.carrot, Items.golden_carrot, Items.cookie, Items.diamond_axe, Items.prismarine_shard, Items.cooked_beef, Items.netherbrick, Items.cooked_chicken, Items.golden_sword, Items.diamond_sword, Items.diamond_hoe, Items.shears, Items.fish, Items.dye, Items.boat, Items.speckled_melon, Items.book, Item.getItemFromBlock(Blocks.double_plant), Item.getItemFromBlock(Blocks.sponge), Item.getItemFromBlock(Blocks.deadbush));
-
     public MurderMystery() {
         super("Murder Mystery", category.minigames);
+        this.registerSetting(murderWeapons = new ItemListSetting("Murder weapons"));
+        addDefaultMurderWeapon(Items.iron_sword);
+        addDefaultMurderWeapon(Items.stone_sword);
+        addDefaultMurderWeapon(Items.iron_shovel);
+        addDefaultMurderWeapon(Items.stick);
+        addDefaultMurderWeapon(Items.wooden_axe);
+        addDefaultMurderWeapon(Items.wooden_sword);
+        addDefaultMurderWeapon(Items.stone_shovel);
+        addDefaultMurderWeapon(Items.blaze_rod);
+        addDefaultMurderWeapon(Items.diamond_shovel);
+        addDefaultMurderWeapon(Items.quartz);
+        addDefaultMurderWeapon(Items.pumpkin_pie);
+        addDefaultMurderWeapon(Items.golden_pickaxe);
+        addDefaultMurderWeapon(Items.apple);
+        addDefaultMurderWeapon(Items.name_tag);
+        addDefaultMurderWeapon(Items.carrot_on_a_stick);
+        addDefaultMurderWeapon(Items.bone);
+        addDefaultMurderWeapon(Items.carrot);
+        addDefaultMurderWeapon(Items.golden_carrot);
+        addDefaultMurderWeapon(Items.cookie);
+        addDefaultMurderWeapon(Items.diamond_axe);
+        addDefaultMurderWeapon(Items.prismarine_shard);
+        addDefaultMurderWeapon(Items.cooked_beef);
+        addDefaultMurderWeapon(Items.netherbrick);
+        addDefaultMurderWeapon(Items.cooked_chicken);
+        addDefaultMurderWeapon(Items.golden_sword);
+        addDefaultMurderWeapon(Items.diamond_sword);
+        addDefaultMurderWeapon(Items.diamond_hoe);
+        addDefaultMurderWeapon(Items.shears);
+        addDefaultMurderWeapon(Items.fish);
+        addDefaultMurderWeapon(Items.dye);
+        addDefaultMurderWeapon(Items.boat);
+        addDefaultMurderWeapon(Items.speckled_melon);
+        addDefaultMurderWeapon(Items.book);
+        addDefaultMurderWeapon(Item.getItemFromBlock(Blocks.double_plant));
+        addDefaultMurderWeapon(Item.getItemFromBlock(Blocks.sponge));
+        addDefaultMurderWeapon(Item.getItemFromBlock(Blocks.deadbush));
         this.registerSetting(alert = new ButtonSetting("Alert murderer", true));
         this.registerSetting(highlightMurderer = new ButtonSetting("Highlight murderer", true));
         this.registerSetting(highlightBow = new ButtonSetting("Highlight bow", true));
@@ -67,8 +106,9 @@ public class MurderMystery extends Module {
                             continue;
                         }
                         if (en.getHeldItem() != null) {
-                            Item heldItem = en.getHeldItem().getItem();
-                            if (murderItems.contains(heldItem)) {
+                            ItemStack heldStack = en.getHeldItem();
+                            Item heldItem = heldStack.getItem();
+                            if (murderWeapons.matches(heldStack)) {
                                 if (!murderers.contains(en)) {
                                     murderers.add(en);
                                     if (alert.isToggled()) {
@@ -113,7 +153,7 @@ public class MurderMystery extends Module {
                             continue;
                         }
                         Item getItem = entityItem.getEntityItem().getItem();
-                        if (getItem == null) {
+                        if (getItem == null || getItem != Items.gold_ingot) {
                             continue;
                         }
                         double n5 = entity.lastTickPosX + (entity.posX - entity.lastTickPosX) * renderPartialTicks;
@@ -201,5 +241,18 @@ public class MurderMystery extends Module {
         double height = boundingBox.maxY - boundingBox.minY;
 
         return length * width * height;
+    }
+
+    private void addDefaultMurderWeapon(Item item) {
+        if (item == null) {
+            return;
+        }
+
+        String registryId = ItemSearchIndex.getRegistryId(item);
+        if (registryId == null) {
+            return;
+        }
+
+        murderWeapons.addItem(ItemSearchIndex.hasMultipleVariants(item) ? registryId + ":*" : registryId);
     }
 }

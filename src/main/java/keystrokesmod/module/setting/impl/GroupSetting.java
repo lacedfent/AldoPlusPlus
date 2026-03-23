@@ -7,6 +7,7 @@ import java.util.List;
 
 public class GroupSetting extends Setting {
     private List<Setting> settings;
+    private boolean opened;
 
     public GroupSetting(String name) {
         super(name);
@@ -22,6 +23,14 @@ public class GroupSetting extends Setting {
 
     public void removeSetting(Setting setting) {
         settings.remove(setting);
+    }
+
+    public boolean isOpened() {
+        return opened;
+    }
+
+    public void setOpened(boolean opened) {
+        this.opened = opened;
     }
 
     @Override
