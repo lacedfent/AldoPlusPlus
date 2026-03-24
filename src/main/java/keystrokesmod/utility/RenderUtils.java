@@ -1522,8 +1522,7 @@ public class RenderUtils implements IMinecraftInstance {
         GlStateManager.pushMatrix();
         GlStateManager.depthMask(true);
         GlStateManager.clear(GL11.GL_DEPTH_BUFFER_BIT);
-        RenderHelper.enableGUIStandardItemLighting();
-        GL11.glDisable(GL11.GL_LIGHTING);
+        RenderHelper.enableStandardItemLighting();
         GlStateManager.pushMatrix();
         GlStateManager.scale(1.0f, 1.0f, -0.01f);
         mc.getRenderItem().zLevel = -150.0f;

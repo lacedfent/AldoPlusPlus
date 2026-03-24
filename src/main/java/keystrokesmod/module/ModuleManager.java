@@ -47,6 +47,7 @@ public class ModuleManager {
     public static KillAura killAura;
     public static AutoClicker autoClicker;
     public static HitSelect hitSelect;
+    public static KnockbackDelay knockbackDelay;
     public static HitBox hitBox;
     public static Reach reach;
     public static NoRotate noRotate;
@@ -101,6 +102,7 @@ public class ModuleManager {
         this.addModule(hitBox = new HitBox());
         this.addModule(new JumpReset());
         this.addModule(killAura = new KillAura());
+        this.addModule(knockbackDelay = new KnockbackDelay());
         this.addModule(new LagRange());
         this.addModule(piercing = new Piercing());
         this.addModule(ghostHand = new GhostHand());

@@ -133,7 +133,8 @@ public final class BiTrackLagNodeQueue {
         private void releaseExpiredPackets(long maxAgeMs) {
             long cutoff = System.currentTimeMillis() - maxAgeMs;
             List<PacketLagNode> toRelease = new ArrayList<>();
-            for (AbstractLagNode node : track) {
+            // Snapshot: goThrough() can re-enter and append to track via ReceivePacketEvent.
+            for (AbstractLagNode node : new ArrayList<>(track)) {
                 if (node instanceof PacketLagNode) {
                     PacketLagNode pkt = (PacketLagNode) node;
                     if (pkt.getQueuedAtMs() <= cutoff) {

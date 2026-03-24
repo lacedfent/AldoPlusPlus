@@ -21,8 +21,8 @@ import java.util.Map;
 public class HitSelect extends Module {
     private static final double HIT_RANGE = 3.0D;
     private static final double HIT_RANGE_SQ = HIT_RANGE * HIT_RANGE;
-    private static final long SERVER_CONFIRM_COOLDOWN_MS = 500L;
-    private static final long SERVER_CONFIRM_TIMEOUT_MS = 1500L;
+    private static final int SERVER_CONFIRM_COOLDOWN_TICKS = 10;  // 500ms
+    private static final int SERVER_CONFIRM_TIMEOUT_TICKS = 30;   // 1500ms
 
     private static final int BLOCK_WAIT_FIRST = 1;
     private static final int BLOCK_SERVER_COOLDOWN = 1 << 3;
@@ -46,16 +46,18 @@ public class HitSelect extends Module {
     private int lastSelfHurtTime;
     private boolean takingKnockback;
     private boolean waitFirstTracking;
-    private long waitFirstStartMs;
+    private int waitFirstStartTick = -1;
     private boolean waitFirstUnlocked;
+
+    private int tickCounter;
 
     public HitSelect() {
         super("Hit Select", category.combat);
 
         this.registerSetting(new DescriptionSetting("Filters unnecessary clicks."));
-        this.registerSetting(pauseDuration = new SliderSetting("Pause duration", "ms", 500.0D, 0.0D, 1000.0D, 10.0D));
+        this.registerSetting(pauseDuration = new SliderSetting("Pause duration", "ms", 500.0D, 0.0D, 1000.0D, 50.0D));
         this.registerSetting(mode = new SliderSetting("Mode", 0, modes));
-        this.registerSetting(waitForFirstHit = new SliderSetting("Wait for first hit", "ms", 0.0D, 0.0D, 500.0D, 10.0D));
+        this.registerSetting(waitForFirstHit = new SliderSetting("Wait for first hit", "ms", 0.0D, 0.0D, 500.0D, 50.0D));
         this.registerSetting(disableDuringKnockback = new ButtonSetting("Disable during knockback", false));
         this.registerSetting(onlyWhileDamaged = new ButtonSetting("Only while damaged", false));
         this.registerSetting(useServerAttackTime = new ButtonSetting("Use server attack time", false));
@@ -73,12 +75,20 @@ public class HitSelect extends Module {
 
     @Override
     public void onEnable() {
+        tickCounter = 0;
         resetAllState();
     }
 
     @Override
     public void onDisable() {
         resetAllState();
+    }
+
+    private static int msToTicks(double ms) {
+        if (ms <= 0.0) {
+            return 0;
+        }
+        return (int) Math.ceil(ms / 50.0);
     }
 
     @SubscribeEvent
@@ -88,13 +98,14 @@ public class HitSelect extends Module {
             return;
         }
 
-        long now = System.currentTimeMillis();
+        tickCounter++;
+        int currentTick = tickCounter;
         pruneTargetStates();
 
         EntityPlayer nextTarget = CombatTargeting.findTarget(HIT_RANGE_SQ);
-        updateCurrentTarget(nextTarget, now);
-        updateSelfDamage(now);
-        updateTargetDamage(now);
+        updateCurrentTarget(nextTarget, currentTick);
+        updateSelfDamage(currentTick);
+        updateTargetDamage(currentTick);
     }
 
     @SubscribeEvent
@@ -103,7 +114,7 @@ public class HitSelect extends Module {
             return;
         }
 
-        long now = System.currentTimeMillis();
+        int currentTick = tickCounter;
         ClickType clickType = classifyClick(event.objectMouseOver);
 
         if (clickType == ClickType.BLOCK_INTERACTION) {
@@ -122,17 +133,17 @@ public class HitSelect extends Module {
             return;
         }
 
-        updateCurrentTarget(clickedTarget, now);
+        updateCurrentTarget(clickedTarget, currentTick);
 
-        int blockMask = getValidHitBlockMask(now);
+        int blockMask = getValidHitBlockMask(currentTick);
         boolean shouldBlock = (blockMask & BLOCK_WAIT_FIRST) != 0
-                || applyPauseDuration(blockMask, now);
+                || applyPauseDuration(blockMask, currentTick);
         if (shouldBlock && shouldCancel(inCombatCancelRate.getInput())) {
             cancelClick(event);
             return;
         }
 
-        recordPassedValidHit(clickedTarget, now);
+        recordPassedValidHit(clickedTarget, currentTick);
     }
 
     private boolean canProcessClicks() {
@@ -164,11 +175,11 @@ public class HitSelect extends Module {
         event.setCanceled(true);
     }
 
-    private void updateCurrentTarget(EntityPlayer nextTarget, long now) {
+    private void updateCurrentTarget(EntityPlayer nextTarget, int currentTick) {
         if (sameTarget(nextTarget)) {
             if (nextTarget != null) {
                 currentTarget = nextTarget;
-                getTargetState(nextTarget, now);
+                getTargetState(nextTarget, currentTick);
             }
             return;
         }
@@ -179,16 +190,16 @@ public class HitSelect extends Module {
             resetWaitFirstState();
         } else if (!waitFirstTracking) {
             waitFirstTracking = true;
-            waitFirstStartMs = now;
+            waitFirstStartTick = currentTick;
             waitFirstUnlocked = false;
         }
 
         if (nextTarget != null) {
-            getTargetState(nextTarget, now);
+            getTargetState(nextTarget, currentTick);
         }
     }
 
-    private void updateSelfDamage(long now) {
+    private void updateSelfDamage(int currentTick) {
         int hurtTime = mc.thePlayer.hurtTime;
         boolean hurtAgain = hurtTime > lastSelfHurtTime;
 
@@ -202,7 +213,7 @@ public class HitSelect extends Module {
             }
 
             if (currentTarget != null) {
-                TargetState state = getTargetState(currentTarget, now);
+                TargetState state = getTargetState(currentTarget, currentTick);
                 state.firstSelfHitSeen = true;
             }
         }
@@ -214,68 +225,68 @@ public class HitSelect extends Module {
         lastSelfHurtTime = hurtTime;
     }
 
-    private void updateTargetDamage(long now) {
+    private void updateTargetDamage(int currentTick) {
         if (currentTarget == null) {
             return;
         }
 
-        TargetState state = getTargetState(currentTarget, now);
-        if (state.pendingServerConfirmationMs > 0L && now - state.pendingServerConfirmationMs > SERVER_CONFIRM_TIMEOUT_MS) {
-            state.pendingServerConfirmationMs = 0L;
+        TargetState state = getTargetState(currentTarget, currentTick);
+        if (state.pendingServerConfirmationTick >= 0 && currentTick - state.pendingServerConfirmationTick > SERVER_CONFIRM_TIMEOUT_TICKS) {
+            state.pendingServerConfirmationTick = -1;
         }
 
-        if (useServerAttackTime.isToggled() && state.pendingServerConfirmationMs > 0L && currentTarget.hurtTime > state.lastObservedTargetHurtTime) {
-            state.pendingServerConfirmationMs = 0L;
-            state.lastConfirmedTargetDamageMs = now;
+        if (useServerAttackTime.isToggled() && state.pendingServerConfirmationTick >= 0 && currentTarget.hurtTime > state.lastObservedTargetHurtTime) {
+            state.pendingServerConfirmationTick = -1;
+            state.lastConfirmedTargetDamageTick = currentTick;
             state.rawBlockMask = BLOCK_SERVER_COOLDOWN;
-            state.rawBlockStartMs = now;
+            state.rawBlockStartTick = currentTick;
         }
 
         state.lastObservedTargetHurtTime = currentTarget.hurtTime;
     }
 
-    private int getValidHitBlockMask(long now) {
+    private int getValidHitBlockMask(int currentTick) {
         if (currentTarget == null) {
             return 0;
         }
 
-        TargetState state = getTargetState(currentTarget, now);
-        if (disableDuringKnockback.isToggled() && isTakingKnockback(now)) {
+        TargetState state = getTargetState(currentTarget, currentTick);
+        if (disableDuringKnockback.isToggled() && isTakingKnockback()) {
             return 0;
         }
 
         int blockMask = 0;
 
-        if (isWaitingForFirstHit(now)) {
+        if (isWaitingForFirstHit(currentTick)) {
             blockMask |= BLOCK_WAIT_FIRST;
         }
 
-        blockMask |= getBurstBlockMask(state, now);
+        blockMask |= getBurstBlockMask(state, currentTick);
 
-        if (isCriticalsBlocked(state, now)) {
+        if (isCriticalsBlocked(state, currentTick)) {
             blockMask |= BLOCK_CRITICALS;
         }
 
         return blockMask;
     }
 
-    private int getBurstBlockMask(TargetState state, long now) {
+    private int getBurstBlockMask(TargetState state, int currentTick) {
         if (useServerAttackTime.isToggled()) {
-            if (state.lastConfirmedTargetDamageMs > 0L && now - state.lastConfirmedTargetDamageMs < SERVER_CONFIRM_COOLDOWN_MS) {
+            if (state.lastConfirmedTargetDamageTick >= 0 && currentTick - state.lastConfirmedTargetDamageTick < SERVER_CONFIRM_COOLDOWN_TICKS) {
                 return BLOCK_SERVER_COOLDOWN;
             }
 
             return 0;
         }
 
-        if (state.pendingLocalBurstUntilMs > now) {
+        if (state.pendingLocalBurstUntilTick >= 0 && currentTick < state.pendingLocalBurstUntilTick) {
             return BLOCK_PREDICTED_BURST;
         }
 
         return currentTarget.hurtTime > 0 ? BLOCK_PREDICTED_BURST : 0;
     }
 
-    private boolean isCriticalsBlocked(TargetState state, long now) {
+    private boolean isCriticalsBlocked(TargetState state, int currentTick) {
         if ((int) mode.getInput() != 1) {
             return false;
         }
@@ -288,23 +299,24 @@ public class HitSelect extends Module {
             return false;
         }
 
-        if (disableDuringKnockback.isToggled() && isTakingKnockback(now)) {
+        if (disableDuringKnockback.isToggled() && isTakingKnockback()) {
             return false;
         }
 
         return !canCriticalHit();
     }
 
-    private boolean isWaitingForFirstHit(long now) {
+    private boolean isWaitingForFirstHit(int currentTick) {
         if (waitForFirstHit.getInput() <= 0.0D
                 || currentTarget == null
                 || !waitFirstTracking
                 || waitFirstUnlocked
-                || waitFirstStartMs <= 0L) {
+                || waitFirstStartTick < 0) {
             return false;
         }
 
-        return now - waitFirstStartMs < (long) waitForFirstHit.getInput();
+        int requiredTicks = msToTicks(waitForFirstHit.getInput());
+        return requiredTicks > 0 && currentTick - waitFirstStartTick < requiredTicks;
     }
 
     private boolean canCriticalHit() {
@@ -316,63 +328,65 @@ public class HitSelect extends Module {
                 && mc.thePlayer.ridingEntity == null;
     }
 
-    private boolean isTakingKnockback(long now) {
+    private boolean isTakingKnockback() {
         return takingKnockback || mc.thePlayer.hurtTime > 0;
     }
 
-    private boolean applyPauseDuration(int blockMask, long now) {
+    private boolean applyPauseDuration(int blockMask, int currentTick) {
         if (currentTarget == null) {
             return false;
         }
 
-        return applyPauseDuration(getTargetState(currentTarget, now), blockMask, now);
+        return applyPauseDuration(getTargetState(currentTarget, currentTick), blockMask, currentTick);
     }
 
-    private boolean applyPauseDuration(TargetState state, int blockMask, long now) {
-        if (state.pendingLocalBurstUntilMs > 0L && now >= state.pendingLocalBurstUntilMs) {
-            state.pendingLocalBurstUntilMs = 0L;
+    private boolean applyPauseDuration(TargetState state, int blockMask, int currentTick) {
+        if (state.pendingLocalBurstUntilTick >= 0 && currentTick >= state.pendingLocalBurstUntilTick) {
+            state.pendingLocalBurstUntilTick = -1;
         }
 
         if (blockMask == 0) {
             state.rawBlockMask = 0;
-            state.rawBlockStartMs = 0L;
+            state.rawBlockStartTick = -1;
             return false;
         }
 
         if (pauseDuration.getInput() <= 0.0D) {
             state.rawBlockMask = blockMask;
-            state.rawBlockStartMs = now;
+            state.rawBlockStartTick = currentTick;
             return false;
         }
 
         if (blockMask != state.rawBlockMask) {
             state.rawBlockMask = blockMask;
-            state.rawBlockStartMs = now;
-        } else if (state.rawBlockStartMs <= 0L) {
-            state.rawBlockStartMs = now;
+            state.rawBlockStartTick = currentTick;
+        } else if (state.rawBlockStartTick < 0) {
+            state.rawBlockStartTick = currentTick;
         }
 
-        return now - state.rawBlockStartMs < (long) pauseDuration.getInput();
+        int requiredTicks = msToTicks(pauseDuration.getInput());
+        return requiredTicks > 0 && currentTick - state.rawBlockStartTick < requiredTicks;
     }
 
-    private void recordPassedValidHit(EntityPlayer target, long now) {
+    private void recordPassedValidHit(EntityPlayer target, int currentTick) {
         if (target == null) {
             return;
         }
 
-        updateCurrentTarget(target, now);
-        TargetState state = getTargetState(target, now);
+        updateCurrentTarget(target, currentTick);
+        TargetState state = getTargetState(target, currentTick);
 
         if (useServerAttackTime.isToggled()) {
-            state.pendingServerConfirmationMs = now;
-            state.lastConfirmedTargetDamageMs = 0L;
+            state.pendingServerConfirmationTick = currentTick;
+            state.lastConfirmedTargetDamageTick = -1;
             return;
         }
 
-        if (pauseDuration.getInput() > 0.0D) {
-            state.pendingLocalBurstUntilMs = now + (long) pauseDuration.getInput();
+        int pauseTicks = msToTicks(pauseDuration.getInput());
+        if (pauseTicks > 0) {
+            state.pendingLocalBurstUntilTick = currentTick + pauseTicks;
             state.rawBlockMask = BLOCK_PREDICTED_BURST;
-            state.rawBlockStartMs = now;
+            state.rawBlockStartTick = currentTick;
         }
     }
 
@@ -398,11 +412,11 @@ public class HitSelect extends Module {
 
     private void resetWaitFirstState() {
         waitFirstTracking = false;
-        waitFirstStartMs = 0L;
+        waitFirstStartTick = -1;
         waitFirstUnlocked = false;
     }
 
-    private TargetState getTargetState(EntityPlayer target, long now) {
+    private TargetState getTargetState(EntityPlayer target, int currentTick) {
         TargetState state = targetStates.get(target.getEntityId());
         if (state == null) {
             state = new TargetState();
@@ -444,11 +458,11 @@ public class HitSelect extends Module {
 
     private static class TargetState {
         boolean firstSelfHitSeen;
-        long lastConfirmedTargetDamageMs;
-        long pendingServerConfirmationMs;
-        long pendingLocalBurstUntilMs;
+        int lastConfirmedTargetDamageTick = -1;
+        int pendingServerConfirmationTick = -1;
+        int pendingLocalBurstUntilTick = -1;
         int lastObservedTargetHurtTime;
-        long rawBlockStartMs;
+        int rawBlockStartTick = -1;
         int rawBlockMask;
     }
 }

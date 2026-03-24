@@ -119,13 +119,6 @@ public class LagRange extends Module {
             double distSq = RotationUtils.distanceSqFromEyeToClosestOnAABB(currentTarget);
 
             if (isLagging) {
-                if (!moving) {
-                    flushLag();
-                    lastDistSq = distSq;
-                    lastTargetHurtTime = currentTarget.hurtTime;
-                    return;
-                }
-
                 if (distSq > rangeSq) {
                     flushLag();
                     lastDistSq = distSq;

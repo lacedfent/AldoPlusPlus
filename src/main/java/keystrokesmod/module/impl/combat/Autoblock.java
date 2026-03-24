@@ -40,24 +40,26 @@ public class Autoblock extends Module {
 
     private boolean isBlocking;
     private boolean manualBlock;
-    private long blockStartMs;
+    private int blockStartTick = -1;
     private EntityPlayer currentTarget;
     private int lastSelfHurtTime;
 
     private boolean isLagging;
-    private long lagStartMs;
+    private int lagStartTick = -1;
     private LagRequest outboundLag;
+
+    private int tickCounter;
 
     public Autoblock() {
         super("Autoblock", category.combat);
 
         this.registerSetting(range = new SliderSetting("Range", 4.0, 2.0, 6.0, 0.1));
-        this.registerSetting(maxHurtTimeMs = new SliderSetting("Maximum Hurt Time", "ms", 200, 50, 500, 10));
-        this.registerSetting(maxHoldMs = new SliderSetting("Maximum Hold Time", "ms", 150, 50, 500, 10));
+        this.registerSetting(maxHurtTimeMs = new SliderSetting("Maximum Hurt Time", "ms", 200, 50, 500, 50));
+        this.registerSetting(maxHoldMs = new SliderSetting("Maximum Hold Time", "ms", 150, 50, 500, 50));
 
         this.registerSetting(new DescriptionSetting("Lag"));
         this.registerSetting(lagChance = new SliderSetting("Lag Chance", "%", 100, 0, 100, 5));
-        this.registerSetting(lagMaxDuration = new SliderSetting("Lag Max Duration", "ms", 200, 50, 500, 10));
+        this.registerSetting(lagMaxDuration = new SliderSetting("Lag Max Duration", "ms", 200, 50, 500, 50));
         this.registerSetting(preventDelayAttacks = new ButtonSetting("Prevent delaying attacks", true));
         this.registerSetting(blockAgainImmediately = new ButtonSetting("Block again immediately", true));
         this.registerSetting(forceBlockAnimation = new ButtonSetting("Force block animation", true));
@@ -71,7 +73,13 @@ public class Autoblock extends Module {
 
     @Override
     public void onEnable() {
+        tickCounter = 0;
         resetState(false);
+    }
+
+    private static int msToTicks(double ms) {
+        if (ms <= 0.0) return 0;
+        return (int) Math.ceil(ms / 50.0);
     }
 
     @Override
@@ -107,7 +115,7 @@ public class Autoblock extends Module {
 
         releaseLag();
         if (blockAgainImmediately.isToggled() && Utils.holdingSword()) {
-            startBlocking(System.currentTimeMillis());
+            startBlocking(tickCounter);
         }
     }
 
@@ -120,31 +128,32 @@ public class Autoblock extends Module {
 
         int selfHurtTime = mc.thePlayer.hurtTime;
         boolean hurtAgain = selfHurtTime > lastSelfHurtTime;
+        lastSelfHurtTime = selfHurtTime;
 
         if (!Utils.holdingSword()) {
             resetState(false);
             return;
         }
 
+        tickCounter++;
+        int currentTick = tickCounter;
+
         currentTarget = CombatTargeting.findTarget(range.getInput() * range.getInput());
         boolean killAuraAttacking = ModuleManager.killAura != null && ModuleManager.killAura.isEnabled() && !ModuleManager.killAura.isRequireMouseDown() && currentTarget != null;
         boolean rmbDown = Mouse.isButtonDown(1);
         boolean lmbDown = Mouse.isButtonDown(0) || killAuraAttacking;
-        long now = System.currentTimeMillis();
 
         if (!rmbDown) {
             resetState(true);
-            lastSelfHurtTime = selfHurtTime;
             return;
         }
 
         if (!lmbDown) {
             if (isLagging) releaseLag();
             if (!isBlocking) {
-                startBlocking(now);
+                startBlocking(currentTick);
                 manualBlock = true;
             }
-            lastSelfHurtTime = selfHurtTime;
             return;
         }
 
@@ -157,19 +166,19 @@ public class Autoblock extends Module {
         boolean conditionsMet = hasTarget && checkConditions(lmbDown, rmbDown);
 
         if (isLagging) {
-            boolean lagExpired = now - lagStartMs >= (long) lagMaxDuration.getInput();
+            int lagMaxTicks = msToTicks(lagMaxDuration.getInput());
+            boolean lagExpired = lagMaxTicks > 0 && lagStartTick >= 0 && currentTick - lagStartTick >= lagMaxTicks;
 
             if (lagExpired || !conditionsMet) {
                 releaseLag();
                 if (lagExpired && blockAgainImmediately.isToggled() && conditionsMet) {
-                    startBlocking(now);
+                    startBlocking(currentTick);
                 }
             }
         }
 
         if (!conditionsMet) {
             stopBlocking(true);
-            lastSelfHurtTime = selfHurtTime;
             return;
         }
 
@@ -181,25 +190,24 @@ public class Autoblock extends Module {
                 shouldStart = true;
             }
             if (shouldStart) {
-                startBlocking(now);
+                startBlocking(currentTick);
             }
         }
 
         if (isBlocking) {
-            boolean timeExpired = now - blockStartMs >= (long) maxHoldMs.getInput();
+            int maxHoldTicks = msToTicks(maxHoldMs.getInput());
+            boolean timeExpired = maxHoldTicks > 0 && blockStartTick >= 0 && currentTick - blockStartTick >= maxHoldTicks;
             boolean shouldStop = timeExpired;
             if (onlyWhenDamaged.isToggled() && hurtAgain) {
                 shouldStop = true;
             }
             if (shouldStop) {
                 if (shouldStartLag()) {
-                    startLag(now);
+                    startLag(currentTick);
                 }
                 stopBlocking(true);
             }
         }
-
-        lastSelfHurtTime = selfHurtTime;
     }
 
     private boolean checkConditions(boolean lmbDown, boolean rmbDown) {
@@ -215,13 +223,13 @@ public class Autoblock extends Module {
         return ourHurtTime == triggerTick;
     }
 
-    private void startBlocking(long now) {
+    private void startBlocking(int currentTick) {
         if (!Utils.holdingSword()) return;
         int keyCode = mc.gameSettings.keyBindUseItem.getKeyCode();
         KeyBinding.setKeyBindState(keyCode, true);
         KeyBinding.onTick(keyCode);
         isBlocking = true;
-        blockStartMs = now;
+        blockStartTick = currentTick;
     }
 
     private void stopBlocking(boolean forceRelease) {
@@ -229,7 +237,7 @@ public class Autoblock extends Module {
         int keyCode = mc.gameSettings.keyBindUseItem.getKeyCode();
         KeyBinding.setKeyBindState(keyCode, false);
         isBlocking = false;
-        blockStartMs = 0L;
+        blockStartTick = -1;
     }
 
     private boolean shouldStartLag() {
@@ -239,12 +247,12 @@ public class Autoblock extends Module {
         return Math.random() * 100 < chance;
     }
 
-    private void startLag(long now) {
+    private void startLag(int currentTick) {
         if (isLagging) return;
         outboundLag = new LagRequest(EnumLagDirection.ONLY_OUTBOUND, new ModuleBackedTimeout(this));
         Raven.lagHandler.requestLag(outboundLag);
         isLagging = true;
-        lagStartMs = now;
+        lagStartTick = currentTick;
     }
 
     private void releaseLag() {
@@ -254,7 +262,7 @@ public class Autoblock extends Module {
             outboundLag = null;
         }
         isLagging = false;
-        lagStartMs = 0L;
+        lagStartTick = -1;
     }
 
     public boolean isActive() {

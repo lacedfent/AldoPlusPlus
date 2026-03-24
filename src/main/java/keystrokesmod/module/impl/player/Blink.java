@@ -67,6 +67,12 @@ public class Blink extends Module {
         }
     }
 
+    /** True when Blink delays inbound packets (Inbound or Both). */
+    public boolean delaysInboundPackets() {
+        int m = (int) mode.getInput();
+        return m == 0 || m == 2;
+    }
+
     @Override
     public String getInfo() {
         return String.valueOf(blinkTicks);
