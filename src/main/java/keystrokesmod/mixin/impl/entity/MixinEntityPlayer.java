@@ -3,7 +3,7 @@ package keystrokesmod.mixin.impl.entity;
 import keystrokesmod.module.ModuleManager;
 import keystrokesmod.module.impl.combat.Reduce;
 import keystrokesmod.module.impl.movement.KeepSprint;
-import net.minecraft.client.Minecraft;
+import keystrokesmod.utility.BlockAnimationUtils;
 import net.minecraft.enchantment.EnchantmentHelper;
 import net.minecraft.entity.*;
 import net.minecraft.entity.boss.EntityDragonPart;
@@ -169,6 +169,8 @@ public abstract class MixinEntityPlayer extends EntityLivingBase {
 
     @Inject(method = "isBlocking", at = @At("RETURN"), cancellable = true)
     private void isBlocking(CallbackInfoReturnable<Boolean> cir) {
-        cir.setReturnValue(cir.getReturnValue());
+        if (!cir.getReturnValue() && BlockAnimationUtils.shouldForceBlockAnimation((EntityPlayer) (Object) this, this.getHeldItem())) {
+            cir.setReturnValue(true);
+        }
     }
 }

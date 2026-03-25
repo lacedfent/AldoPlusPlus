@@ -1,5 +1,6 @@
 package keystrokesmod.module.impl.render;
 
+import keystrokesmod.mixin.impl.accessor.IAccessorEntityRenderer;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.impl.world.AntiBot;
 import keystrokesmod.module.setting.impl.ButtonSetting;
@@ -146,6 +147,8 @@ public class Nametags extends Module {
         }
 
         renderTargets.subList(0, renderTargetCount).sort(FAR_TO_NEAR);
+
+        ((IAccessorEntityRenderer) mc.entityRenderer).callSetupCameraTransform(partialTicks, 0);
 
         boolean needDistance = showDistance.isToggled();
         boolean needScaleByDistance = autoScale.isToggled();

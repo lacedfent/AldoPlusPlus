@@ -1,6 +1,6 @@
 package keystrokesmod.utility;
 
-import keystrokesmod.mixin.impl.accessor.IAccessorEntityPlayer;
+import keystrokesmod.mixin.interfaces.IMixinItemRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiEnchantment;
 import net.minecraft.client.gui.inventory.GuiBrewingStand;
@@ -87,7 +87,10 @@ public class ReflectionUtils {
     }
 
     public static boolean setItemInUse(boolean blocking) {
-        ((IAccessorEntityPlayer) Minecraft.getMinecraft().thePlayer).setItemInUseCount(blocking ? 1 : 0);
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc.getItemRenderer() != null) {
+            ((IMixinItemRenderer) mc.getItemRenderer()).setRenderItemInUse(blocking);
+        }
         return blocking;
     }
 
