@@ -26,6 +26,7 @@ public final class SharedBlockHighlightCache {
 
     private final Map<Long, Set<BlockPos>> blockListByChunk = new ConcurrentHashMap<>();
     private final Map<Long, Set<BlockPos>> bedFootByChunk = new ConcurrentHashMap<>();
+    private final Set<UpdateListener> updateListeners = ConcurrentHashMap.newKeySet();
     private final Deque<long[]> scanQueue = new ArrayDeque<>();
 
     private BlockListHighlightMatcher blockListMatcher;
@@ -34,6 +35,16 @@ public final class SharedBlockHighlightCache {
     private static final BedFootHighlightMatcher BED_MATCHER = new BedFootHighlightMatcher();
 
     private SharedBlockHighlightCache() {
+    }
+
+    public interface UpdateListener {
+        void onBlockChanged(BlockPos pos, IBlockState newState);
+
+        void onChunkQueued(int chunkX, int chunkZ);
+
+        void onChunkRemoved(int chunkX, int chunkZ);
+
+        void onCacheCleared();
     }
 
     public static SharedBlockHighlightCache get() {
@@ -74,6 +85,21 @@ public final class SharedBlockHighlightCache {
         blockListByChunk.clear();
         bedFootByChunk.clear();
         scanQueue.clear();
+        for (UpdateListener listener : updateListeners) {
+            listener.onCacheCleared();
+        }
+    }
+
+    public void addUpdateListener(UpdateListener listener) {
+        if (listener != null) {
+            updateListeners.add(listener);
+        }
+    }
+
+    public void removeUpdateListener(UpdateListener listener) {
+        if (listener != null) {
+            updateListeners.remove(listener);
+        }
     }
 
     public void enqueueChunk(int chunkX, int chunkZ) {
@@ -81,12 +107,18 @@ public final class SharedBlockHighlightCache {
             return;
         }
         scanQueue.addLast(new long[]{chunkX, chunkZ});
+        for (UpdateListener listener : updateListeners) {
+            listener.onChunkQueued(chunkX, chunkZ);
+        }
     }
 
     public void removeChunk(int chunkX, int chunkZ) {
         long k = key(chunkX, chunkZ);
         blockListByChunk.remove(k);
         bedFootByChunk.remove(k);
+        for (UpdateListener listener : updateListeners) {
+            listener.onChunkRemoved(chunkX, chunkZ);
+        }
     }
 
     public void enqueueLoadedChunks() {
@@ -156,6 +188,10 @@ public final class SharedBlockHighlightCache {
                     set.remove(pos);
                 }
             }
+        }
+
+        for (UpdateListener listener : updateListeners) {
+            listener.onBlockChanged(immutablePos, newState);
         }
     }
 

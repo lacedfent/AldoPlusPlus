@@ -1,10 +1,8 @@
 package keystrokesmod.utility;
 
 import keystrokesmod.event.ReceivePacketEvent;
-import keystrokesmod.utility.Utils;
 import keystrokesmod.module.ModuleManager;
-import keystrokesmod.module.impl.render.BedESP;
-import keystrokesmod.module.impl.render.BlockESP;
+import keystrokesmod.utility.Utils;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.event.entity.EntityJoinWorldEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
