@@ -316,6 +316,9 @@ public class BlockSearchComponent extends Component implements FocusableTextComp
         if (processedArrow != null) {
             float iconX = left + 2;
             float iconY = rowTop + (ROW_HEIGHT - CLOSE_SIZE) / 2f;
+            boolean depthEnabled = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
+            boolean blendEnabled = GL11.glIsEnabled(GL11.GL_BLEND);
+            boolean depthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
             RenderUtils.prepareGuiTextureRenderState();
             Minecraft.getMinecraft().getTextureManager().bindTexture(processedArrow);
             GlStateManager.color(1f, 1f, 1f, 1f);
@@ -324,8 +327,17 @@ public class BlockSearchComponent extends Component implements FocusableTextComp
             net.minecraft.client.gui.Gui.drawModalRectWithCustomSizedTexture(0, 0, 0, 0, CLOSE_SIZE, CLOSE_SIZE, CLOSE_SIZE, CLOSE_SIZE);
             GL11.glPopMatrix();
             GlStateManager.color(1f, 1f, 1f, 1f);
-            GlStateManager.disableBlend();
-            GlStateManager.enableAlpha();
+            if (blendEnabled) {
+                GlStateManager.enableBlend();
+            } else {
+                GlStateManager.disableBlend();
+            }
+            if (depthEnabled) {
+                GlStateManager.enableDepth();
+            } else {
+                GlStateManager.disableDepth();
+            }
+            GlStateManager.depthMask(depthMask);
         }
         drawScaledText(groupName != null ? groupName : "Back", left + 13, centeredScaledTextY(rowTop, ROW_HEIGHT), 0xFFCCCCCC);
     }
@@ -379,6 +391,9 @@ public class BlockSearchComponent extends Component implements FocusableTextComp
             Color closeColor = new Color(Theme.getGradient(Theme.hiddenBind[0], Theme.hiddenBind[1], 0), true);
             float closeX = right - CLOSE_SIZE - CLOSE_PAD;
             float closeY = rowTop + (ROW_HEIGHT - CLOSE_SIZE) / 2f;
+            boolean depthEnabled = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
+            boolean blendEnabled = GL11.glIsEnabled(GL11.GL_BLEND);
+            boolean depthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
             RenderUtils.prepareGuiTextureRenderState();
             Minecraft.getMinecraft().getTextureManager().bindTexture(processedClose);
             GlStateManager.color(closeColor.getRed() / 255f, closeColor.getGreen() / 255f, closeColor.getBlue() / 255f, closeColor.getAlpha() / 255f);
@@ -387,8 +402,17 @@ public class BlockSearchComponent extends Component implements FocusableTextComp
             net.minecraft.client.gui.Gui.drawModalRectWithCustomSizedTexture(0, 0, 0, 0, CLOSE_SIZE, CLOSE_SIZE, CLOSE_SIZE, CLOSE_SIZE);
             GL11.glPopMatrix();
             GlStateManager.color(1f, 1f, 1f, 1f);
-            GlStateManager.disableBlend();
-            GlStateManager.enableAlpha();
+            if (blendEnabled) {
+                GlStateManager.enableBlend();
+            } else {
+                GlStateManager.disableBlend();
+            }
+            if (depthEnabled) {
+                GlStateManager.enableDepth();
+            } else {
+                GlStateManager.disableDepth();
+            }
+            GlStateManager.depthMask(depthMask);
         }
     }
 

@@ -133,69 +133,56 @@ public final class GlyphFontRenderer implements RavenFontRenderer {
         float drawY = (y * rawScale) - rawTextTop;
 
         GL11.glPushMatrix();
-        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
-        GlStateManager.disableLighting();
-        GlStateManager.disableDepth();
-        GlStateManager.depthMask(false);
-        GlStateManager.enableAlpha();
-        GL11.glEnable(GL11.GL_TEXTURE_2D);
-        GL11.glEnable(GL11.GL_BLEND);
-        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-        GL11.glTexEnvi(GL11.GL_TEXTURE_ENV, GL11.GL_TEXTURE_ENV_MODE, GL11.GL_MODULATE);
-        GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
-        GlStateManager.scale(drawScale, drawScale, 1.0f);
+        try {
+            GlStateManager.enableAlpha();
+            GlStateManager.enableBlend();
+            GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
+            GlStateManager.enableTexture2D();
+            GL11.glTexEnvi(GL11.GL_TEXTURE_ENV, GL11.GL_TEXTURE_ENV_MODE, GL11.GL_MODULATE);
+            GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
+            GlStateManager.scale(drawScale, drawScale, 1.0f);
 
-        for (int i = 0; i < text.length(); i++) {
-            char character = text.charAt(i);
-            if (isMalformedSectionPrefix(text, i)) {
-                continue;
-            }
-
-            if (character == '\u00a7' && i + 1 < text.length()) {
-                char formatCode = Character.toLowerCase(text.charAt(++i));
-                int colorIndex = COLOR_CODES.indexOf(formatCode);
-
-                if (colorIndex >= 0) {
-                    if (colorIndex < 16) {
-                        activeColor = getMinecraftColor(colorIndex, alpha, shadowPass);
-                    }
-                    else if (formatCode == 'r') {
-                        activeColor = shadowPass ? applyShadowColor(color) : withAlpha(color, alpha);
-                    }
+            for (int i = 0; i < text.length(); i++) {
+                char character = text.charAt(i);
+                if (isMalformedSectionPrefix(text, i)) {
+                    continue;
                 }
 
-                continue;
-            }
+                if (character == '\u00a7' && i + 1 < text.length()) {
+                    char formatCode = Character.toLowerCase(text.charAt(++i));
+                    int colorIndex = COLOR_CODES.indexOf(formatCode);
 
-            if (character == '\n') {
-                drawX = startX;
-                drawY += lineHeight * rawScale;
-                continue;
-            }
+                    if (colorIndex >= 0) {
+                        if (colorIndex < 16) {
+                            activeColor = getMinecraftColor(colorIndex, alpha, shadowPass);
+                        }
+                        else if (formatCode == 'r') {
+                            activeColor = shadowPass ? applyShadowColor(color) : withAlpha(color, alpha);
+                        }
+                    }
 
-            GlyphData glyph = getGlyph(character);
-            if (glyph.textureId != 0 && glyph.textureWidth > 0.0f && glyph.textureHeight > 0.0f) {
-                renderGlyph(glyph, drawX - GLYPH_MARGIN, drawY, activeColor);
+                    continue;
+                }
+
+                if (character == '\n') {
+                    drawX = startX;
+                    drawY += lineHeight * rawScale;
+                    continue;
+                }
+
+                GlyphData glyph = getGlyph(character);
+                if (glyph.textureId != 0 && glyph.textureWidth > 0.0f && glyph.textureHeight > 0.0f) {
+                    renderGlyph(glyph, drawX - GLYPH_MARGIN, drawY, activeColor);
+                }
+                drawX += glyph.rawAdvance;
             }
-            drawX += glyph.rawAdvance;
         }
-
-        GlStateManager.bindTexture(0);
-        GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
-        GlStateManager.depthMask(true);
-        GL11.glDisable(GL11.GL_BLEND);
-        GL11.glDisable(GL11.GL_TEXTURE_2D);
-        GL11.glPopAttrib();
-        GL11.glPopMatrix();
-        // GlStateManager caches render state separately from raw OpenGL attrib pushes,
-        // so explicitly resync the common text state after restoring the GL snapshot.
-        GlStateManager.bindTexture(0);
-        GlStateManager.enableTexture2D();
-        GlStateManager.enableAlpha();
-        GlStateManager.alphaFunc(GL11.GL_GREATER, 0.1F);
-        GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
-        GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
-        GL11.glTexEnvi(GL11.GL_TEXTURE_ENV, GL11.GL_TEXTURE_ENV_MODE, GL11.GL_MODULATE);
+        finally {
+            GlStateManager.bindTexture(0);
+            GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
+            GL11.glPopMatrix();
+            GlStateManager.matrixMode(GL11.GL_MODELVIEW);
+        }
         return Math.round((drawX - startX) * drawScale);
     }
 

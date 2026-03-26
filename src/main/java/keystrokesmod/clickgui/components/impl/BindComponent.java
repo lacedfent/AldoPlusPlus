@@ -77,6 +77,9 @@ public class BindComponent extends Component {
                     ? Theme.getGradient(Theme.descriptor[0], Theme.descriptor[1], 0)
                     : Theme.getGradient(Theme.hiddenBind[0], Theme.hiddenBind[1], 0);
             Color c = new Color(themeColor, true);
+            boolean depthEnabled = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
+            boolean blendEnabled = GL11.glIsEnabled(GL11.GL_BLEND);
+            boolean depthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
             RenderUtils.prepareGuiTextureRenderState();
             Minecraft.getMinecraft().getTextureManager().bindTexture(moduleComponent.mod.isHidden() ? processedEyeOff : processedEye);
             GlStateManager.color(c.getRed() / 255f, c.getGreen() / 255f, c.getBlue() / 255f, c.getAlpha() / 255f);
@@ -87,8 +90,17 @@ public class BindComponent extends Component {
             GL11.glPopMatrix();
 
             GlStateManager.color(1f, 1f, 1f, 1f);
-            GlStateManager.disableBlend();
-            GlStateManager.enableAlpha();
+            if (blendEnabled) {
+                GlStateManager.enableBlend();
+            } else {
+                GlStateManager.disableBlend();
+            }
+            if (depthEnabled) {
+                GlStateManager.enableDepth();
+            } else {
+                GlStateManager.disableDepth();
+            }
+            GlStateManager.depthMask(depthMask);
         }
     }
 
