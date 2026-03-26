@@ -66,15 +66,12 @@ public class BHop extends Module {
         if (ModuleManager.bedAura.isEnabled() && ModuleManager.bedAura.disableBHop.isToggled() && ModuleManager.bedAura.currentBlock != null && RotationUtils.inRange(ModuleManager.bedAura.currentBlock, ModuleManager.bedAura.range.getInput())) {
             return;
         }
-        if (ModuleManager.scaffold.moduleEnabled || ModuleManager.scaffold.lowhop) {
-            return;
-        }
         if (ModuleManager.longJump.function) {
             return;
         }
         if (mode.getInput() >= 1) {
             if (mc.thePlayer.onGround && (!jumpMoving.isToggled() || Utils.isMoving())) {
-                if (mc.thePlayer.moveForward <= -0.5 && mc.thePlayer.moveStrafing == 0 && KillAura.target == null && !Utils.noSlowingBackWithBow() && !ModuleManager.scaffold.isEnabled && !mc.thePlayer.isCollidedHorizontally) {
+                if (mc.thePlayer.moveForward <= -0.5 && mc.thePlayer.moveStrafing == 0 && KillAura.target == null && !Utils.noSlowingBackWithBow() && !mc.thePlayer.isCollidedHorizontally) {
                     setRotation = true;
                 }
                 mc.thePlayer.jump();

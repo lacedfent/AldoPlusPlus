@@ -232,6 +232,7 @@ public class RenderUtils implements IMinecraftInstance {
         tessellator.draw();
         GlStateManager.enableTexture2D();
         GlStateManager.disableBlend();
+        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
         GlStateManager.popMatrix();
     }
 
@@ -1072,7 +1073,8 @@ public class RenderUtils implements IMinecraftInstance {
         y *= 2.0f;
         x2 *= 2.0f;
         y2 *= 2.0f;
-        GL11.glPushAttrib(1);
+        GL11.glPushMatrix();
+        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
         GL11.glScaled(0.5, 0.5, 0.5);
         glEnable(3042);
         GL11.glDisable(3553);
@@ -1128,8 +1130,8 @@ public class RenderUtils implements IMinecraftInstance {
         GL11.glDisable(3042);
         GL11.glDisable(2848);
         glEnable(3553);
-        GL11.glScaled(2.0, 2.0, 2.0);
         GL11.glPopAttrib();
+        GL11.glPopMatrix();
         GL11.glLineWidth(1.0f);
         GL11.glShadeModel(7424);
         GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
@@ -1262,7 +1264,8 @@ public class RenderUtils implements IMinecraftInstance {
         y *= 2.0;
         x2 *= 2.0;
         y2 *= 2.0;
-        GL11.glPushAttrib(0);
+        GL11.glPushMatrix();
+        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
         GL11.glScaled(0.5, 0.5, 0.5);
         glEnable(3042);
         GL11.glDisable(3553);
@@ -1292,8 +1295,8 @@ public class RenderUtils implements IMinecraftInstance {
         GL11.glDisable(3042);
         GL11.glDisable(2848);
         glEnable(3553);
-        GL11.glScaled(2.0, 2.0, 2.0);
         GL11.glPopAttrib();
+        GL11.glPopMatrix();
         GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
     }
 
@@ -1334,7 +1337,8 @@ public class RenderUtils implements IMinecraftInstance {
         GL11.glBlendFunc(770, 771);
         glEnable(2848);
         GL11.glShadeModel(7425);
-        GL11.glPushAttrib(0);
+        GL11.glPushMatrix();
+        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
         GL11.glScaled(0.5, 0.5, 0.5);
         x *= 2.0;
         y *= 2.0;
@@ -1373,12 +1377,13 @@ public class RenderUtils implements IMinecraftInstance {
         GL11.glDisable(2848);
         GL11.glDisable(3042);
         glEnable(3553);
-        GL11.glScaled(2.0, 2.0, 2.0);
         GL11.glPopAttrib();
+        GL11.glPopMatrix();
         glEnable(3553);
         GL11.glDisable(3042);
         GL11.glDisable(2848);
         GL11.glShadeModel(7424);
+        GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
     }
 
     public static int setAlpha(int rgb, double alpha) {
@@ -1520,6 +1525,7 @@ public class RenderUtils implements IMinecraftInstance {
         if (stack == null) return;
 
         GlStateManager.pushMatrix();
+        prepareGuiItemRenderState();
         GlStateManager.depthMask(true);
         GlStateManager.clear(GL11.GL_DEPTH_BUFFER_BIT);
         RenderHelper.enableStandardItemLighting();
@@ -1530,22 +1536,23 @@ public class RenderUtils implements IMinecraftInstance {
         mc.getRenderItem().zLevel = 0.0f;
         GlStateManager.popMatrix();
         RenderHelper.disableStandardItemLighting();
-        GlStateManager.enableAlpha();
+        prepareGuiTextureRenderState();
         GlStateManager.disableBlend();
-        GlStateManager.enableTexture2D();
         GlStateManager.popMatrix();
     }
 
     public static void renderItemAndEffectIntoGui2D(ItemStack stack, int xPos, int yPos) {
         if (stack == null) return;
 
-        GlStateManager.disableAlpha();
+        prepareGuiItemRenderState();
         mc.getRenderItem().zLevel = -150.0F;
         GlStateManager.enableDepth();
         RenderHelper.enableGUIStandardItemLighting();
         mc.getRenderItem().renderItemAndEffectIntoGUI(stack, xPos, yPos - 8);
         mc.getRenderItem().zLevel = 0.0F;
         GlStateManager.disableDepth();
+        prepareGuiTextureRenderState();
+        GlStateManager.disableBlend();
     }
 
     public static int getDurabilityColor(float ratio) {
@@ -1598,6 +1605,30 @@ public class RenderUtils implements IMinecraftInstance {
         int letterWidth = fr.drawStringWithShadow(letter, x, y, 0xFFFFFF);
         fr.drawStringWithShadow(String.valueOf(level), letterWidth, y, getEnchantColor(level));
         return letterWidth;
+    }
+
+    public static void prepareGuiTextureRenderState() {
+        GlStateManager.disableLighting();
+        GlStateManager.disableDepth();
+        GlStateManager.depthMask(false);
+        GlStateManager.enableTexture2D();
+        GlStateManager.enableAlpha();
+        GlStateManager.alphaFunc(GL11.GL_GREATER, 0.1F);
+        GlStateManager.enableBlend();
+        GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
+        GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
+    }
+
+    public static void prepareGuiItemRenderState() {
+        GlStateManager.disableLighting();
+        GlStateManager.enableTexture2D();
+        GlStateManager.enableAlpha();
+        GlStateManager.alphaFunc(GL11.GL_GREATER, 0.1F);
+        GlStateManager.enableBlend();
+        GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
+        GlStateManager.enableDepth();
+        GlStateManager.depthMask(true);
+        GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
     }
 
     public static String getEnchantmentAbbreviated(int id) {

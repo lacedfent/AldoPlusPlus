@@ -1518,9 +1518,6 @@ public class Utils implements IMinecraftInstance {
     }
 
     public static ItemStack getSpoofedItem(ItemStack original) {
-        if (ModuleManager.scaffold != null && ModuleManager.scaffold.isEnabled && ModuleManager.scaffold.autoSwap.isToggled() && ModuleManager.autoSwap.spoofItem.isToggled() && mc.thePlayer != null) {
-            return mc.thePlayer.inventory.getStackInSlot(ModuleManager.scaffold.lastSlot.get() == -1 ? mc.thePlayer.inventory.currentItem : ModuleManager.scaffold.lastSlot.get());
-        }
         if (ModuleManager.autoTool != null && ModuleManager.autoTool.isEnabled() && ModuleManager.autoTool.spoofItem.isToggled() && mc.thePlayer != null) {
             return mc.thePlayer.inventory.getStackInSlot(ModuleManager.autoTool.previousSlot == -1 ? mc.thePlayer.inventory.currentItem : ModuleManager.autoTool.previousSlot);
         }
@@ -1528,14 +1525,7 @@ public class Utils implements IMinecraftInstance {
     }
 
     public static boolean scaffoldDiagonal(boolean strict) {
-        float back = MathHelper.wrapAngleTo180_float(mc.thePlayer.rotationYaw) - ModuleManager.scaffold.hardcodedYaw();
-        float yaw = ((back % 360) + 360) % 360;
-        yaw = yaw > 180 ? yaw - 360 : yaw;
-        boolean isYawDiagonal = inBetween(-170, 170, yaw) && !inBetween(-10, 10, yaw) && !inBetween(80, 100, yaw) && !inBetween(-100, -80, yaw);
-        if (strict) {
-            isYawDiagonal = inBetween(-178.5, 178.5, yaw) && !inBetween(-1.5, 1.5, yaw) && !inBetween(88.5, 91.5, yaw) && !inBetween(-91.5, -88.5, yaw);
-        }
-        return isYawDiagonal;
+        return false;
     }
 
     public static String readInputStream(InputStream inputStream) {

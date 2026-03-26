@@ -801,11 +801,11 @@ public class ScriptDefaults {
         }
 
         public boolean isScaffolding() {
-            return ModuleManager.scaffold.isEnabled();
+            return false;
         }
 
         public boolean isTowering() {
-            return ModuleManager.tower.canTower();
+            return false;
         }
 
         public boolean isHidden(String moduleName) {

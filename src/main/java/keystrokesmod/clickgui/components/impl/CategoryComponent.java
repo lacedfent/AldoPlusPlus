@@ -9,6 +9,7 @@ import keystrokesmod.module.impl.client.Gui;
 import keystrokesmod.utility.RenderUtils;
 import keystrokesmod.utility.Utils;
 import keystrokesmod.utility.Timer;
+import keystrokesmod.utility.font.RavenFontRenderer;
 import keystrokesmod.utility.profile.Manager;
 import keystrokesmod.utility.profile.Profile;
 import net.minecraft.client.Minecraft;
@@ -297,6 +298,7 @@ public class CategoryComponent {
 
     public void render(FontRenderer renderer) {
         this.width = 92;
+        RavenFontRenderer titleRenderer = Gui.getClickGuiHeaderFontRenderer();
 
         if (smoothTimer != null && System.currentTimeMillis() - smoothTimer.last >= 280) {
             smoothTimer = null;
@@ -341,7 +343,7 @@ public class CategoryComponent {
             this.updateHeight();
         }
 
-        float middlePos = this.x + this.width / 2 - Minecraft.getMinecraft().fontRendererObj.getStringWidth(this.category.name()) / 2;
+        float middlePos = this.x + this.width / 2 - titleRenderer.getStringWidth(this.category.name()) / 2.0f;
 
         float contentBottom = getCurrentCategoryBottomFromContent();
 
@@ -371,7 +373,7 @@ public class CategoryComponent {
         RenderUtils.drawRoundedGradientOutlinedRectangle(this.x - 2, this.y, this.x + this.width + 2, extra, 10, TRANSLUCENT_BACKGROUND,
                 ((opened || hovering) && Gui.rainBowOutlines.isToggled()) ? RenderUtils.setAlpha(Utils.getChroma(2, 0), 0.5) : REGULAR_OUTLINE, ((opened || hovering) && Gui.rainBowOutlines.isToggled()) ? RenderUtils.setAlpha(Utils.getChroma(2, 700), 0.5) : REGULAR_OUTLINE2);
         renderItemForCategory(this.category, (int) (this.x + 1), (int) (this.y + 4), opened || hovering);
-        renderer.drawString(this.category.name(), namePos, this.y + 4, CATEGORY_NAME_COLOR, false);
+        titleRenderer.drawString(this.category.name(), namePos, this.y + 4, CATEGORY_NAME_COLOR, false);
 
         float moduleAreaTop = this.y + this.titleHeight + 3;
         float scissorBottom = extra - 2f;
@@ -529,7 +531,7 @@ public class CategoryComponent {
         if (textTimer != null) {
             return lastNamePos;
         }
-        float middlePos = this.x + this.width / 2 - Minecraft.getMinecraft().fontRendererObj.getStringWidth(this.category.name()) / 2;
+        float middlePos = this.x + this.width / 2 - Gui.getClickGuiHeaderFontRenderer().getStringWidth(this.category.name()) / 2.0f;
         return this.opened ? middlePos : (this.x + 12);
     }
 

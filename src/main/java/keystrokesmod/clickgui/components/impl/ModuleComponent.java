@@ -5,9 +5,11 @@ import keystrokesmod.clickgui.components.Component;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.setting.Setting;
 import keystrokesmod.module.setting.impl.*;
+import keystrokesmod.module.impl.client.Gui;
 import keystrokesmod.utility.RenderUtils;
 import keystrokesmod.utility.Timer;
 import keystrokesmod.utility.Utils;
+import keystrokesmod.utility.font.RavenFontRenderer;
 import keystrokesmod.utility.profile.Manager;
 import keystrokesmod.utility.profile.ProfileModule;
 import net.minecraft.client.Minecraft;
@@ -258,9 +260,12 @@ public class ModuleComponent extends Component {
         }
 
         boolean scissorRequired = smoothTimer != null;
+        RavenFontRenderer titleRenderer = Gui.getClickGuiHeaderFontRenderer();
 
         if (hasModuleHeader()) {
-            Minecraft.getMinecraft().fontRendererObj.drawStringWithShadow(this.mod.getName(), (float) (this.categoryComponent.getX() + this.categoryComponent.getWidth() / 2 - Minecraft.getMinecraft().fontRendererObj.getStringWidth(this.mod.getName()) / 2), (float) (this.categoryComponent.getY() + this.yPos + 4), button_rgb);
+            float textX = this.categoryComponent.getX() + this.categoryComponent.getWidth() / 2.0f - titleRenderer.getStringWidth(this.mod.getName()) / 2.0f;
+            float textY = this.categoryComponent.getY() + this.yPos + 4;
+            titleRenderer.drawString(this.mod.getName(), textX, textY, button_rgb, true);
         }
         if (scissorRequired) {
             ScaledResolution sr = new ScaledResolution(Minecraft.getMinecraft());

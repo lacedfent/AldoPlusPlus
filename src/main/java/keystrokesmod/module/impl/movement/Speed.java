@@ -99,7 +99,7 @@ public class Speed extends Module {
             requireJump = true;
             return false;
         }
-        if (ModuleManager.scaffold.isEnabled || ModuleManager.bHop.isEnabled()) {
+        if (ModuleManager.bHop.isEnabled()) {
             requireJump = true;
             return false;
         }

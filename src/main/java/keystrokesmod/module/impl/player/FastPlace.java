@@ -30,9 +30,6 @@ public class FastPlace extends Module {
 
     @SubscribeEvent
     public void onPreUpdate(PreUpdateEvent e) {
-        if (ModuleManager.scaffold.stopFastPlace()) {
-            return;
-        }
         if (Utils.nullCheck() && mc.inGameHasFocus) {
             if (blocksOnly.isToggled()) {
                 ItemStack item = mc.thePlayer.getHeldItem();
@@ -63,7 +60,7 @@ public class FastPlace extends Module {
 
     @SubscribeEvent
     public void onSendPacket(SendPacketEvent e) {
-        if (!Utils.nullCheck() || ModuleManager.scaffold.stopFastPlace()) {
+        if (!Utils.nullCheck()) {
             return;
         }
         if (pitchCheck.isToggled() && mc.thePlayer.rotationPitch < 70.0f) {

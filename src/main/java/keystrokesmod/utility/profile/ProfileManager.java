@@ -226,11 +226,11 @@ public class ProfileManager implements IMinecraftInstance {
 
                     if (module.getName().equals("HUD")) {
                         if (moduleInformation.has("posX")) {
-                            int hudX = moduleInformation.get("posX").getAsInt();
+                            float hudX = moduleInformation.get("posX").getAsFloat();
                             HUD.posX = hudX;
                         }
                         if (moduleInformation.has("posY")) {
-                            int hudY = moduleInformation.get("posY").getAsInt();
+                            float hudY = moduleInformation.get("posY").getAsFloat();
                             HUD.posY = hudY;
                         }
                     }

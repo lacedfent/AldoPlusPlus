@@ -89,6 +89,11 @@ public class LagRange extends Module {
         resetState();
     }
 
+    @Override
+    public String getInfo() {
+        return (int) maximumDelay.getInput() + "ms";
+    }
+
     @SubscribeEvent
     public void onPrePlayerInteract(PrePlayerInteractEvent e) {
         if (!Utils.nullCheck() || mc.thePlayer.isDead || mc.theWorld == null) {

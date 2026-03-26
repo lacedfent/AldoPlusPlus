@@ -362,7 +362,7 @@ public class LongJump extends Module {
         if (fireballSlot == -1) {
             Utils.sendMessage("&cFireball not found.");
             disabled();
-        } else if (ModuleManager.scaffold.isEnabled || (pre && Utils.distanceToGround(mc.thePlayer) > 3)/* || (!pre && !PacketUtil.canRightClickItem())*/) { //needs porting
+        } else if (pre && Utils.distanceToGround(mc.thePlayer) > 3/* || (!pre && !PacketUtil.canRightClickItem())*/) { //needs porting
             Utils.sendMessage("&cCan't throw fireball right now.");
             disabled();
             fireballSlot = -1;

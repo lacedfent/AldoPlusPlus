@@ -2,10 +2,11 @@ package keystrokesmod.clickgui.components.impl;
 
 import keystrokesmod.Raven;
 import keystrokesmod.clickgui.components.Component;
+import keystrokesmod.module.impl.client.Gui;
 import keystrokesmod.module.setting.impl.ColorSetting;
 import keystrokesmod.utility.RenderUtils;
 import keystrokesmod.utility.Timer;
-import net.minecraft.client.Minecraft;
+import keystrokesmod.utility.font.RavenFontRenderer;
 import org.lwjgl.opengl.GL11;
 
 import java.awt.Color;
@@ -98,14 +99,16 @@ public class ColorComponent extends Component {
                 boxX + PREVIEW_BOX_SIZE, boxY + PREVIEW_BOX_SIZE,
                 colorSetting.getColor());
 
+        RavenFontRenderer renderer = Gui.getClickGuiSettingFontRenderer();
         GL11.glPushMatrix();
         GL11.glScaled(0.5, 0.5, 0.5);
-        float textOffset = Minecraft.getMinecraft().fontRendererObj.getStringWidth("[+]  ");
-        Minecraft.getMinecraft().fontRendererObj.drawStringWithShadow(
+        float textOffset = renderer.getStringWidth("[+]  ");
+        renderer.drawString(
                 colorSetting.getName(),
                 (cx + 4) * 2 + xOffset + textOffset,
                 (cy + o + 4) * 2,
-                -1
+                -1,
+                true
         );
         GL11.glPopMatrix();
 

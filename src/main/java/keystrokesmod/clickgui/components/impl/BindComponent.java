@@ -7,6 +7,7 @@ import keystrokesmod.module.impl.client.Gui;
 import keystrokesmod.module.setting.impl.KeySetting;
 import keystrokesmod.utility.RenderUtils;
 import keystrokesmod.utility.Theme;
+import keystrokesmod.utility.font.RavenFontRenderer;
 import keystrokesmod.utility.profile.ProfileModule;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GlStateManager;
@@ -54,13 +55,14 @@ public class BindComponent extends Component {
     @Override public boolean isBaseVisible() { return keySetting == null || keySetting.visible; }
 
     public void render() {
+        RavenFontRenderer renderer = Gui.getClickGuiSettingFontRenderer();
         GL11.glPushMatrix();
         GL11.glScaled(0.5D, 0.5D, 0.5D);
         if (keySetting == null) {
-            this.drawString(!this.moduleComponent.mod.canBeEnabled() && this.moduleComponent.mod.script == null ? "Module cannot be bound." : this.isBinding ? "Press a key..." : "Current bind: '\u00a7e" + getKeyAsStr(false) + "\u00a7r'");
+            this.drawString(renderer, !this.moduleComponent.mod.canBeEnabled() && this.moduleComponent.mod.script == null ? "Module cannot be bound." : this.isBinding ? "Press a key..." : "Current bind: '\u00a7e" + getKeyAsStr(false) + "\u00a7r'");
         }
         else {
-            Minecraft.getMinecraft().fontRendererObj.drawStringWithShadow(this.isBinding ? "Press a key..." : this.keySetting.getName() + ": '\u00a7e" + getKeyAsStr(true) + "\u00a7r'", (float) ((this.moduleComponent.categoryComponent.getX() + 4) * 2) + xOffset, (float) ((this.moduleComponent.categoryComponent.getY() + this.o + (this.keySetting == null ? 3 : 4)) * 2), Theme.getGradient(Theme.descriptor[0], Theme.descriptor[1], 0));
+            renderer.drawString(this.isBinding ? "Press a key..." : this.keySetting.getName() + ": '\u00a7e" + getKeyAsStr(true) + "\u00a7r'", (float) ((this.moduleComponent.categoryComponent.getX() + 4) * 2) + xOffset, (float) ((this.moduleComponent.categoryComponent.getY() + this.o + (this.keySetting == null ? 3 : 4)) * 2), Theme.getGradient(Theme.descriptor[0], Theme.descriptor[1], 0), true);
         }
         GL11.glPopMatrix();
 
@@ -68,16 +70,15 @@ public class BindComponent extends Component {
             ensureProcessedTextures();
             int iconSize = getEyeIconSize();
             float iconX = getEyeIconX(iconSize);
-            float textHeight = Minecraft.getMinecraft().fontRendererObj.FONT_HEIGHT * 0.5f;
+            float textHeight = Gui.getClickGuiSettingFontRenderer().getFontHeight() * 0.5f;
             float iconY = getRenderTextY() + (textHeight - iconSize) / 2f;
 
             int themeColor = !moduleComponent.mod.hidden
                     ? Theme.getGradient(Theme.descriptor[0], Theme.descriptor[1], 0)
                     : Theme.getGradient(Theme.hiddenBind[0], Theme.hiddenBind[1], 0);
             Color c = new Color(themeColor, true);
+            RenderUtils.prepareGuiTextureRenderState();
             Minecraft.getMinecraft().getTextureManager().bindTexture(moduleComponent.mod.isHidden() ? processedEyeOff : processedEye);
-            GlStateManager.enableBlend();
-            GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
             GlStateManager.color(c.getRed() / 255f, c.getGreen() / 255f, c.getBlue() / 255f, c.getAlpha() / 255f);
 
             GL11.glPushMatrix();
@@ -87,6 +88,7 @@ public class BindComponent extends Component {
 
             GlStateManager.color(1f, 1f, 1f, 1f);
             GlStateManager.disableBlend();
+            GlStateManager.enableAlpha();
         }
     }
 
@@ -143,20 +145,20 @@ public class BindComponent extends Component {
     }
 
     private boolean overBindText(int mouseX, int mouseY) {
-        Minecraft mc = Minecraft.getMinecraft();
         String text = getBindDisplayString();
+        RavenFontRenderer renderer = Gui.getClickGuiSettingFontRenderer();
 
         float left = getBindTextX();
         float top = getBindTextY();
-        float width = mc.fontRendererObj.getStringWidth(text) * 0.5f;
-        float height = mc.fontRendererObj.FONT_HEIGHT * 0.5f;
+        float width = renderer.getStringWidth(text) * 0.5f;
+        float height = renderer.getFontHeight() * 0.5f;
 
         return mouseX >= left && mouseX < left + width
                 && mouseY >= top && mouseY < top + height;
     }
 
     private int getEyeIconSize() {
-        int fontH = Minecraft.getMinecraft().fontRendererObj.FONT_HEIGHT;
+        int fontH = Math.round(Gui.getClickGuiSettingFontRenderer().getFontHeight() * 0.5f);
         return Math.max(6, fontH - 1);
     }
 
@@ -166,7 +168,7 @@ public class BindComponent extends Component {
 
     private float getEyeIconY(int iconSize) {
         float textY = getBindTextY();
-        float textHeight = Minecraft.getMinecraft().fontRendererObj.FONT_HEIGHT * 0.5f;
+        float textHeight = Gui.getClickGuiSettingFontRenderer().getFontHeight() * 0.5f;
         return textY + (textHeight - iconSize) / 2f;
     }
 
@@ -213,8 +215,8 @@ public class BindComponent extends Component {
     @Override public float getHeightF() { return keySetting != null ? 0f : 16f; }
     @Override public int getHeight() { return Math.round(getHeightF()); }
 
-    private void drawString(String s) {
-        Minecraft.getMinecraft().fontRendererObj.drawStringWithShadow(s, (float) ((this.moduleComponent.categoryComponent.getX() + 4) * 2) + xOffset, (float) ((this.moduleComponent.categoryComponent.getY() + this.o + (this.keySetting == null ? 3 : 4)) * 2), Theme.getGradient(Theme.descriptor[0], Theme.descriptor[1], 0));
+    private void drawString(RavenFontRenderer renderer, String s) {
+        renderer.drawString(s, (float) ((this.moduleComponent.categoryComponent.getX() + 4) * 2) + xOffset, (float) ((this.moduleComponent.categoryComponent.getY() + this.o + (this.keySetting == null ? 3 : 4)) * 2), Theme.getGradient(Theme.descriptor[0], Theme.descriptor[1], 0), true);
     }
 
     public void onGuiClosed() { isBinding = false; }

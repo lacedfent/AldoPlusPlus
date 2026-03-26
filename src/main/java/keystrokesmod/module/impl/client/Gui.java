@@ -5,9 +5,14 @@ import keystrokesmod.module.Module;
 import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
 import keystrokesmod.utility.Utils;
+import keystrokesmod.utility.font.FontManager;
+import keystrokesmod.utility.font.RavenFontRenderer;
 
 public class Gui extends Module {
+    private static final String[] GUI_FONT_OPTIONS = FontManager.getHudFontOptions();
+
     public static SliderSetting guiScale;
+    public static SliderSetting font;
     public static SliderSetting backgroundBlur;
     public static SliderSetting scrollSpeed;
     public static ButtonSetting removePlayerModel;
@@ -19,6 +24,7 @@ public class Gui extends Module {
     public Gui() {
         super("Gui", category.client, 54);
         this.registerSetting(guiScale = new SliderSetting("Gui scale", 1, new String[]{ "Small", "Normal", "Large" }));
+        this.registerSetting(font = new SliderSetting("Font", 0, GUI_FONT_OPTIONS));
         this.registerSetting(backgroundBlur = new SliderSetting("Background blur", "%", 0, 0, 100, 1));
         this.registerSetting(scrollSpeed = new SliderSetting("Scroll speed", 20, 2, 90, 1));
         this.registerSetting(darkBackground = new ButtonSetting("Dark background", true));
@@ -36,5 +42,22 @@ public class Gui extends Module {
         }
 
         this.disable();
+    }
+
+    public static String getSelectedFontName() {
+        if (font == null) {
+            return GUI_FONT_OPTIONS[0];
+        }
+
+        int index = (int) Math.max(0, Math.min(font.getOptions().length - 1, font.getInput()));
+        return font.getOptions()[index];
+    }
+
+    public static RavenFontRenderer getClickGuiHeaderFontRenderer() {
+        return FontManager.getClickGuiHeaderRenderer(getSelectedFontName());
+    }
+
+    public static RavenFontRenderer getClickGuiSettingFontRenderer() {
+        return FontManager.getClickGuiSettingRenderer(getSelectedFontName());
     }
 }

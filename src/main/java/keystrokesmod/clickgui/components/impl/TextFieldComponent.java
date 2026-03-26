@@ -2,9 +2,10 @@ package keystrokesmod.clickgui.components.impl;
 
 import keystrokesmod.clickgui.components.Component;
 import keystrokesmod.clickgui.components.FocusableTextComponent;
+import keystrokesmod.module.impl.client.Gui;
 import keystrokesmod.module.setting.impl.TextSetting;
 import keystrokesmod.utility.Theme;
-import net.minecraft.client.Minecraft;
+import keystrokesmod.utility.font.RavenFontRenderer;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.opengl.GL11;
 
@@ -163,14 +164,14 @@ public class TextFieldComponent extends Component implements FocusableTextCompon
     }
 
     private static float centeredScaledTextY(float top, float height) {
-        int fontHeight = Minecraft.getMinecraft().fontRendererObj.FONT_HEIGHT;
-        return top + (height - fontHeight * TEXT_SCALE) / 2f;
+        return top + (height - Gui.getClickGuiSettingFontRenderer().getFontHeight() * TEXT_SCALE) / 2f;
     }
 
     private static void drawScaledText(String text, float x, float y, int color) {
+        RavenFontRenderer renderer = Gui.getClickGuiSettingFontRenderer();
         GL11.glPushMatrix();
         GL11.glScaled(TEXT_SCALE, TEXT_SCALE, TEXT_SCALE);
-        Minecraft.getMinecraft().fontRendererObj.drawStringWithShadow(text, x / TEXT_SCALE, y / TEXT_SCALE, color);
+        renderer.drawString(text, x / TEXT_SCALE, y / TEXT_SCALE, color, true);
         GL11.glPopMatrix();
     }
 }

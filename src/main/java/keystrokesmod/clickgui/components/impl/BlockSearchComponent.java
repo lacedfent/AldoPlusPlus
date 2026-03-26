@@ -10,6 +10,7 @@ import keystrokesmod.utility.BlockSearchIndex;
 import keystrokesmod.utility.RenderUtils;
 import keystrokesmod.utility.Theme;
 import keystrokesmod.utility.Timer;
+import keystrokesmod.utility.font.RavenFontRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.RenderHelper;
@@ -99,14 +100,14 @@ public class BlockSearchComponent extends Component implements FocusableTextComp
     }
 
     private static float centeredScaledTextY(float top, float height) {
-        int fontH = Minecraft.getMinecraft().fontRendererObj.FONT_HEIGHT;
-        return top + (height - fontH * STATIC_TEXT_SCALE) / 2f;
+        return top + (height - Gui.getClickGuiSettingFontRenderer().getFontHeight() * STATIC_TEXT_SCALE) / 2f;
     }
 
     private static void drawScaledText(String text, float x, float y, int color) {
+        RavenFontRenderer renderer = Gui.getClickGuiSettingFontRenderer();
         GL11.glPushMatrix();
         GL11.glScaled(STATIC_TEXT_SCALE, STATIC_TEXT_SCALE, STATIC_TEXT_SCALE);
-        Minecraft.getMinecraft().fontRendererObj.drawStringWithShadow(text, x / STATIC_TEXT_SCALE, y / STATIC_TEXT_SCALE, color);
+        renderer.drawString(text, x / STATIC_TEXT_SCALE, y / STATIC_TEXT_SCALE, color, true);
         GL11.glPopMatrix();
     }
 
@@ -315,9 +316,8 @@ public class BlockSearchComponent extends Component implements FocusableTextComp
         if (processedArrow != null) {
             float iconX = left + 2;
             float iconY = rowTop + (ROW_HEIGHT - CLOSE_SIZE) / 2f;
+            RenderUtils.prepareGuiTextureRenderState();
             Minecraft.getMinecraft().getTextureManager().bindTexture(processedArrow);
-            GlStateManager.enableBlend();
-            GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
             GlStateManager.color(1f, 1f, 1f, 1f);
             GL11.glPushMatrix();
             GL11.glTranslatef(iconX, iconY, 0);
@@ -325,6 +325,7 @@ public class BlockSearchComponent extends Component implements FocusableTextComp
             GL11.glPopMatrix();
             GlStateManager.color(1f, 1f, 1f, 1f);
             GlStateManager.disableBlend();
+            GlStateManager.enableAlpha();
         }
         drawScaledText(groupName != null ? groupName : "Back", left + 13, centeredScaledTextY(rowTop, ROW_HEIGHT), 0xFFCCCCCC);
     }
@@ -378,9 +379,8 @@ public class BlockSearchComponent extends Component implements FocusableTextComp
             Color closeColor = new Color(Theme.getGradient(Theme.hiddenBind[0], Theme.hiddenBind[1], 0), true);
             float closeX = right - CLOSE_SIZE - CLOSE_PAD;
             float closeY = rowTop + (ROW_HEIGHT - CLOSE_SIZE) / 2f;
+            RenderUtils.prepareGuiTextureRenderState();
             Minecraft.getMinecraft().getTextureManager().bindTexture(processedClose);
-            GlStateManager.enableBlend();
-            GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
             GlStateManager.color(closeColor.getRed() / 255f, closeColor.getGreen() / 255f, closeColor.getBlue() / 255f, closeColor.getAlpha() / 255f);
             GL11.glPushMatrix();
             GL11.glTranslatef(closeX, closeY, 0);
@@ -388,6 +388,7 @@ public class BlockSearchComponent extends Component implements FocusableTextComp
             GL11.glPopMatrix();
             GlStateManager.color(1f, 1f, 1f, 1f);
             GlStateManager.disableBlend();
+            GlStateManager.enableAlpha();
         }
     }
 

@@ -146,7 +146,7 @@ public class ModuleUtils implements IMinecraftInstance {
             LongJump.slotReset = false;
         }
 
-        if (!ModuleManager.bHop.hopping && !ModuleManager.scaffold.fastScaffoldKeepY) {
+        if (!ModuleManager.bHop.hopping) {
             allowFriction = false;
         }
         else if (!mc.thePlayer.onGround) {
@@ -216,74 +216,58 @@ public class ModuleUtils implements IMinecraftInstance {
         Block block = BlockUtils.getBlock(new BlockPos(mc.thePlayer.posX, mc.thePlayer.posY, mc.thePlayer.posZ));
 
 
-        if (ModuleManager.bHop.didMove || ModuleManager.scaffold.lowhop) {
+        if (ModuleManager.bHop.didMove) {
 
             if ((!ModuleUtils.damage || Velocity.vertical.getInput() == 0) && !mc.thePlayer.isCollidedHorizontally) {
 
-                if (ModuleManager.scaffold.lowhop && !ModuleManager.bHop.didMove) {
-                    switch (simpleY) {
-                        case 4200:
-                            mc.thePlayer.motionY = 0.39;
-                            break;
-                        case 1138:
-                            mc.thePlayer.motionY = mc.thePlayer.motionY - 0.13;
-                            break;
-                        case 2031:
-                            mc.thePlayer.motionY = mc.thePlayer.motionY - 0.2;
-                            resetLowhop();
-                            break;
-                    }
+                if (!(block instanceof BlockAir) || (blockBelow instanceof BlockAir && blockBelow2 instanceof BlockAir)) {
+                    resetLowhop();
                 }
-                else {
-                    if (!(block instanceof BlockAir) || (blockBelow instanceof BlockAir && blockBelow2 instanceof BlockAir)) {
-                        resetLowhop();
-                    }
-                    switch ((int) ModuleManager.bHop.mode.getInput()) {
-                        case 2: // 9 tick
-                            switch (simpleY) {
-                                case 13:
-                                    mc.thePlayer.motionY = mc.thePlayer.motionY - 0.02483;
-                                    break;
-                                case 2000:
-                                    mc.thePlayer.motionY = mc.thePlayer.motionY - 0.1913;
-                                    break;
-                                case 7016:
-                                    mc.thePlayer.motionY = mc.thePlayer.motionY + 0.08;
-                                    break;
-                            }
-                            if (ModuleUtils.inAirTicks > 6 && Utils.isMoving()) {
-                                Utils.setSpeed(Utils.getHorizontalSpeed(mc.thePlayer));
-                            }
-                            if (ModuleUtils.inAirTicks > 8) {
+                switch ((int) ModuleManager.bHop.mode.getInput()) {
+                    case 2: // 9 tick
+                        switch (simpleY) {
+                            case 13:
+                                mc.thePlayer.motionY = mc.thePlayer.motionY - 0.02483;
+                                break;
+                            case 2000:
+                                mc.thePlayer.motionY = mc.thePlayer.motionY - 0.1913;
+                                break;
+                            case 7016:
+                                mc.thePlayer.motionY = mc.thePlayer.motionY + 0.08;
+                                break;
+                        }
+                        if (ModuleUtils.inAirTicks > 6 && Utils.isMoving()) {
+                            Utils.setSpeed(Utils.getHorizontalSpeed(mc.thePlayer));
+                        }
+                        if (ModuleUtils.inAirTicks > 8) {
+                            resetLowhop();
+                        }
+                        break;
+                    case 3: // 8 tick
+                        switch (simpleY) {
+                            case 13:
+                                mc.thePlayer.motionY = mc.thePlayer.motionY - 0.045;//0.02483;
+                                break;
+                            case 2000:
+                                mc.thePlayer.motionY = mc.thePlayer.motionY - 0.175;//0.1913;
                                 resetLowhop();
-                            }
-                            break;
-                        case 3: // 8 tick
-                            switch (simpleY) {
-                                case 13:
-                                    mc.thePlayer.motionY = mc.thePlayer.motionY - 0.045;//0.02483;
-                                    break;
-                                case 2000:
-                                    mc.thePlayer.motionY = mc.thePlayer.motionY - 0.175;//0.1913;
-                                    resetLowhop();
-                                    break;
-                            }
-                            break;
-                        case 4: // 7 tick
-                            switch (simpleY) {
-                                case 4200:
-                                    mc.thePlayer.motionY = 0.39;
-                                    break;
-                                case 1138:
-                                    mc.thePlayer.motionY = mc.thePlayer.motionY - 0.13;
-                                    break;
-                                case 2031:
-                                    mc.thePlayer.motionY = mc.thePlayer.motionY - 0.2;
-                                    resetLowhop();
-                                    break;
-                            }
-                            break;
-                    }
+                                break;
+                        }
+                        break;
+                    case 4: // 7 tick
+                        switch (simpleY) {
+                            case 4200:
+                                mc.thePlayer.motionY = 0.39;
+                                break;
+                            case 1138:
+                                mc.thePlayer.motionY = mc.thePlayer.motionY - 0.13;
+                                break;
+                            case 2031:
+                                mc.thePlayer.motionY = mc.thePlayer.motionY - 0.2;
+                                resetLowhop();
+                                break;
+                        }
+                        break;
                 }
             }
         }
@@ -295,7 +279,7 @@ public class ModuleUtils implements IMinecraftInstance {
         }
 
         if (ModuleManager.bHop.setRotation) {
-            if (KillAura.target == null && !ModuleManager.scaffold.isEnabled) {
+            if (KillAura.target == null) {
                 float yaw = mc.thePlayer.rotationYaw - 55;
                 e.setYaw(yaw);
             }
@@ -304,13 +288,7 @@ public class ModuleUtils implements IMinecraftInstance {
             }
         }
 
-        if (ModuleManager.scaffold.canBlockFade && !ModuleManager.scaffold.isEnabled && ++fadeEdge >= 45) {
-            ModuleManager.scaffold.canBlockFade = false;
-            fadeEdge = 0;
-            ModuleManager.scaffold.highlight.clear();
-        }
-
-        if ((canSlow || ModuleManager.scaffold.moduleEnabled && !ModuleManager.tower.canTower()) && !mc.thePlayer.onGround) {
+        if (canSlow && !mc.thePlayer.onGround) {
             double motionVal = 0.9 - ((double) inAirTicks / 10000) - Utils.randomizeDouble(0.00001, 0.00006);
             if (mc.thePlayer.hurtTime == 0 && inAirTicks > 4 && !setSlow) {
                 mc.thePlayer.motionX *= motionVal;
@@ -328,7 +306,7 @@ public class ModuleUtils implements IMinecraftInstance {
     }
 
     private void resetLowhop() {
-        ModuleManager.bHop.lowhop = ModuleManager.scaffold.lowhop = false;
+        ModuleManager.bHop.lowhop = false;
         ModuleManager.bHop.didMove = false;
         lowhopAir = false;
     }
@@ -347,25 +325,6 @@ public class ModuleUtils implements IMinecraftInstance {
             mc.thePlayer.prevRenderArmYaw = mc.thePlayer.rotationYaw;
             mc.thePlayer.renderArmYaw = mc.thePlayer.rotationYaw;
         }
-        if (!ModuleManager.scaffold.canBlockFade) {
-            return;
-        }
-        if (!ModuleManager.scaffold.highlightBlocks.isToggled() || ModuleManager.scaffold.highlight.isEmpty()) {
-            return;
-        }
-        Iterator<Map.Entry<BlockPos, Timer>> iterator = ModuleManager.scaffold.highlight.entrySet().iterator();
-        while (iterator.hasNext()) {
-            Map.Entry<BlockPos, Timer> entry = iterator.next();
-            if (entry.getValue() == null) {
-                entry.setValue(new Timer(750));
-                entry.getValue().start();
-            }
-            int alpha = entry.getValue() == null ? 210 : 210 - entry.getValue().getValueInt(0, 210, 1);
-            if (alpha == 0) {
-                iterator.remove();
-                continue;
-            }
-            RenderUtils.renderBlock(entry.getKey(), Utils.mergeAlpha(Theme.getGradient((int) HUD.theme.getInput(), 0), alpha), true, false);
-        }
+        // Scaffold fading highlight removed.
     }
 }

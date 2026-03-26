@@ -73,6 +73,11 @@ public class KnockbackDelay extends Module {
         flushInboundLagAndClear();
     }
 
+    @Override
+    public String getInfo() {
+        return (int) maximumDelay.getInput() + "ms";
+    }
+
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public void onReceivePacketHigh(ReceivePacketEvent e) {
         if (!isEnabled() || e.isCanceled()) {

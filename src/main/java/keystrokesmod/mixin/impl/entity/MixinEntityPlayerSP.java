@@ -281,11 +281,11 @@ public abstract class MixinEntityPlayerSP extends AbstractClientPlayer {
             }
         }
 
-        if (!this.isSprinting() && effectiveSprintKeyDown && (this.movementInput.moveForward != 0 || this.movementInput.moveStrafe != 0)  && (ModuleManager.scaffold.sprint() || this.movementInput.moveForward >= f && flag3) && (!(this.isUsingItem() || mc.thePlayer.isBlocking()) || !stopSprint) && !this.isPotionActive(Potion.blindness)) {
+        if (!this.isSprinting() && effectiveSprintKeyDown && (this.movementInput.moveForward != 0 || this.movementInput.moveStrafe != 0)  && (this.movementInput.moveForward >= f && flag3) && (!(this.isUsingItem() || mc.thePlayer.isBlocking()) || !stopSprint) && !this.isPotionActive(Potion.blindness)) {
             this.setSprinting(true);
         }
 
-        if (this.isSprinting() && ((!ModuleManager.scaffold.sprint() && (this.movementInput.moveForward < f || !flag3)) || this.isCollidedHorizontally || ModuleUtils.setSlow || (this.movementInput.moveForward == 0 && this.movementInput.moveStrafe == 0) || this.mc.gameSettings.keyBindSneak.isKeyDown() || (ModuleManager.scaffold != null && ModuleManager.scaffold.isEnabled && (!ModuleManager.scaffold.sprint() || ModuleManager.tower.canTower())) || (ModuleManager.wTap.isEnabled() && WTap.stopSprint))) {
+        if (this.isSprinting() && (((this.movementInput.moveForward < f || !flag3)) || this.isCollidedHorizontally || ModuleUtils.setSlow || (this.movementInput.moveForward == 0 && this.movementInput.moveStrafe == 0) || this.mc.gameSettings.keyBindSneak.isKeyDown() || (ModuleManager.wTap.isEnabled() && WTap.stopSprint))) {
             this.setSprinting(false);
             WTap.stopSprint = false;
         }

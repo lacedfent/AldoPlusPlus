@@ -3,17 +3,17 @@ package keystrokesmod.module;
 import keystrokesmod.module.impl.client.ChatCommands;
 import keystrokesmod.module.impl.client.CommandLine;
 import keystrokesmod.module.impl.client.Gui;
-import keystrokesmod.module.impl.movement.MovementFix;
 import keystrokesmod.module.impl.client.Settings;
 import keystrokesmod.module.impl.combat.*;
 import keystrokesmod.module.impl.fun.*;
 import keystrokesmod.module.impl.minigames.*;
 import keystrokesmod.module.impl.movement.*;
+import keystrokesmod.module.impl.movement.MovementFix;
 import keystrokesmod.module.impl.other.*;
 import keystrokesmod.module.impl.player.*;
 import keystrokesmod.module.impl.render.*;
 import keystrokesmod.module.impl.world.*;
-import keystrokesmod.utility.Utils;
+import keystrokesmod.utility.font.RavenFontRenderer;
 import keystrokesmod.utility.profile.Manager;
 
 import java.util.ArrayList;
@@ -35,7 +35,6 @@ public class ModuleManager {
     public static InvMove invmove;
     public static SkyWars skyWars;
     public static AntiFireball antiFireball;
-    public static AutoSwap autoSwap;
     public static BedAura bedAura;
     public static FastMine fastMine;
     public static AntiShuffle antiShuffle;
@@ -74,12 +73,10 @@ public class ModuleManager {
     public static ExtendCamera extendCamera;
     public static Freelook freelook;
     public static InvManager invManager;
-    public static Tower tower;
     public static NoCameraClip noCameraClip;
     public static BedWars bedwars;
     public static BHop bHop;
     public static NoHurtCam noHurtCam;
-    public static Scaffold scaffold;
     public static AutoTool autoTool;
     public static Sprint sprint;
     public static Weather weather;
@@ -159,7 +156,6 @@ public class ModuleManager {
         this.addModule(antiFireball = new AntiFireball());
         this.addModule(new AutoJump());
         this.addModule(new BridgeAssist());
-        this.addModule(autoSwap = new AutoSwap());
         this.addModule(autoTool = new AutoTool());
         this.addModule(bedAura = new BedAura());
         this.addModule(blink = new Blink());
@@ -172,8 +168,6 @@ public class ModuleManager {
         this.addModule(noFall = new NoFall());
         this.addModule(noRotate = new NoRotate());
         this.addModule(safeWalk = new SafeWalk());
-        this.addModule(scaffold = new Scaffold());
-        this.addModule(tower = new Tower());
         this.addModule(new WaterBucket());
 
         this.addModule(new Manager());
@@ -187,6 +181,8 @@ public class ModuleManager {
         this.addModule(new BreakProgress());
         this.addModule(chams = new Chams());
         this.addModule(new DamageTint());
+        this.addModule(new DamageTags());
+        this.addModule(new HitParticles());
         this.addModule(new ChestESP());
         this.addModule(extendCamera = new ExtendCamera());
         this.addModule(freelook = new Freelook());
@@ -197,8 +193,6 @@ public class ModuleManager {
         this.addModule(new ItemESP());
         this.addModule(new ItemPhysics());
         this.addModule(mobESP = new MobESP());
-        // Legacy 2D Nametags module is deprecated in favor of the 3D-based replacement.
-        // this.addModule(new Nametags());
         this.addModule(new Nametags());
         this.addModule(noCameraClip = new NoCameraClip());
         this.addModule(noHurtCam = new NoHurtCam());
@@ -215,16 +209,16 @@ public class ModuleManager {
         this.addModule(weather = new Weather());
 
         this.addModule(new keystrokesmod.script.Manager());
-        
+
         movementFix.enable();
         antiBot.enable();
         modules.sort(Comparator.comparing(Module::getName));
     }
 
-    public void addModule(Module m) {
-        modules.add(m);
-        modulesByName.put(m.getName(), m);
-        modulesByClass.put(m.getClass(), m);
+    public void addModule(Module module) {
+        modules.add(module);
+        modulesByName.put(module.getName(), module);
+        modulesByClass.put(module.getClass(), module);
     }
 
     public List<Module> getModules() {
@@ -234,9 +228,9 @@ public class ModuleManager {
     public List<Module> inCategory(Module.category category) {
         ArrayList<Module> categoryModules = new ArrayList<>();
 
-        for (Module mod : this.getModules()) {
-            if (mod.moduleCategory().equals(category)) {
-                categoryModules.add(mod);
+        for (Module module : this.getModules()) {
+            if (module.moduleCategory().equals(category)) {
+                categoryModules.add(module);
             }
         }
 
@@ -254,10 +248,11 @@ public class ModuleManager {
     public static void sort() {
         if (HUD.alphabeticalSort.isToggled()) {
             organizedModules.sort(Comparator.comparing(Module::getNameInHud));
+            return;
         }
-        else {
-            organizedModules.sort((o1, o2) -> Utils.mc.fontRendererObj.getStringWidth(o2.getNameInHud() + ((HUD.showInfo.isToggled() && !o2.getInfo().isEmpty()) ? " " + o2.getInfo() : "")) - Utils.mc.fontRendererObj.getStringWidth(o1.getNameInHud() + (HUD.showInfo.isToggled() && !o1.getInfo().isEmpty() ? " " + o1.getInfo() : "")));
-        }
+
+        final RavenFontRenderer hudFont = HUD.getHudFontRenderer();
+        organizedModules.sort((o1, o2) -> hudFont.getStringWidth(HUD.getHudRenderText(o2)) - hudFont.getStringWidth(HUD.getHudRenderText(o1)));
     }
 
     public static boolean canExecuteChatCommand() {

@@ -98,9 +98,6 @@ public class Raven {
         profileManager.loadProfile("default");
         ReflectionUtils.setKeyBindings();
 
-        MinecraftForge.EVENT_BUS.register(ModuleManager.scaffold);
-        MinecraftForge.EVENT_BUS.register(ModuleManager.tower);
-
         commandManager = new CommandManager();
     }
 
