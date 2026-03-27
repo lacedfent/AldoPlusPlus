@@ -276,9 +276,10 @@ public class RotationUtils implements IMinecraftInstance {
             double centerY = entity instanceof EntityLivingBase
                     ? entity.posY + ((EntityLivingBase) entity).getEyeHeight()
                     : (bb.minY + bb.maxY) / 2.0;
-            double closestX = Math.max(bb.minX, Math.min(bb.maxX, eye.xCoord));
-            double closestY = Math.max(bb.minY, Math.min(bb.maxY, eye.yCoord));
-            double closestZ = Math.max(bb.minZ, Math.min(bb.maxZ, eye.zCoord));
+            Vec3 cl = closestPointOnAabb(bb, eye);
+            double closestX = cl.xCoord;
+            double closestY = cl.yCoord;
+            double closestZ = cl.zCoord;
             double tH = Math.max(0.0, Math.min(1.0, horizontalMultipoint / 100.0));
             double tV = Math.max(0.0, Math.min(1.0, verticalMultipoint / 100.0));
             targetX = centerX + (closestX - centerX) * tH;
@@ -305,15 +306,20 @@ public class RotationUtils implements IMinecraftInstance {
         }
         double centerZ = (bb.minZ + bb.maxZ) / 2.0;
         Vec3 eye = mc.thePlayer.getPositionEyes(1.0f);
-        double closestX = Math.max(bb.minX, Math.min(bb.maxX, eye.xCoord));
-        double closestY = Math.max(bb.minY, Math.min(bb.maxY, eye.yCoord));
-        double closestZ = Math.max(bb.minZ, Math.min(bb.maxZ, eye.zCoord));
+        Vec3 cl = closestPointOnAabb(bb, eye);
         double tH = Math.max(0.0, Math.min(1.0, horizontalMultipoint / 100.0));
         double tV = Math.max(0.0, Math.min(1.0, verticalMultipoint / 100.0));
-        double targetX = centerX + (closestX - centerX) * tH;
-        double targetY = centerY + (closestY - centerY) * tV;
-        double targetZ = centerZ + (closestZ - centerZ) * tH;
+        double targetX = centerX + (cl.xCoord - centerX) * tH;
+        double targetY = centerY + (cl.yCoord - centerY) * tV;
+        double targetZ = centerZ + (cl.zCoord - centerZ) * tH;
         return new Vec3(targetX, targetY, targetZ);
+    }
+
+    public static Vec3 closestPointOnAabb(AxisAlignedBB box, Vec3 point) {
+        double x = Math.max(box.minX, Math.min(box.maxX, point.xCoord));
+        double y = Math.max(box.minY, Math.min(box.maxY, point.yCoord));
+        double z = Math.max(box.minZ, Math.min(box.maxZ, point.zCoord));
+        return new Vec3(x, y, z);
     }
 
     /**
@@ -324,12 +330,10 @@ public class RotationUtils implements IMinecraftInstance {
         Vec3 eye = mc.thePlayer.getPositionEyes(1.0f);
         float borderSize = entity.getCollisionBorderSize();
         AxisAlignedBB bb = entity.getEntityBoundingBox().expand(borderSize, borderSize, borderSize);
-        double closestX = Math.max(bb.minX, Math.min(bb.maxX, eye.xCoord));
-        double closestY = Math.max(bb.minY, Math.min(bb.maxY, eye.yCoord));
-        double closestZ = Math.max(bb.minZ, Math.min(bb.maxZ, eye.zCoord));
-        double dx = eye.xCoord - closestX;
-        double dy = eye.yCoord - closestY;
-        double dz = eye.zCoord - closestZ;
+        Vec3 closest = closestPointOnAabb(bb, eye);
+        double dx = eye.xCoord - closest.xCoord;
+        double dy = eye.yCoord - closest.yCoord;
+        double dz = eye.zCoord - closest.zCoord;
         return dx * dx + dy * dy + dz * dz;
     }
 

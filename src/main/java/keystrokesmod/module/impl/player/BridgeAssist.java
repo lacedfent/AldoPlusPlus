@@ -4,6 +4,7 @@ import keystrokesmod.event.ClientRotationEvent;
 import keystrokesmod.event.PrePlayerInputEvent;
 import keystrokesmod.event.SendPacketEvent;
 import keystrokesmod.module.Module;
+import keystrokesmod.module.ModuleManager;
 import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.GroupSetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
@@ -154,6 +155,9 @@ public class BridgeAssist extends Module {
     public void onClientRotation(ClientRotationEvent e) {
         if (!prePlace.isToggled()) return;
         if (!Utils.nullCheck() || mc.currentScreen != null || mc.thePlayer.capabilities.isFlying) return;
+        if (ModuleManager.bedAura != null && ModuleManager.bedAura.shouldOverrideMouseOver()) {
+            return;
+        }
 
         ItemStack held = mc.thePlayer.getHeldItem();
         if (held == null || !(held.getItem() instanceof ItemBlock)) return;

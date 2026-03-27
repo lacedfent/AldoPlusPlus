@@ -7,7 +7,6 @@ import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
 import keystrokesmod.utility.BlockUtils;
 import keystrokesmod.utility.Utils;
-import net.minecraft.block.BlockBed;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.util.BlockPos;
 import net.minecraft.util.MovingObjectPosition;
@@ -85,14 +84,15 @@ public class BreakProgress extends Module {
             this.resetVariables();
             return;
         }
-        if (bedAura.isToggled() && ModuleManager.bedAura != null && ModuleManager.bedAura.isEnabled() && ModuleManager.bedAura.breakProgress != 0.0f && ModuleManager.bedAura.currentBlock != null && !(BlockUtils.getBlock(ModuleManager.bedAura.currentBlock) instanceof BlockBed)) {
-            this.progress = Math.min(1.0f, ModuleManager.bedAura.breakProgress);
-            this.block = ModuleManager.bedAura.currentBlock;
-            if (this.block == null) {
+        if (bedAura.isToggled() && ModuleManager.bedAura != null && ModuleManager.bedAura.isEnabled()) {
+            BlockPos ap = ModuleManager.bedAura.getAuraTargetPos();
+            float bp = ModuleManager.bedAura.getAuraBreakProgress();
+            if (ap != null && bp > 0.0f) {
+                this.progress = Math.min(1.0f, bp);
+                this.block = ap;
+                this.setProgress();
                 return;
             }
-            this.setProgress();
-            return;
         }
         if (!manual.isToggled() || mc.objectMouseOver == null || mc.objectMouseOver.typeOfHit != MovingObjectPosition.MovingObjectType.BLOCK) {
             this.resetVariables();

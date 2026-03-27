@@ -793,11 +793,22 @@ public class ScriptDefaults {
         }
 
         public Vec3 getBedAuraPosition() {
-            BlockPos blockPos = ModuleManager.bedAura.currentBlock;
-            if (ModuleManager.bedAura == null || !ModuleManager.bedAura.isEnabled() || ModuleManager.bedAura.currentBlock == null) {
+            if (ModuleManager.bedAura == null || !ModuleManager.bedAura.isEnabled()) {
                 return null;
             }
-            return new Vec3(blockPos.getX(), blockPos.getY(), blockPos.getZ());
+            BlockPos p = ModuleManager.bedAura.getAuraTargetPos();
+            if (p == null) {
+                return null;
+            }
+            return new Vec3(p.getX(), p.getY(), p.getZ());
+        }
+
+        public float[] getBedAuraProgress() {
+            if (ModuleManager.bedAura == null || !ModuleManager.bedAura.isEnabled()) {
+                return new float[]{0, 0};
+            }
+            float d = ModuleManager.bedAura.getAuraBreakProgress();
+            return new float[]{d, 0};
         }
 
         public boolean isScaffolding() {
@@ -814,13 +825,6 @@ public class ScriptDefaults {
                 return module.isHidden();
             }
             return false;
-        }
-
-        public float[] getBedAuraProgress() {
-            if (ModuleManager.bedAura != null && ModuleManager.bedAura.isEnabled()) {
-                return new float[]{ModuleManager.bedAura.breakProgress, ModuleManager.bedAura.groundBreakProgress};
-            }
-            return new float[]{0, 0};
         }
 
         public void registerGroup(String name) {

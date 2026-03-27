@@ -25,6 +25,7 @@ public class Blink extends Module {
 
     private SliderSetting mode;
     private SliderSetting disableAfterMs;
+    private ButtonSetting maxDuration;
     private ButtonSetting disableOnAttack;
     private ButtonSetting initialPosition;
 
@@ -36,10 +37,16 @@ public class Blink extends Module {
     public Blink() {
         super("Blink", category.player);
         this.registerSetting(mode = new SliderSetting("Mode", 1, MODE_LABELS));
-        this.registerSetting(disableAfterMs = new SliderSetting("Disable after", "ms", 500.0, 50.0, 1000.0, 50.0));
+        this.registerSetting(maxDuration = new ButtonSetting("Max duration", false));
+        this.registerSetting(disableAfterMs = new SliderSetting("Disable after", "ms", 500.0, 50.0, 20000.0, 50.0));
         this.registerSetting(new DescriptionSetting("Disable on"));
         this.registerSetting(disableOnAttack = new ButtonSetting("Attack", false));
         this.registerSetting(initialPosition = new ButtonSetting("Show initial position", true));
+    }
+
+    @Override
+    public void guiUpdate() {
+        disableAfterMs.setVisible(maxDuration.isToggled(), this);
     }
 
     @Override
@@ -67,7 +74,6 @@ public class Blink extends Module {
         }
     }
 
-    /** True when Blink delays inbound packets (Inbound or Both). */
     public boolean delaysInboundPackets() {
         int m = (int) mode.getInput();
         return m == 0 || m == 2;
@@ -81,6 +87,9 @@ public class Blink extends Module {
     @SubscribeEvent
     public void onPreUpdate(PreUpdateEvent e) {
         ++blinkTicks;
+        if (!maxDuration.isToggled()) {
+            return;
+        }
         long elapsed = System.currentTimeMillis() - enableTime;
         if (elapsed >= (int) disableAfterMs.getInput()) {
             this.disable();
@@ -98,7 +107,6 @@ public class Blink extends Module {
         this.disable();
     }
 
-    // TODO: move this to an external display for all lag system stuff
     @SubscribeEvent
     public void onRenderWorld(RenderWorldLastEvent e) {
         if (!Utils.nullCheck() || pos == null || !initialPosition.isToggled()) {

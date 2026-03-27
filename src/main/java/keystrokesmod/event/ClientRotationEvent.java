@@ -5,6 +5,7 @@ import net.minecraftforge.fml.common.eventhandler.Event;
 public class ClientRotationEvent extends Event {
     public Float yaw;
     public Float pitch;
+    public boolean scriptRotations;
 
     public ClientRotationEvent(Float yaw, Float pitch) {
         this.yaw = yaw;

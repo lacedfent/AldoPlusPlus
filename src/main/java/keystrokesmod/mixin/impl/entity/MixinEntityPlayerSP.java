@@ -9,8 +9,10 @@ import keystrokesmod.module.ModuleManager;
 import keystrokesmod.module.impl.combat.WTap;
 import keystrokesmod.module.impl.movement.NoSlow;
 import keystrokesmod.module.impl.movement.Sprint;
+import keystrokesmod.module.impl.movement.Timer;
 import keystrokesmod.utility.ModuleUtils;
 import keystrokesmod.utility.RotationUtils;
+import keystrokesmod.utility.Utils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.audio.PositionedSoundRecord;
 import net.minecraft.client.entity.AbstractClientPlayer;
@@ -87,8 +89,18 @@ public abstract class MixinEntityPlayerSP extends AbstractClientPlayer {
     @Shadow
     private int positionUpdateTicks;
 
-    @Inject(method = "onUpdate", at = @At("HEAD"))
+    @Inject(method = "onUpdate", at = @At("HEAD"), cancellable = true)
     private void onUpdatePre(CallbackInfo c) {
+        if (!Utils.isLocalPlayerSubUpdate() && Timer.shouldSkipBaseLocalUpdate()) {
+            syncPrevRenderStateToCurrent();
+            c.cancel();
+            return;
+        }
+
+        if (Utils.isLocalPlayerSubUpdate()) {
+            return;
+        }
+
         if (this.worldObj.isBlockLoaded(new BlockPos(this.posX, 0.0, this.posZ))) {
             RotationUtils.prevRenderPitch = RotationUtils.renderPitch;
             RotationUtils.prevRenderYaw = RotationUtils.renderYaw;
@@ -99,9 +111,30 @@ public abstract class MixinEntityPlayerSP extends AbstractClientPlayer {
 
     @Inject(method = "onUpdate", at = @At("RETURN"))
     private void onUpdatePost(CallbackInfo c) {
+        if (Utils.isLocalPlayerSubUpdate()) {
+            return;
+        }
+
         if (this.worldObj.isBlockLoaded(new BlockPos(this.posX, 0.0, this.posZ))) {
             net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(new PostUpdateEvent());
         }
+
+        int extraUpdates = Timer.consumeExtraLocalUpdatesForBaseTick();
+        if (extraUpdates <= 0) {
+            return;
+        }
+
+        InterpolationState interpolationState = captureInterpolationState();
+        for (int i = 0; i < extraUpdates; ++i) {
+            Utils.beginLocalPlayerSubUpdate();
+            try {
+                this.onUpdate();
+            }
+            finally {
+                Utils.endLocalPlayerSubUpdate();
+            }
+        }
+        restoreInterpolationState(interpolationState);
     }
 
     @Overwrite
@@ -358,6 +391,108 @@ public abstract class MixinEntityPlayerSP extends AbstractClientPlayer {
         if (this.onGround && this.capabilities.isFlying && !this.mc.playerController.isSpectatorMode()) {
             this.capabilities.isFlying = false;
             this.sendPlayerAbilities();
+        }
+    }
+
+    private InterpolationState captureInterpolationState() {
+        return new InterpolationState(
+                prevPosX, prevPosY, prevPosZ,
+                lastTickPosX, lastTickPosY, lastTickPosZ,
+                prevRotationYaw, prevRotationPitch,
+                prevRotationYawHead, prevRenderYawOffset,
+                prevCameraYaw, prevCameraPitch,
+                prevDistanceWalkedModified, prevLimbSwingAmount,
+                prevSwingProgress, prevChasingPosX,
+                prevChasingPosY, prevChasingPosZ
+        );
+    }
+
+    private void restoreInterpolationState(InterpolationState state) {
+        if (state == null) {
+            return;
+        }
+
+        prevPosX = state.prevPosX;
+        prevPosY = state.prevPosY;
+        prevPosZ = state.prevPosZ;
+        lastTickPosX = state.lastTickPosX;
+        lastTickPosY = state.lastTickPosY;
+        lastTickPosZ = state.lastTickPosZ;
+        prevRotationYaw = state.prevRotationYaw;
+        prevRotationPitch = state.prevRotationPitch;
+        prevRotationYawHead = state.prevRotationYawHead;
+        prevRenderYawOffset = state.prevRenderYawOffset;
+        prevCameraYaw = state.prevCameraYaw;
+        prevCameraPitch = state.prevCameraPitch;
+        prevDistanceWalkedModified = state.prevDistanceWalkedModified;
+        prevLimbSwingAmount = state.prevLimbSwingAmount;
+        prevSwingProgress = state.prevSwingProgress;
+        prevChasingPosX = state.prevChasingPosX;
+        prevChasingPosY = state.prevChasingPosY;
+        prevChasingPosZ = state.prevChasingPosZ;
+    }
+
+    private void syncPrevRenderStateToCurrent() {
+        prevPosX = posX;
+        prevPosY = posY;
+        prevPosZ = posZ;
+        lastTickPosX = posX;
+        lastTickPosY = posY;
+        lastTickPosZ = posZ;
+        prevRotationYaw = rotationYaw;
+        prevRotationPitch = rotationPitch;
+        prevRotationYawHead = rotationYawHead;
+        prevRenderYawOffset = renderYawOffset;
+        prevCameraYaw = cameraYaw;
+        prevCameraPitch = cameraPitch;
+        prevDistanceWalkedModified = distanceWalkedModified;
+        prevLimbSwingAmount = limbSwingAmount;
+        prevSwingProgress = swingProgress;
+        prevChasingPosX = chasingPosX;
+        prevChasingPosY = chasingPosY;
+        prevChasingPosZ = chasingPosZ;
+        prevTimeInPortal = timeInPortal;
+    }
+
+    private static class InterpolationState {
+        private final double prevPosX;
+        private final double prevPosY;
+        private final double prevPosZ;
+        private final double lastTickPosX;
+        private final double lastTickPosY;
+        private final double lastTickPosZ;
+        private final float prevRotationYaw;
+        private final float prevRotationPitch;
+        private final float prevRotationYawHead;
+        private final float prevRenderYawOffset;
+        private final float prevCameraYaw;
+        private final float prevCameraPitch;
+        private final float prevDistanceWalkedModified;
+        private final float prevLimbSwingAmount;
+        private final float prevSwingProgress;
+        private final double prevChasingPosX;
+        private final double prevChasingPosY;
+        private final double prevChasingPosZ;
+
+        private InterpolationState(double prevPosX, double prevPosY, double prevPosZ, double lastTickPosX, double lastTickPosY, double lastTickPosZ, float prevRotationYaw, float prevRotationPitch, float prevRotationYawHead, float prevRenderYawOffset, float prevCameraYaw, float prevCameraPitch, float prevDistanceWalkedModified, float prevLimbSwingAmount, float prevSwingProgress, double prevChasingPosX, double prevChasingPosY, double prevChasingPosZ) {
+            this.prevPosX = prevPosX;
+            this.prevPosY = prevPosY;
+            this.prevPosZ = prevPosZ;
+            this.lastTickPosX = lastTickPosX;
+            this.lastTickPosY = lastTickPosY;
+            this.lastTickPosZ = lastTickPosZ;
+            this.prevRotationYaw = prevRotationYaw;
+            this.prevRotationPitch = prevRotationPitch;
+            this.prevRotationYawHead = prevRotationYawHead;
+            this.prevRenderYawOffset = prevRenderYawOffset;
+            this.prevCameraYaw = prevCameraYaw;
+            this.prevCameraPitch = prevCameraPitch;
+            this.prevDistanceWalkedModified = prevDistanceWalkedModified;
+            this.prevLimbSwingAmount = prevLimbSwingAmount;
+            this.prevSwingProgress = prevSwingProgress;
+            this.prevChasingPosX = prevChasingPosX;
+            this.prevChasingPosY = prevChasingPosY;
+            this.prevChasingPosZ = prevChasingPosZ;
         }
     }
 }

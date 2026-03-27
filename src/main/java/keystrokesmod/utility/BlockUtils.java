@@ -70,6 +70,21 @@ public class BlockUtils implements IMinecraftInstance {
         return (block.getMaterial().isToolNotRequired() || (itemStack != null && itemStack.canHarvestBlock(block))) ? (getToolDigEfficiency(itemStack, block, ignoreSlow, ignoreGround) / getBlockHardness / 30.0f) : (getToolDigEfficiency(itemStack, block, ignoreSlow, ignoreGround) / getBlockHardness / 100.0f);
     }
 
+    public static float maxDigRateAcrossSlots(Block block, int slotCount) {
+        if (mc.thePlayer == null || slotCount <= 0) {
+            return 0f;
+        }
+        int n = Math.min(slotCount, mc.thePlayer.inventory.getSizeInventory());
+        float best = 0f;
+        for (int i = 0; i < n; i++) {
+            float h = getBlockHardness(block, mc.thePlayer.inventory.getStackInSlot(i), false, false);
+            if (h > best) {
+                best = h;
+            }
+        }
+        return best;
+    }
+
     public static float getToolDigEfficiency(ItemStack itemStack, Block block, boolean ignoreSlow, boolean ignoreGround) {
         float n = (itemStack == null) ? 1.0f : itemStack.getItem().getStrVsBlock(itemStack, block);
         if (n > 1.0f) {
@@ -144,6 +159,58 @@ public class BlockUtils implements IMinecraftInstance {
                     pos.getX() + 1.0, pos.getY() + 1.0, pos.getZ() + 1.0);
         }
         return box;
+    }
+
+    public static AxisAlignedBB getCollisionOrSelectionBox(BlockPos pos) {
+        if (mc.theWorld == null || pos == null) {
+            return null;
+        }
+        IBlockState st = mc.theWorld.getBlockState(pos);
+        Block block = st.getBlock();
+        AxisAlignedBB bb = block.getCollisionBoundingBox(mc.theWorld, pos, st);
+        if (bb == null) {
+            bb = block.getSelectedBoundingBox(mc.theWorld, pos);
+        }
+        if (bb == null) {
+            bb = new AxisAlignedBB(pos.getX(), pos.getY(), pos.getZ(),
+                    pos.getX() + 1.0, pos.getY() + 1.0, pos.getZ() + 1.0);
+        }
+        return bb;
+    }
+
+    public static AxisAlignedBB getCollisionOrSelectedOnly(BlockPos pos) {
+        if (mc.theWorld == null || pos == null) {
+            return null;
+        }
+        IBlockState st = mc.theWorld.getBlockState(pos);
+        Block block = st.getBlock();
+        AxisAlignedBB bb = block.getCollisionBoundingBox(mc.theWorld, pos, st);
+        if (bb == null) {
+            bb = block.getSelectedBoundingBox(mc.theWorld, pos);
+        }
+        return bb;
+    }
+
+    public static AxisAlignedBB unionBlockBounds(BlockPos a, BlockPos b) {
+        AxisAlignedBB ua = getCollisionOrSelectionBox(a);
+        AxisAlignedBB ub = getCollisionOrSelectionBox(b);
+        return ua.union(ub);
+    }
+
+    public static EnumFacing facingFromBlockCenterToPoint(BlockPos pos, Vec3 hit) {
+        double px = hit.xCoord - (pos.getX() + 0.5);
+        double py = hit.yCoord - (pos.getY() + 0.5);
+        double pz = hit.zCoord - (pos.getZ() + 0.5);
+        double ax = Math.abs(px);
+        double ay = Math.abs(py);
+        double az = Math.abs(pz);
+        if (ax > ay && ax > az) {
+            return px > 0 ? EnumFacing.EAST : EnumFacing.WEST;
+        }
+        if (ay > az) {
+            return py > 0 ? EnumFacing.UP : EnumFacing.DOWN;
+        }
+        return pz > 0 ? EnumFacing.SOUTH : EnumFacing.NORTH;
     }
 
     public static boolean check(final BlockPos blockPos, final Block block) {

@@ -3,6 +3,7 @@ package keystrokesmod.module.impl.render;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.setting.impl.KeySetting;
 import keystrokesmod.utility.Utils;
+import net.minecraft.entity.Entity;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 
@@ -26,7 +27,7 @@ public class Holdlook extends Module {
 
         if (mc.currentScreen != null) {
             if (rearActive || frontActive) {
-                mc.gameSettings.thirdPersonView = 0;
+                applyThirdPersonView(0);
                 rearActive = false;
                 frontActive = false;
             }
@@ -38,10 +39,10 @@ public class Holdlook extends Module {
 
         if (rearDown && !rearActive) {
             savedPerspective = mc.gameSettings.thirdPersonView;
-            mc.gameSettings.thirdPersonView = 1;
+            applyThirdPersonView(1);
             rearActive = true;
         } else if (!rearDown && rearActive) {
-            mc.gameSettings.thirdPersonView = frontActive ? 2 : 0;
+            applyThirdPersonView(frontActive ? 2 : 0);
             rearActive = false;
         }
 
@@ -49,10 +50,10 @@ public class Holdlook extends Module {
             if (!rearActive) {
                 savedPerspective = mc.gameSettings.thirdPersonView;
             }
-            mc.gameSettings.thirdPersonView = 2;
+            applyThirdPersonView(2);
             frontActive = true;
         } else if (!frontDown && frontActive) {
-            mc.gameSettings.thirdPersonView = rearActive ? 1 : 0;
+            applyThirdPersonView(rearActive ? 1 : 0);
             frontActive = false;
         }
     }
@@ -60,9 +61,29 @@ public class Holdlook extends Module {
     @Override
     public void onDisable() {
         if (rearActive || frontActive) {
-            mc.gameSettings.thirdPersonView = 0;
+            applyThirdPersonView(0);
             rearActive = false;
             frontActive = false;
+        }
+    }
+
+    private void applyThirdPersonView(int view) {
+        if (view < 0) {
+            view = 0;
+        } else if (view > 2) {
+            view = 2;
+        }
+
+        mc.gameSettings.thirdPersonView = view;
+        if (mc.entityRenderer != null) {
+            if (view == 0) {
+                mc.entityRenderer.loadEntityShader(mc.getRenderViewEntity());
+            } else if (view == 1) {
+                mc.entityRenderer.loadEntityShader((Entity) null);
+            }
+        }
+        if (mc.renderGlobal != null) {
+            mc.renderGlobal.setDisplayListEntitiesDirty();
         }
     }
 }

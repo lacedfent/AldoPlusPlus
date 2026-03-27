@@ -102,6 +102,11 @@ public class LagRange extends Module {
             return;
         }
 
+        if (ModuleManager.bedAura != null && ModuleManager.bedAura.isActivelyMining()) {
+            if (isLagging) flushLag();
+            return;
+        }
+
         Autoblock autoblock = (Autoblock) ModuleManager.getModule(Autoblock.class);
         if (autoblock != null && autoblock.isActive()) {
             if (isLagging) flushLag();

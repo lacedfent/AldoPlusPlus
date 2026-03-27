@@ -74,6 +74,20 @@ public final class GlyphFontRenderer implements RavenFontRenderer {
     }
 
     @Override
+    public int drawGlyphString(String text, float x, float y, GlyphColorProvider colorProvider, boolean shadow) {
+        if (text == null || text.isEmpty()) {
+            return 0;
+        }
+
+        int width = 0;
+        if (shadow) {
+            width = drawGlyphInternal(text, x + 0.5f, y + 0.5f, colorProvider, true);
+        }
+
+        return Math.max(width, drawGlyphInternal(text, x, y, colorProvider, false));
+    }
+
+    @Override
     public int getStringWidth(String text) {
         if (text == null || text.isEmpty()) {
             return 0;
@@ -173,6 +187,74 @@ public final class GlyphFontRenderer implements RavenFontRenderer {
                 GlyphData glyph = getGlyph(character);
                 if (glyph.textureId != 0 && glyph.textureWidth > 0.0f && glyph.textureHeight > 0.0f) {
                     renderGlyph(glyph, drawX - GLYPH_MARGIN, drawY, activeColor);
+                }
+                drawX += glyph.rawAdvance;
+            }
+        }
+        finally {
+            GlStateManager.bindTexture(0);
+            GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
+            GL11.glPopMatrix();
+            GlStateManager.matrixMode(GL11.GL_MODELVIEW);
+        }
+        return Math.round((drawX - startX) * drawScale);
+    }
+
+    private int drawGlyphInternal(String text, float x, float y, GlyphColorProvider colorProvider, boolean shadowPass) {
+        float startX = x * rawScale;
+        float drawX = startX;
+        float drawY = (y * rawScale) - rawTextTop;
+        Integer formattingColor = null;
+
+        GL11.glPushMatrix();
+        try {
+            GlStateManager.enableAlpha();
+            GlStateManager.enableBlend();
+            GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
+            GlStateManager.enableTexture2D();
+            GL11.glTexEnvi(GL11.GL_TEXTURE_ENV, GL11.GL_TEXTURE_ENV_MODE, GL11.GL_MODULATE);
+            GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
+            GlStateManager.scale(drawScale, drawScale, 1.0f);
+
+            for (int i = 0; i < text.length(); i++) {
+                char character = text.charAt(i);
+                if (isMalformedSectionPrefix(text, i)) {
+                    continue;
+                }
+
+                if (character == '\u00a7' && i + 1 < text.length()) {
+                    char formatCode = Character.toLowerCase(text.charAt(++i));
+                    int colorIndex = COLOR_CODES.indexOf(formatCode);
+
+                    if (colorIndex >= 0 && colorIndex < 16) {
+                        formattingColor = getMinecraftColor(colorIndex, 0xFF, false);
+                    }
+                    else if (formatCode == 'r') {
+                        formattingColor = null;
+                    }
+
+                    continue;
+                }
+
+                if (character == '\n') {
+                    drawX = startX;
+                    drawY += lineHeight * rawScale;
+                    continue;
+                }
+
+                GlyphData glyph = getGlyph(character);
+                int glyphColor = colorProvider.colorForGlyph(character, (drawX - startX) * drawScale, glyph.advance, formattingColor);
+                int alpha = (glyphColor >>> 24) & 0xFF;
+                if (alpha == 0) {
+                    alpha = 0xFF;
+                }
+                glyphColor = withAlpha(glyphColor, alpha);
+                if (shadowPass) {
+                    glyphColor = applyShadowColor(glyphColor);
+                }
+
+                if (glyph.textureId != 0 && glyph.textureWidth > 0.0f && glyph.textureHeight > 0.0f) {
+                    renderGlyph(glyph, drawX - GLYPH_MARGIN, drawY, glyphColor);
                 }
                 drawX += glyph.rawAdvance;
             }

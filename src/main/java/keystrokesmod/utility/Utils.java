@@ -57,6 +57,7 @@ import java.util.stream.IntStream;
 
 public class Utils implements IMinecraftInstance {
     private static final Random rand = new Random();
+    private static final ThreadLocal<Integer> LOCAL_PLAYER_SUB_UPDATE_DEPTH = ThreadLocal.withInitial(() -> 0);
     public static HashSet<String> friends = new HashSet<>();
     public static HashSet<String> enemies = new HashSet<>();
     public static final Logger log = LogManager.getLogger();
@@ -789,6 +790,19 @@ public class Utils implements IMinecraftInstance {
 
     public static void resetTimer() {
         ((IAccessorMinecraft) mc).getTimer().timerSpeed = 1.0F;
+    }
+
+    public static void beginLocalPlayerSubUpdate() {
+        LOCAL_PLAYER_SUB_UPDATE_DEPTH.set(LOCAL_PLAYER_SUB_UPDATE_DEPTH.get() + 1);
+    }
+
+    public static void endLocalPlayerSubUpdate() {
+        int depth = LOCAL_PLAYER_SUB_UPDATE_DEPTH.get() - 1;
+        LOCAL_PLAYER_SUB_UPDATE_DEPTH.set(Math.max(0, depth));
+    }
+
+    public static boolean isLocalPlayerSubUpdate() {
+        return LOCAL_PLAYER_SUB_UPDATE_DEPTH.get() > 0;
     }
 
     public static boolean inInventory() {

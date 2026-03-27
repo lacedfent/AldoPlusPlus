@@ -11,13 +11,18 @@ import keystrokesmod.utility.Utils;
 
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockLiquid;
+import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.init.Blocks;
 import net.minecraft.util.BlockPos;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.common.gameevent.TickEvent;
 
 import org.lwjgl.input.Mouse;
 
+import net.minecraft.inventory.Slot;
+
+import java.lang.reflect.Field;
 import java.util.Random;
 
 public class AutoClicker extends Module {
@@ -27,11 +32,15 @@ public class AutoClicker extends Module {
     public ButtonSetting breakBlocks;
     public ButtonSetting weaponOnly;
     public ButtonSetting disableCreative;
+    public ButtonSetting inventory;
+    public SliderSetting inventoryStartDelay;
 
     private long nextClickTime;
+    private long inventoryNextClickTime;
     private boolean isHoldingBlockBreak;
 
     private Random rand;
+    private static Field hoveredSlotField;
 
     public AutoClicker() {
         super("AutoClicker", category.combat, 0);
@@ -42,6 +51,8 @@ public class AutoClicker extends Module {
         this.registerSetting(breakBlocks = new ButtonSetting("Break blocks", false));
         this.registerSetting(weaponOnly = new ButtonSetting("Weapon only", false));
         this.registerSetting(disableCreative = new ButtonSetting("Disable in creative", false));
+        this.registerSetting(inventory = new ButtonSetting("Inventory", false));
+        this.registerSetting(inventoryStartDelay = new SliderSetting("Start delay", "ms", 100.0, 0.0, 250.0, 10.0));
         this.closetModule = true;
     }
 
@@ -49,13 +60,74 @@ public class AutoClicker extends Module {
     public void onEnable() {
         this.rand = new Random();
         this.nextClickTime = 0L;
+        this.inventoryNextClickTime = 0L;
         this.isHoldingBlockBreak = false;
+        ensureHoveredSlotField();
     }
 
     @Override
     public void onDisable() {
         this.nextClickTime = 0L;
+        this.inventoryNextClickTime = 0L;
         this.isHoldingBlockBreak = false;
+    }
+
+    @SubscribeEvent
+    public void onRenderTick(TickEvent.RenderTickEvent e) {
+        if (e.phase != TickEvent.Phase.END) {
+            return;
+        }
+        if (!inventory.isToggled()) {
+            return;
+        }
+        if (!Utils.nullCheck()) {
+            return;
+        }
+        if (!(mc.currentScreen instanceof GuiContainer)) {
+            inventoryNextClickTime = 0L;
+            return;
+        }
+        if (!Mouse.isButtonDown(0)) {
+            inventoryNextClickTime = 0L;
+            return;
+        }
+
+        ensureHoveredSlotField();
+        if (hoveredSlotField == null) {
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        if (inventoryNextClickTime == 0L) {
+            inventoryNextClickTime = now + (long) inventoryStartDelay.getInput();
+        }
+
+        int clicks = 0;
+        while (inventoryNextClickTime <= now) {
+            clicks++;
+            inventoryNextClickTime += nextDelay();
+        }
+        if (clicks <= 0) {
+            return;
+        }
+
+        GuiContainer gui = (GuiContainer) mc.currentScreen;
+        Slot slot = getHoveredSlot(gui);
+        if (slot == null || slot.slotNumber < 0) {
+            return;
+        }
+
+        int windowId = gui.inventorySlots.windowId;
+        int slotId = slot.slotNumber;
+        int mode = net.minecraft.client.gui.GuiScreen.isShiftKeyDown() ? 1 : 0;
+
+        if (mc.playerController == null || mc.thePlayer == null) {
+            return;
+        }
+
+        for (int i = 0; i < clicks; i++) {
+            mc.playerController.windowClick(windowId, slotId, 0, mode, mc.thePlayer);
+        }
     }
 
     @SubscribeEvent
@@ -156,5 +228,36 @@ public class AutoClicker extends Module {
         }
 
         return Math.max(33, Math.min(180, finalDelay));
+    }
+
+    private static void ensureHoveredSlotField() {
+        if (hoveredSlotField != null) {
+            return;
+        }
+        try {
+            hoveredSlotField = GuiContainer.class.getDeclaredField("theSlot");
+            hoveredSlotField.setAccessible(true);
+        } catch (NoSuchFieldException e) {
+            try {
+                hoveredSlotField = GuiContainer.class.getDeclaredField("field_147006_u");
+                hoveredSlotField.setAccessible(true);
+            } catch (NoSuchFieldException ignored) {
+                hoveredSlotField = null;
+            }
+        }
+    }
+
+    private static Slot getHoveredSlot(GuiContainer gui) {
+        if (hoveredSlotField == null || gui == null) {
+            return null;
+        }
+        try {
+            Object value = hoveredSlotField.get(gui);
+            if (value instanceof Slot) {
+                return (Slot) value;
+            }
+        } catch (IllegalAccessException ignored) {
+        }
+        return null;
     }
 }

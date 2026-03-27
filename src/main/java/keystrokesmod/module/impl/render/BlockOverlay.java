@@ -10,6 +10,7 @@ import keystrokesmod.utility.StairsUtils;
 import keystrokesmod.utility.Utils;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockStairs;
+import net.minecraft.client.Minecraft;
 import net.minecraft.block.BlockDeadBush;
 import net.minecraft.block.BlockDoublePlant;
 import net.minecraft.block.BlockFlower;
@@ -128,7 +129,6 @@ public class BlockOverlay extends Module {
         if (box == null) return;
         box = box.expand(PADDING, PADDING, PADDING);
         double vx = mc.getRenderManager().viewerPosX, vy = mc.getRenderManager().viewerPosY, vz = mc.getRenderManager().viewerPosZ;
-        AxisAlignedBB renderBox = box.offset(-vx, -vy, -vz);
 
         int overlayStart = 0, overlayEnd = 0, outlineStart = 0, outlineEnd = 0;
         if (showOverlay) {
@@ -154,18 +154,7 @@ public class BlockOverlay extends Module {
         GL11.glShadeModel(GL11.GL_SMOOTH);
 
         try {
-            IBlockState state = mc.theWorld.getBlockState(pos);
-            if (state.getBlock() instanceof BlockStairs) {
-                StairsUtils.drawStairs(pos, state, box, side, vx, vy, vz, overlayStart, overlayEnd, outlineStart, outlineEnd, showOverlay, showOutline, BlockOverlay::drawFace);
-            } else {
-                if (side != null) {
-                    drawFace(renderBox, side, overlayStart, overlayEnd, outlineStart, outlineEnd, showOverlay, showOutline);
-                } else {
-                    for (EnumFacing face : EnumFacing.values()) {
-                        drawFace(renderBox, face, overlayStart, overlayEnd, outlineStart, outlineEnd, showOverlay, showOutline);
-                    }
-                }
-            }
+            drawOverlayGeometry(mc, pos, box, side, vx, vy, vz, overlayStart, overlayEnd, outlineStart, outlineEnd, showOverlay, showOutline);
         } finally {
             GL11.glShadeModel(GL11.GL_FLAT);
             GL11.glLineWidth(2.0f);
@@ -176,6 +165,63 @@ public class BlockOverlay extends Module {
             GlStateManager.enableCull();
             GlStateManager.disableBlend();
             GL11.glPopMatrix();
+        }
+    }
+
+    public static void renderBlockOutline(BlockPos pos, int outlineArgbStart, int outlineArgbEnd, float lineWidth, boolean depthless) {
+        Minecraft m = Minecraft.getMinecraft();
+        if (m.theWorld == null || pos == null) {
+            return;
+        }
+        AxisAlignedBB box = BlockUtils.getBlockSelectionBox(pos);
+        if (box == null) {
+            return;
+        }
+        box = box.expand(PADDING, PADDING, PADDING);
+        double vx = m.getRenderManager().viewerPosX, vy = m.getRenderManager().viewerPosY, vz = m.getRenderManager().viewerPosZ;
+
+        GL11.glPushMatrix();
+        GlStateManager.disableCull();
+        GlStateManager.enableBlend();
+        GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
+        GlStateManager.disableTexture2D();
+        GlStateManager.depthMask(false);
+        if (depthless) {
+            GlStateManager.disableDepth();
+        }
+        GL11.glEnable(GL11.GL_LINE_SMOOTH);
+        GL11.glHint(GL11.GL_LINE_SMOOTH_HINT, GL11.GL_NICEST);
+        GL11.glLineWidth(lineWidth);
+        GL11.glShadeModel(GL11.GL_SMOOTH);
+
+        try {
+            drawOverlayGeometry(m, pos, box, null, vx, vy, vz, 0, 0, outlineArgbStart, outlineArgbEnd, false, true);
+        } finally {
+            GL11.glShadeModel(GL11.GL_FLAT);
+            GL11.glLineWidth(2.0f);
+            GL11.glDisable(GL11.GL_LINE_SMOOTH);
+            if (depthless) {
+                GlStateManager.enableDepth();
+            }
+            GlStateManager.depthMask(true);
+            GlStateManager.enableTexture2D();
+            GlStateManager.enableCull();
+            GlStateManager.disableBlend();
+            GL11.glPopMatrix();
+        }
+    }
+
+    private static void drawOverlayGeometry(Minecraft mc, BlockPos pos, AxisAlignedBB paddedWorldBox, EnumFacing side, double vx, double vy, double vz, int overlayStart, int overlayEnd, int outlineStart, int outlineEnd, boolean showOverlay, boolean showOutline) {
+        AxisAlignedBB renderBox = paddedWorldBox.offset(-vx, -vy, -vz);
+        IBlockState state = mc.theWorld.getBlockState(pos);
+        if (state.getBlock() instanceof BlockStairs) {
+            StairsUtils.drawStairs(pos, state, paddedWorldBox, side, vx, vy, vz, overlayStart, overlayEnd, outlineStart, outlineEnd, showOverlay, showOutline, BlockOverlay::drawFace);
+        } else if (side != null) {
+            drawFace(renderBox, side, overlayStart, overlayEnd, outlineStart, outlineEnd, showOverlay, showOutline);
+        } else {
+            for (EnumFacing face : EnumFacing.values()) {
+                drawFace(renderBox, face, overlayStart, overlayEnd, outlineStart, outlineEnd, showOverlay, showOutline);
+            }
         }
     }
 

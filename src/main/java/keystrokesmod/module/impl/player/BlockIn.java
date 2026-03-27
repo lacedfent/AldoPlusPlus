@@ -4,6 +4,7 @@ import keystrokesmod.event.ClientRotationEvent;
 import keystrokesmod.event.PreUpdateEvent;
 import keystrokesmod.helper.RotationHelper;
 import keystrokesmod.module.Module;
+import keystrokesmod.module.ModuleManager;
 import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.ItemListSetting;
 import keystrokesmod.module.setting.impl.KeySetting;
@@ -110,6 +111,9 @@ public class BlockIn extends Module {
     @SubscribeEvent
     public void onClientRotation(ClientRotationEvent e) {
         if (!Utils.nullCheck()) return;
+        if (ModuleManager.bedAura != null && ModuleManager.bedAura.shouldOverrideMouseOver()) {
+            return;
+        }
 
         runTargetSelection();
 

@@ -77,6 +77,9 @@ public class AimAssist extends Module {
 
     @SubscribeEvent(priority = EventPriority.NORMAL)
     public void onClientRotation(ClientRotationEvent e) {
+        if (ModuleManager.bedAura != null && ModuleManager.bedAura.shouldOverrideMouseOver()) {
+            return;
+        }
         if (ModuleManager.killAura != null && ModuleManager.killAura.isEnabled() && KillAura.target != null) return;
         if (mode.getInput() == 0 || !conditionsMet()) {
             return;

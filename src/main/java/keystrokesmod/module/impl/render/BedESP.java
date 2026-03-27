@@ -48,6 +48,7 @@ import java.util.Set;
 public class BedESP extends Module {
 
     private static final String[] COLOR_MODES = {"Static", "Gradient", "Rainbow"};
+    private static final float DEFENSE_AUTO_SCALE_THRESHOLD = 8.0F;
 
     private SliderSetting colorMode;
     private ColorSetting color;
@@ -62,6 +63,7 @@ public class BedESP extends Module {
     private ButtonSetting showDefenseCounts;
     private SliderSetting defenseHeight;
     private SliderSetting defenseScale;
+    private ButtonSetting defenseAutoScale;
     private boolean lastDefenseToolMode;
 
     private final List<BlockPos[]> lastRenderedBedPairs = new ArrayList<>();
@@ -116,7 +118,8 @@ public class BedESP extends Module {
         this.registerSetting(showDefenseTools = new ButtonSetting("Show break tools", false));
         this.registerSetting(showDefenseCounts = new ButtonSetting("Show defense counts", true));
         this.registerSetting(defenseHeight = new SliderSetting("Defense height", 0.6, 0.1, 3.0, 0.1));
-        this.registerSetting(defenseScale = new SliderSetting("Defense scale", 1.0, 0.5, 2.5, 0.1));
+        this.registerSetting(defenseScale = new SliderSetting("Defense scale", 1.0, 0.1, 2.0, 0.05));
+        this.registerSetting(defenseAutoScale = new ButtonSetting("Auto Scale", false));
     }
 
     @Override
@@ -130,6 +133,7 @@ public class BedESP extends Module {
         showDefenseCounts.setVisible(defenseVisible && !showDefenseTools.isToggled(), this);
         defenseHeight.setVisible(defenseVisible, this);
         defenseScale.setVisible(defenseVisible, this);
+        defenseAutoScale.setVisible(defenseVisible, this);
     }
 
     @Override
@@ -268,12 +272,7 @@ public class BedESP extends Module {
             if (addedFeet.contains(foot)) {
                 continue;
             }
-            IBlockState footSt = mc.theWorld.getBlockState(foot);
-            IBlockState headSt = mc.theWorld.getBlockState(head);
-            if (!(headSt.getBlock() instanceof BlockBed)) {
-                continue;
-            }
-            if (isBedFoot(footSt)) {
+            if (!stillHasRenderableBed(prev)) {
                 continue;
             }
             double dx = foot.getX() + 0.5 - px;
@@ -320,7 +319,7 @@ public class BedESP extends Module {
                 }
 
                 BlockPos[] pair = footAndHead(foot);
-                if (pair == null || !isLiveBedPair(pair)) {
+                if (pair == null || !stillHasRenderableBed(pair)) {
                     continue;
                 }
 
@@ -355,6 +354,16 @@ public class BedESP extends Module {
     private static boolean isBedFoot(IBlockState st) {
         return st != null && st.getBlock() instanceof BlockBed
                 && st.getValue((IProperty) BlockBed.PART) == BlockBed.EnumPartType.FOOT;
+    }
+
+    private boolean stillHasRenderableBed(BlockPos[] pair) {
+        if (pair == null || pair.length < 2 || mc.theWorld == null) {
+            return false;
+        }
+        IBlockState a = mc.theWorld.getBlockState(pair[0]);
+        IBlockState b = mc.theWorld.getBlockState(pair[1]);
+        return a != null && a.getBlock() instanceof BlockBed
+                || b != null && b.getBlock() instanceof BlockBed;
     }
 
     private boolean isLiveBedPair(BlockPos[] pair) {
@@ -442,7 +451,11 @@ public class BedESP extends Module {
         double x = (bedBounds.minX + bedBounds.maxX) * 0.5 - renderManager.viewerPosX;
         double y = bedBounds.maxY + defenseHeight.getInput() - renderManager.viewerPosY;
         double z = (bedBounds.minZ + bedBounds.maxZ) * 0.5 - renderManager.viewerPosZ;
-        float renderScale = (float) defenseScale.getInput() * 0.02F;
+        float renderScale = computeDefenseBaseScaleValue();
+        if (defenseAutoScale.isToggled()) {
+            float distance = (float) Math.sqrt(x * x + y * y + z * z);
+            renderScale = computeDefenseScaleValue(distance);
+        }
         List<DefenseOverlayEntry> stacks = snapshot.entries;
         int contentWidth = stacks.size() * DEFENSE_ICON_SPACING - (DEFENSE_ICON_SPACING - DEFENSE_ICON_SIZE);
         int left = -contentWidth / 2;
@@ -846,6 +859,17 @@ public class BedESP extends Module {
 
     private float getBlockHeight() {
         return renderFullBlock.isToggled() ? 1 : 0.5625F;
+    }
+
+    private float computeDefenseBaseScaleValue() {
+        return (float) defenseScale.getInput() * 0.02F;
+    }
+
+    private float computeDefenseScaleValue(float distance) {
+        float baseScale = computeDefenseBaseScaleValue();
+        float effectiveDistance = Math.max(1.0F, distance);
+        float scaledValue = baseScale * (effectiveDistance / DEFENSE_AUTO_SCALE_THRESHOLD);
+        return Math.max(baseScale, scaledValue);
     }
 
     private static final class DefenseOverlaySnapshot {

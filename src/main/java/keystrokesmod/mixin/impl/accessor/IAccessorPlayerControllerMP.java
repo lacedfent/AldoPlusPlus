@@ -1,5 +1,6 @@
 package keystrokesmod.mixin.impl.accessor;
 
+import net.minecraft.util.BlockPos;
 import net.minecraftforge.fml.relauncher.*;
 import org.spongepowered.asm.mixin.*;
 import net.minecraft.client.multiplayer.*;
@@ -10,6 +11,9 @@ import org.spongepowered.asm.mixin.gen.*;
 public interface IAccessorPlayerControllerMP {
     @Accessor
     float getCurBlockDamageMP();
+
+    @Accessor
+    BlockPos getCurrentBlock();
 
     @Accessor
     void setCurBlockDamageMP(float damage);

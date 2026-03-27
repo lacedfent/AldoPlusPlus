@@ -50,6 +50,14 @@ public class RenderUtils implements IMinecraftInstance {
     private static final IntBuffer VIEWPORT = BufferUtils.createIntBuffer(16);
     private static final FloatBuffer SCREEN_COORDS = BufferUtils.createFloatBuffer(3);
 
+    public static final class ProjectionContext {
+        private int scaleFactor;
+        private final FloatBuffer modelView = BufferUtils.createFloatBuffer(16);
+        private final FloatBuffer projection = BufferUtils.createFloatBuffer(16);
+        private final IntBuffer viewport = BufferUtils.createIntBuffer(16);
+        private final FloatBuffer screenCoords = BufferUtils.createFloatBuffer(3);
+    }
+
     public static void renderBlock(BlockPos blockPos, int color, boolean outline, boolean shade) {
         renderBox(blockPos.getX(), blockPos.getY(), blockPos.getZ(), 1, 1, 1, color, outline, shade);
     }
@@ -1247,6 +1255,50 @@ public class RenderUtils implements IMinecraftInstance {
         }
 
         return null;
+    }
+
+    public static ProjectionContext captureProjectionContext(ProjectionContext context, int scaleFactor) {
+        if (context == null) {
+            context = new ProjectionContext();
+        }
+
+        context.scaleFactor = scaleFactor;
+        context.modelView.clear();
+        context.projection.clear();
+        context.viewport.clear();
+        GL11.glGetFloat(GL11.GL_MODELVIEW_MATRIX, context.modelView);
+        GL11.glGetFloat(GL11.GL_PROJECTION_MATRIX, context.projection);
+        GL11.glGetInteger(GL11.GL_VIEWPORT, context.viewport);
+        context.modelView.rewind();
+        context.projection.rewind();
+        context.viewport.rewind();
+        return context;
+    }
+
+    public static boolean projectTo2D(ProjectionContext context, double x, double y, double z, double[] output) {
+        if (context == null || output == null || output.length < 3) {
+            return false;
+        }
+
+        context.screenCoords.clear();
+        boolean result = GLU.gluProject(
+                (float) x,
+                (float) y,
+                (float) z,
+                context.modelView,
+                context.projection,
+                context.viewport,
+                context.screenCoords
+        );
+
+        if (!result) {
+            return false;
+        }
+
+        output[0] = context.screenCoords.get(0) / context.scaleFactor;
+        output[1] = (Display.getHeight() - context.screenCoords.get(1)) / context.scaleFactor;
+        output[2] = context.screenCoords.get(2);
+        return true;
     }
 
     public static void drawRoundedRectangle(float x, float y, float x2, float y2, float radius, final int color) {

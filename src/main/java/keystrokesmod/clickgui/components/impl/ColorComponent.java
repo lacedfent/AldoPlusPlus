@@ -327,6 +327,14 @@ public class ColorComponent extends Component {
         return colorSetting.visible;
     }
 
+    public void restoreExpandedState(boolean expanded) {
+        this.expanded = expanded;
+        this.smoothTimer = null;
+        this.animationProgress = expanded ? 1f : 0f;
+        this.animationStartProgress = this.animationProgress;
+        this.animationTargetProgress = this.animationProgress;
+    }
+
     private void cacheHSB() {
         float bri = colorSetting.getBrightness();
         float sat = colorSetting.getSaturation();

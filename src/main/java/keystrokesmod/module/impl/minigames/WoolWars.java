@@ -3,6 +3,7 @@ package keystrokesmod.module.impl.minigames;
 import keystrokesmod.event.ClientRotationEvent;
 import keystrokesmod.event.PreUpdateEvent;
 import keystrokesmod.module.Module;
+import keystrokesmod.module.ModuleManager;
 import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.DescriptionSetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
@@ -305,6 +306,9 @@ public class WoolWars extends Module {
 
     @SubscribeEvent
     public void onClientRotation(ClientRotationEvent e) {
+        if (ModuleManager.bedAura != null && ModuleManager.bedAura.shouldOverrideMouseOver()) {
+            return;
+        }
         if (placeMop != null) {
             if (placingPitch > 90.0f) {
                 if (mc.playerController.onPlayerRightClick(mc.thePlayer, mc.theWorld, mc.thePlayer.getHeldItem(), placeMop.getBlockPos(), placeMop.sideHit, placeMop.hitVec)) {

@@ -34,6 +34,7 @@ public class GhostHand extends Module {
     private ButtonSetting priorityBedAdjacent;
 
     private GroupSetting useGroup;
+    private GroupSetting conditionsGroup;
     private ButtonSetting useSword;
     private ButtonSetting useTool;
     private ButtonSetting useFists;
@@ -42,8 +43,8 @@ public class GhostHand extends Module {
     private ButtonSetting useCobweb;
     private ButtonSetting useOther;
 
-    private GroupSetting condGroup;
-    private ButtonSetting mousePressed;
+    private ButtonSetting requireLmb;
+    private ButtonSetting requireRmb;
     private ButtonSetting notSword;
 
     public GhostHand() {
@@ -68,9 +69,10 @@ public class GhostHand extends Module {
         this.registerSetting(useCobweb = new ButtonSetting(useGroup, "Cobweb", true));
         this.registerSetting(useOther = new ButtonSetting(useGroup, "Other", true));
 
-        this.registerSetting(condGroup = new GroupSetting("Conditions"));
-        this.registerSetting(mousePressed = new ButtonSetting(condGroup, "Mouse pressed", false));
-        this.registerSetting(notSword = new ButtonSetting(condGroup, "Not holding a sword", false));
+        this.registerSetting(conditionsGroup = new GroupSetting("Conditions"));
+        this.registerSetting(requireLmb = new ButtonSetting(conditionsGroup, "Require Left mouse", false));
+        this.registerSetting(requireRmb = new ButtonSetting(conditionsGroup, "Require right mouse", false));
+        this.registerSetting(notSword = new ButtonSetting(conditionsGroup, "Not holding a sword", false));
     }
 
     public void modifyMouseOverFromGetMouseOver(float partialTicks) {
@@ -81,7 +83,8 @@ public class GhostHand extends Module {
         if (viewEntity == null) return;
 
         if (notSword.isToggled() && Utils.holdingSword()) return;
-        if (mousePressed.isToggled() && !Mouse.isButtonDown(0) && !Mouse.isButtonDown(1)) return;
+        if (requireLmb.isToggled() && !Mouse.isButtonDown(0)) return;
+        if (requireRmb.isToggled() && !Mouse.isButtonDown(1)) return;
         if (!heldItemAllowed()) return;
 
         double reach = mc.playerController.getBlockReachDistance();

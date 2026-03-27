@@ -4,6 +4,7 @@ import keystrokesmod.event.ClientRotationEvent;
 import keystrokesmod.event.PrePlayerInputEvent;
 import keystrokesmod.event.PrePlayerInteractEvent;
 import keystrokesmod.module.Module;
+import keystrokesmod.module.ModuleManager;
 import keystrokesmod.module.impl.world.AntiBot;
 import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
@@ -78,6 +79,9 @@ public class AntiFireball extends Module {
     @SubscribeEvent
     public void onClientRotation(ClientRotationEvent e) {
         if (!Utils.nullCheck() || mc.currentScreen != null) return;
+        if (ModuleManager.bedAura != null && ModuleManager.bedAura.shouldOverrideMouseOver()) {
+            return;
+        }
         if (onGround.isToggled() && !mc.thePlayer.onGround) return;
         if (fireball == null) return;
 

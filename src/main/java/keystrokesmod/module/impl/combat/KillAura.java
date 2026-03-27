@@ -35,6 +35,7 @@ public class KillAura extends Module {
     private SliderSetting targetCPS;
     private SliderSetting fov;
     private SliderSetting attackRange;
+    private SliderSetting swingRange;
     private SliderSetting aimRange;
     public SliderSetting rotationMode;
     private SliderSetting speed;
@@ -74,6 +75,7 @@ public class KillAura extends Module {
         this.registerSetting(targetCPS = new SliderSetting("Target CPS", 10.0, 1.0, 20.0, 0.5));
         this.registerSetting(fov = new SliderSetting("FOV", "°", 360.0, 30.0, 360.0, 4.0));
         this.registerSetting(attackRange = new SliderSetting("Range (attack)", 3.0, 3.0, 6.0, 0.05));
+        this.registerSetting(swingRange = new SliderSetting("Range (swing)", 4.5, 3.0, 8.0, 0.05));
         this.registerSetting(aimRange = new SliderSetting("Range (aim)", 4.5, 3.0, 8.0, 0.05));
         this.registerSetting(rotationMode = new SliderSetting("Rotation mode", 0, rotationModes));
         this.registerSetting(speed = new SliderSetting("Speed", 10, 1, 30, 1));
@@ -115,6 +117,9 @@ public class KillAura extends Module {
 
     @SubscribeEvent(priority = EventPriority.LOW)
     public void onClientRotation(ClientRotationEvent e) {
+        if (ModuleManager.bedAura != null && ModuleManager.bedAura.shouldOverrideMouseOver()) {
+            return;
+        }
         if (!basicCondition() || !settingCondition()) {
             setTarget(null);
             return;
@@ -164,7 +169,7 @@ public class KillAura extends Module {
     public void onPrePlayerInteract(PrePlayerInteractEvent e) {
         if (!Utils.nullCheck()) return;
         if (target == null) return;
-        if (targetDistance > attackRange.getInput()) return;
+        if (targetDistance > swingRange.getInput()) return;
 
         int key = mc.gameSettings.keyBindAttack.getKeyCode();
         long now = System.currentTimeMillis();
@@ -447,8 +452,8 @@ public class KillAura extends Module {
             return false;
         } else if (disableInInventory.isToggled() && mc.currentScreen != null) {
             return false;
-        } else
-            return ModuleManager.bedAura == null || !ModuleManager.bedAura.isEnabled() || ModuleManager.bedAura.allowAura.isToggled() || ModuleManager.bedAura.currentBlock == null;
+        }
+        return true;
     }
 
     private long nextDelay() {
@@ -456,6 +461,18 @@ public class KillAura extends Module {
         int baseDelay = 1000 / cps;
         int finalDelay = baseDelay + (rand.nextInt(21) - 10);
         return Math.max(33, Math.min(180, finalDelay));
+    }
+
+    public SliderSetting getAttackRangeSetting() {
+        return attackRange;
+    }
+
+    public SliderSetting getSwingRangeSetting() {
+        return swingRange;
+    }
+
+    public SliderSetting getAimRangeSetting() {
+        return aimRange;
     }
 
     private static final class Candidate {

@@ -18,8 +18,10 @@ import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
 
 import java.awt.*;
+import java.util.HashMap;
 import java.util.ArrayList;
 import java.nio.IntBuffer;
+import java.util.Map;
 
 public class ModuleComponent extends Component {
     public Module mod;
@@ -133,7 +135,37 @@ public class ModuleComponent extends Component {
 
     public void reloadSettings() {
         boolean wasOpened = this.isOpened;
+        Map<SliderSetting, Boolean> sliderHeldStates = new HashMap<SliderSetting, Boolean>();
+        Map<ColorSetting, Boolean> colorExpandedStates = new HashMap<ColorSetting, Boolean>();
+
+        for (Component component : this.settings) {
+            if (component instanceof SliderComponent) {
+                SliderComponent sliderComponent = (SliderComponent) component;
+                sliderHeldStates.put(sliderComponent.sliderSetting, sliderComponent.heldDown);
+            }
+            else if (component instanceof ColorComponent) {
+                ColorComponent colorComponent = (ColorComponent) component;
+                colorExpandedStates.put(colorComponent.colorSetting, colorComponent.expanded);
+            }
+        }
+
         rebuildSettingsList();
+        for (Component component : this.settings) {
+            if (component instanceof SliderComponent) {
+                SliderComponent sliderComponent = (SliderComponent) component;
+                Boolean wasHeldDown = sliderHeldStates.get(sliderComponent.sliderSetting);
+                if (wasHeldDown != null) {
+                    sliderComponent.heldDown = wasHeldDown;
+                }
+            }
+            else if (component instanceof ColorComponent) {
+                ColorComponent colorComponent = (ColorComponent) component;
+                Boolean wasExpanded = colorExpandedStates.get(colorComponent.colorSetting);
+                if (wasExpanded != null) {
+                    colorComponent.restoreExpandedState(wasExpanded);
+                }
+            }
+        }
         restoreOpenState(wasOpened);
         updateSettingPositions();
     }

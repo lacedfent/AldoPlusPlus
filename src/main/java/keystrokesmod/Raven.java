@@ -19,12 +19,13 @@ import keystrokesmod.script.ScriptManager;
 import keystrokesmod.script.model.Entity;
 import keystrokesmod.script.model.NetworkPlayer;
 import keystrokesmod.utility.BlockHighlightSharedHandler;
+import keystrokesmod.utility.Utils;
 import keystrokesmod.utility.ModuleUtils;
 import keystrokesmod.utility.PacketsHandler;
 import keystrokesmod.utility.ReflectionUtils;
-import keystrokesmod.utility.Utils;
 import keystrokesmod.utility.profile.Profile;
 import keystrokesmod.utility.profile.ProfileManager;
+import keystrokesmod.module.setting.impl.SliderSetting;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.client.ClientCommandHandler;
 import net.minecraftforge.common.MinecraftForge;
@@ -137,6 +138,9 @@ public class Raven {
                     }
                 }
                 else if (mc.currentScreen instanceof ClickGui) {
+                    if (applyKillAuraRangeConstraints()) {
+                        clickGui.onSliderChange();
+                    }
                     if (mc.thePlayer.getHealth() <= 0.0f) {
                         mc.displayGuiScreen(null);
                     }
@@ -160,11 +164,13 @@ public class Raven {
 
     @SubscribeEvent
     public void onPostProfileLoad(PostProfileLoadEvent e) {
+        applyKillAuraRangeConstraints();
         clickGui.onSliderChange();
     }
 
     @SubscribeEvent
     public void onPostSetSlider(PostSetSliderEvent e) {
+        applyKillAuraRangeConstraints();
         clickGui.onSliderChange();
     }
 
@@ -204,11 +210,6 @@ public class Raven {
         isKeyStrokeConfigGuiToggled = true;
     }
 
-    /**
-     * Runs keybind checks and GUI updates when timer is frozen (timerSpeed=0).
-     * Called from per-frame hook - ticks stop but runGameLoop still runs.
-     * Does NOT run module.onUpdate() so the world stays frozen.
-     */
     public static void handleFrozenKeybinds() {
         if (!Utils.nullCheck()) return;
 
@@ -233,5 +234,36 @@ public class Raven {
             isKeyStrokeConfigGuiToggled = false;
             mc.displayGuiScreen(new KeyStrokeConfigGui());
         }
+    }
+
+    private boolean applyKillAuraRangeConstraints() {
+        if (ModuleManager.killAura == null) {
+            return false;
+        }
+
+        SliderSetting attackRange = ModuleManager.killAura.getAttackRangeSetting();
+        SliderSetting swingRange = ModuleManager.killAura.getSwingRangeSetting();
+        SliderSetting aimRange = ModuleManager.killAura.getAimRangeSetting();
+        if (attackRange == null || swingRange == null || aimRange == null) {
+            return false;
+        }
+
+        boolean changed = false;
+        double attack = attackRange.getInput();
+        double swing = swingRange.getInput();
+        double aim = aimRange.getInput();
+
+        if (swing < attack) {
+            swingRange.setValue(attack);
+            swing = swingRange.getInput();
+            changed = true;
+        }
+
+        if (aim < swing) {
+            aimRange.setValue(swing);
+            changed = true;
+        }
+
+        return changed;
     }
 }

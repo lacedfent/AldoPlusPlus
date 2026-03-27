@@ -90,6 +90,7 @@ public class Autoblock extends Module {
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public void onMouse(MouseEvent e) {
         if (!Utils.nullCheck() || !Utils.holdingSword()) return;
+        if (ModuleManager.bedAura != null && ModuleManager.bedAura.isActivelyMining()) return;
         if (e.button == 1) {
             e.setCanceled(true);
         }
@@ -99,6 +100,7 @@ public class Autoblock extends Module {
     public void onRenderTick(TickEvent.RenderTickEvent e) {
         if (e.phase != TickEvent.Phase.START) return;
         if (!Utils.nullCheck()) return;
+        if (ModuleManager.bedAura != null && ModuleManager.bedAura.isActivelyMining()) return;
         if (mc.currentScreen != null && (isBlocking || isLagging)) {
             resetState(true);
             return;
@@ -109,6 +111,10 @@ public class Autoblock extends Module {
 
     @SubscribeEvent(priority = EventPriority.HIGH)
     public void onSendPacket(SendPacketEvent e) {
+        if (ModuleManager.bedAura != null && ModuleManager.bedAura.isActivelyMining()) {
+            releaseLag();
+            return;
+        }
         if (!isLagging || !preventDelayAttacks.isToggled()) return;
         if (!(e.getPacket() instanceof C02PacketUseEntity)) return;
         if (((C02PacketUseEntity) e.getPacket()).getAction() != C02PacketUseEntity.Action.ATTACK) return;
@@ -122,6 +128,11 @@ public class Autoblock extends Module {
     @SubscribeEvent
     public void onPrePlayerInteract(PrePlayerInteractEvent e) {
         if (!Utils.nullCheck() || mc.thePlayer.isDead || mc.currentScreen != null) {
+            resetState(true);
+            return;
+        }
+
+        if (ModuleManager.bedAura != null && ModuleManager.bedAura.isActivelyMining()) {
             resetState(true);
             return;
         }

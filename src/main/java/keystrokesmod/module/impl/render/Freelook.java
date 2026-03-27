@@ -9,6 +9,7 @@ import keystrokesmod.module.setting.impl.KeySetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
 import keystrokesmod.utility.Utils;
 import net.minecraft.client.Minecraft;
+import net.minecraft.entity.Entity;
 import net.minecraftforge.client.event.GuiOpenEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
@@ -100,13 +101,13 @@ public class Freelook extends Module {
     private void enterPerspective() {
         perspectiveToggled = true;
         previousPerspective = mc.gameSettings.thirdPersonView;
-        mc.gameSettings.thirdPersonView = 1;
+        applyThirdPersonView(1);
         lastFov = mc.gameSettings.fovSetting;
     }
 
     public void resetPerspective() {
         perspectiveToggled = false;
-        mc.gameSettings.thirdPersonView = previousPerspective;
+        applyThirdPersonView(previousPerspective);
         if (mc.currentScreen == null && mc.inGameHasFocus) {
             mc.mouseHelper.grabMouseCursor();
         }
@@ -150,11 +151,31 @@ public class Freelook extends Module {
     public void onDisable() {
         if (perspectiveToggled) {
             perspectiveToggled = false;
-            mc.gameSettings.thirdPersonView = 0;
+            applyThirdPersonView(0);
             if (mc.currentScreen == null && mc.inGameHasFocus) {
                 mc.mouseHelper.grabMouseCursor();
             }
             mc.gameSettings.fovSetting = lastFov;
+        }
+    }
+
+    private void applyThirdPersonView(int view) {
+        if (view < 0) {
+            view = 0;
+        } else if (view > 2) {
+            view = 2;
+        }
+
+        mc.gameSettings.thirdPersonView = view;
+        if (mc.entityRenderer != null) {
+            if (view == 0) {
+                mc.entityRenderer.loadEntityShader(mc.getRenderViewEntity());
+            } else if (view == 1) {
+                mc.entityRenderer.loadEntityShader((Entity) null);
+            }
+        }
+        if (mc.renderGlobal != null) {
+            mc.renderGlobal.setDisplayListEntitiesDirty();
         }
     }
 }

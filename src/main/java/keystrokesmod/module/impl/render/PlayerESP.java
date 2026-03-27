@@ -18,20 +18,23 @@ import keystrokesmod.utility.shader.GlowShader;
 import keystrokesmod.utility.shader.OutlineShader;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.entity.RenderManager;
 import net.minecraft.client.shader.Framebuffer;
 import net.minecraft.client.model.ModelBiped;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.util.AxisAlignedBB;
-import net.minecraft.util.Vec3;
 import net.minecraftforge.client.event.RenderPlayerEvent;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.common.gameevent.TickEvent;
 import org.lwjgl.opengl.GL11;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class PlayerESP extends Module {
@@ -58,11 +61,29 @@ public class PlayerESP extends Module {
     private static final float RAD_TO_DEG = 57.29578f;
     public static boolean renderingOutlinePass = false;
 
-    private final Map<EntityLivingBase, Integer> renderAsTwoD = new HashMap<>();
+    private final List<EspRenderState> renderStates = new ArrayList<>();
+    private final List<EspRenderState> visibleRenderStates = new ArrayList<>();
+    private final Map<EntityPlayer, EspRenderState> playerRenderStates = new HashMap<>();
+    private final double[] projectedPoint = new double[3];
+    private RenderUtils.ProjectionContext projectionContext;
+    private int renderStateCount;
+    private int visibleRenderStateCount;
 
     private Framebuffer outlineFramebuffer;
     private final OutlineShader outlineShader = new OutlineShader();
     private final GlowShader glowShader = new GlowShader();
+
+    private static final class EspRenderState {
+        private EntityLivingBase entity;
+        private int staticColor;
+        private int renderColor;
+
+        private void set(EntityLivingBase entity, int staticColor) {
+            this.entity = entity;
+            this.staticColor = staticColor;
+            this.renderColor = staticColor;
+        }
+    }
 
     public PlayerESP() {
         super("PlayerESP", category.render, 0);
@@ -83,107 +104,82 @@ public class PlayerESP extends Module {
         this.registerSetting(maxDistance = new SliderSetting("Max distance", 128.0, 32.0, 256.0, 8.0));
     }
 
-    private int getColorRGB() {
-        return rainbow.isToggled() ? Utils.getChroma(2L, 0L) : color.getColor();
+    @Override
+    public void onDisable() {
+        clearRenderStates();
+    }
+
+    @SubscribeEvent
+    public void onClientTick(TickEvent.ClientTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) {
+            return;
+        }
+
+        if (!Utils.nullCheck() || mc.theWorld == null) {
+            clearRenderStates();
+            return;
+        }
+
+        updateRenderStates();
     }
 
     @SubscribeEvent
     public void onRenderPlayerEvent(RenderPlayerEvent.Post e) {
-        if (skeleton.isToggled() && e.entityPlayer != null && Utils.nullCheck()) {
-            EntityPlayer player = e.entityPlayer;
-            if (player != mc.thePlayer || (renderSelf.isToggled() && (!Settings.hideFirstPersonESP.isToggled() || mc.gameSettings.thirdPersonView > 0))) {
-                if (player.deathTime != 0) {
-                    return;
-                }
-                if (!showInvis.isToggled() && player.isInvisible()) {
-                    return;
-                }
-                if (mc.thePlayer != player && AntiBot.isBot(player)) {
-                    return;
-                }
-                if (!RenderUtils.isWithinDistanceSqToRenderView(player, maxDistance.getInput() * maxDistance.getInput())) {
-                    return;
-                }
-                int rgb = getColorRGB();
-                if (teamColor.isToggled()) {
-                    rgb = Utils.getColorFromEntity(player);
-                }
-                this.renderSkeleton(e.entityPlayer, e.renderer.getMainModel(), rgb, e.partialRenderTick);
-            }
+        if (!skeleton.isToggled() || e.entityPlayer == null || !Utils.nullCheck()) {
+            return;
         }
+
+        EspRenderState renderState = playerRenderStates.get(e.entityPlayer);
+        if (renderState == null) {
+            return;
+        }
+
+        this.renderSkeleton(e.entityPlayer, e.renderer.getMainModel(), resolveBaseRenderColor(renderState), e.partialRenderTick);
     }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public void onRenderWorld(RenderWorldLastEvent e) {
-        this.renderAsTwoD.clear();
+        this.visibleRenderStateCount = 0;
         if (!Utils.nullCheck()) {
             return;
         }
-        int rgb = getColorRGB();
-        double maxDistSq = maxDistance.getInput() * maxDistance.getInput();
-        if (Raven.DEBUG) {
-            for (final Entity entity : mc.theWorld.loadedEntityList) {
-                if (entity instanceof EntityLivingBase && entity != mc.thePlayer) {
-                    if (!RenderUtils.isWithinDistanceSqToRenderView(entity, maxDistSq)) {
-                        continue;
-                    }
-                    if (teamColor.isToggled()) {
-                        rgb = Utils.getColorFromEntity(entity);
-                    }
-                    rgb = Utils.mergeAlpha(rgb, 255);
-                    this.render(entity, rgb);
-                    this.renderAsTwoD.put((EntityLivingBase) entity, rgb);
-                }
-            }
+
+        boolean renderWorldTypes = box.isToggled() || shaded.isToggled() || healthBar.isToggled() || ring.isToggled();
+        boolean captureVisibleStates = outline.isToggled() || twoD.isToggled();
+        if (renderStateCount == 0 || (!renderWorldTypes && !captureVisibleStates)) {
+            return;
         }
-        else {
-            EntityPlayer selfPlayer = (Freecam.freeEntity == null) ? mc.thePlayer : Freecam.freeEntity;
-            for (EntityPlayer player : mc.theWorld.playerEntities) {
-                if (player != selfPlayer || (renderSelf.isToggled() && (!Settings.hideFirstPersonESP.isToggled() || mc.gameSettings.thirdPersonView > 0))) {
-                    if (player.deathTime != 0) {
-                        continue;
-                    }
-                    if (!showInvis.isToggled() && player.isInvisible()) {
-                        continue;
-                    }
-                    if (selfPlayer != player && AntiBot.isBot(player)) {
-                        continue;
-                    }
-                    if (!RenderUtils.isWithinDistanceSqToRenderView(player, maxDistSq)) {
-                        continue;
-                    }
-                    if (teamColor.isToggled()) {
-                        rgb = Utils.getColorFromEntity(player);
-                    }
-                    rgb = Utils.mergeAlpha(rgb, 255);
-                    this.render(player, rgb);
-                    this.renderAsTwoD.put(player, rgb);
-                }
+
+        for (int i = 0; i < renderStateCount; i++) {
+            EspRenderState renderState = renderStates.get(i);
+            EntityLivingBase entity = renderState.entity;
+            if (entity == null || !RenderUtils.isInViewFrustum(entity)) {
+                continue;
+            }
+
+            renderState.renderColor = resolveBaseRenderColor(renderState);
+            if (renderWorldTypes) {
+                this.render(entity, renderState.renderColor);
+            }
+            if (captureVisibleStates) {
+                addVisibleRenderState(renderState);
             }
         }
     }
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public void onRenderTwo2D(RenderWorldLastEvent e) {
-        if (!Utils.nullCheck() || !isEnabled()) return;
+        if (!Utils.nullCheck() || visibleRenderStateCount == 0) {
+            return;
+        }
         if (outline.isToggled()) runOutlinePass(e.partialTicks);
         if (twoD.isToggled()) {
-            for (Map.Entry<EntityLivingBase, Integer> entry : renderAsTwoD.entrySet()) {
-                this.renderTwoD(entry.getKey(), entry.getValue(), 0, e.partialTicks);
-            }
+            renderTwoDPass(e.partialTicks);
         }
     }
 
     private void runOutlinePass(float partialTicks) {
-        if (!outlineShader.isValid() || !glowShader.isValid() || renderAsTwoD.isEmpty()) return;
-        boolean anyVisible = false;
-        for (EntityLivingBase ent : renderAsTwoD.keySet()) {
-            if (RenderUtils.isInViewFrustum(ent)) {
-                anyVisible = true;
-                break;
-            }
-        }
-        if (!anyVisible) return;
+        if (!outlineShader.isValid() || !glowShader.isValid() || visibleRenderStateCount == 0) return;
         outlineFramebuffer = RenderUtils.createFrameBuffer(outlineFramebuffer, false);
         if (outlineFramebuffer == null) return;
 
@@ -196,12 +192,10 @@ public class PlayerESP extends Module {
         renderingOutlinePass = true;
 
         glowShader.use();
-        for (Map.Entry<EntityLivingBase, Integer> e : renderAsTwoD.entrySet()) {
-            EntityLivingBase ent = e.getKey();
-            if (!RenderUtils.isInViewFrustum(ent)) {
-                continue;
-            }
-            int col = redOnDamage.isToggled() && ent.hurtTime != 0 ? 0xFFFF0000 : e.getValue();
+        for (int i = 0; i < visibleRenderStateCount; i++) {
+            EspRenderState renderState = visibleRenderStates.get(i);
+            EntityLivingBase ent = renderState.entity;
+            int col = resolveOutlineColor(renderState);
             glowShader.setColor((col >> 16) & 0xFF, (col >> 8) & 0xFF, col & 0xFF, (col >> 24) & 0xFF);
             boolean invis = ent.isInvisible();
             if (showInvis.isToggled()) ent.setInvisible(false);
@@ -224,11 +218,100 @@ public class PlayerESP extends Module {
         GlStateManager.popMatrix();
     }
 
-    public void render(Entity en, int rgb) {
-        if (!box.isToggled() && !shaded.isToggled() && !healthBar.isToggled() && !ring.isToggled()) {
+    private void clearRenderStates() {
+        renderStateCount = 0;
+        visibleRenderStateCount = 0;
+        playerRenderStates.clear();
+    }
+
+    private void updateRenderStates() {
+        renderStateCount = 0;
+        visibleRenderStateCount = 0;
+        playerRenderStates.clear();
+
+        double maxDistSq = maxDistance.getInput() * maxDistance.getInput();
+        if (Raven.DEBUG) {
+            for (Entity entity : mc.theWorld.loadedEntityList) {
+                if (!(entity instanceof EntityLivingBase) || entity == mc.thePlayer) {
+                    continue;
+                }
+                if (!RenderUtils.isWithinDistanceSqToRenderView(entity, maxDistSq)) {
+                    continue;
+                }
+                addRenderState((EntityLivingBase) entity, resolveStaticColor(entity));
+            }
             return;
         }
-        if (!RenderUtils.isInViewFrustum(en)) {
+
+        EntityPlayer selfPlayer = (Freecam.freeEntity == null) ? mc.thePlayer : Freecam.freeEntity;
+        boolean allowSelf = shouldRenderSelf(selfPlayer);
+        for (EntityPlayer player : mc.theWorld.playerEntities) {
+            if (player == selfPlayer && !allowSelf) {
+                continue;
+            }
+            if (player.deathTime != 0) {
+                continue;
+            }
+            if (!showInvis.isToggled() && player.isInvisible()) {
+                continue;
+            }
+            if (selfPlayer != player && AntiBot.isBot(player)) {
+                continue;
+            }
+            if (!RenderUtils.isWithinDistanceSqToRenderView(player, maxDistSq)) {
+                continue;
+            }
+            addRenderState(player, resolveStaticColor(player));
+        }
+    }
+
+    private boolean shouldRenderSelf(EntityPlayer selfPlayer) {
+        return selfPlayer == mc.thePlayer && renderSelf.isToggled() && (!Settings.hideFirstPersonESP.isToggled() || mc.gameSettings.thirdPersonView > 0);
+    }
+
+    private void addRenderState(EntityLivingBase entity, int staticColor) {
+        if (renderStateCount >= renderStates.size()) {
+            renderStates.add(new EspRenderState());
+        }
+
+        EspRenderState renderState = renderStates.get(renderStateCount++);
+        renderState.set(entity, staticColor);
+        if (entity instanceof EntityPlayer) {
+            playerRenderStates.put((EntityPlayer) entity, renderState);
+        }
+    }
+
+    private void addVisibleRenderState(EspRenderState renderState) {
+        if (visibleRenderStateCount >= visibleRenderStates.size()) {
+            visibleRenderStates.add(renderState);
+        }
+        else {
+            visibleRenderStates.set(visibleRenderStateCount, renderState);
+        }
+        visibleRenderStateCount++;
+    }
+
+    private int resolveStaticColor(Entity entity) {
+        int rgb = teamColor.isToggled() ? Utils.getColorFromEntity(entity) : color.getColor();
+        return Utils.mergeAlpha(rgb, 255);
+    }
+
+    private int resolveBaseRenderColor(EspRenderState renderState) {
+        if (!teamColor.isToggled() && rainbow.isToggled()) {
+            return Utils.mergeAlpha(Utils.getChroma(2L, 0L), 255);
+        }
+        return renderState.staticColor;
+    }
+
+    private int resolveOutlineColor(EspRenderState renderState) {
+        if (redOnDamage.isToggled() && renderState.entity.hurtTime != 0) {
+            return 0xFFFF0000;
+        }
+        return renderState.renderColor;
+    }
+
+    public void render(Entity en, int rgb) {
+        if (!box.isToggled() && !shaded.isToggled() && !healthBar.isToggled() && !ring.isToggled()) {
             return;
         }
         if (box.isToggled()) {
@@ -250,60 +333,59 @@ public class PlayerESP extends Module {
         }
     }
 
-    public void renderTwoD(EntityLivingBase en, int rgb, double expand, float partialTicks) {
-        if (!RenderUtils.isInViewFrustum(en)) {
+    private void renderTwoDPass(float partialTicks) {
+        RenderManager renderManager = mc.getRenderManager();
+        if (renderManager == null) {
             return;
         }
-        ((IAccessorEntityRenderer) mc.entityRenderer).callSetupCameraTransform(((IAccessorMinecraft) mc).getTimer().renderPartialTicks, 0);
 
         ScaledResolution scaledResolution = new ScaledResolution(mc);
+        ((IAccessorEntityRenderer) mc.entityRenderer).callSetupCameraTransform(partialTicks, 0);
+        projectionContext = RenderUtils.captureProjectionContext(projectionContext, scaledResolution.getScaleFactor());
+        mc.entityRenderer.setupOverlayRendering();
 
-        double playerX = en.lastTickPosX + (en.posX - en.lastTickPosX) * partialTicks - mc.getRenderManager().viewerPosX;
-        double playerY = en.lastTickPosY + (en.posY - en.lastTickPosY) * partialTicks - mc.getRenderManager().viewerPosY;
-        double playerZ = en.lastTickPosZ + (en.posZ - en.lastTickPosZ) * partialTicks - mc.getRenderManager().viewerPosZ;
+        int screenWidth = scaledResolution.getScaledWidth();
+        int screenHeight = scaledResolution.getScaledHeight();
+        for (int i = 0; i < visibleRenderStateCount; i++) {
+            renderTwoD(visibleRenderStates.get(i), renderManager, screenWidth, screenHeight, partialTicks);
+        }
+    }
 
-        AxisAlignedBB bbox = en.getEntityBoundingBox().expand(0.1D + expand, 0.1D + expand, 0.1D + expand);
-        AxisAlignedBB axis = new AxisAlignedBB(
-                bbox.minX - en.posX + playerX,
-                bbox.minY - en.posY + playerY,
-                bbox.minZ - en.posZ + playerZ,
-                bbox.maxX - en.posX + playerX,
-                bbox.maxY - en.posY + playerY,
-                bbox.maxZ - en.posZ + playerZ
-        );
+    private void renderTwoD(EspRenderState renderState, RenderManager renderManager, int screenWidth, int screenHeight, float partialTicks) {
+        EntityLivingBase en = renderState.entity;
+        double playerX = en.lastTickPosX + (en.posX - en.lastTickPosX) * partialTicks - renderManager.viewerPosX;
+        double playerY = en.lastTickPosY + (en.posY - en.lastTickPosY) * partialTicks - renderManager.viewerPosY;
+        double playerZ = en.lastTickPosZ + (en.posZ - en.lastTickPosZ) * partialTicks - renderManager.viewerPosZ;
 
-        Vec3[] corners = new Vec3[8];
-        corners[0] = new Vec3(axis.minX, axis.minY, axis.minZ);
-        corners[1] = new Vec3(axis.minX, axis.minY, axis.maxZ);
-        corners[2] = new Vec3(axis.minX, axis.maxY, axis.minZ);
-        corners[3] = new Vec3(axis.minX, axis.maxY, axis.maxZ);
-        corners[4] = new Vec3(axis.maxX, axis.minY, axis.minZ);
-        corners[5] = new Vec3(axis.maxX, axis.minY, axis.maxZ);
-        corners[6] = new Vec3(axis.maxX, axis.maxY, axis.minZ);
-        corners[7] = new Vec3(axis.maxX, axis.maxY, axis.maxZ);
+        AxisAlignedBB bbox = en.getEntityBoundingBox().expand(0.1D, 0.1D, 0.1D);
+        double minRelX = bbox.minX - en.posX + playerX;
+        double minRelY = bbox.minY - en.posY + playerY;
+        double minRelZ = bbox.minZ - en.posZ + playerZ;
+        double maxRelX = bbox.maxX - en.posX + playerX;
+        double maxRelY = bbox.maxY - en.posY + playerY;
+        double maxRelZ = bbox.maxZ - en.posZ + playerZ;
 
-        double minX = Double.MAX_VALUE;
-        double minY = Double.MAX_VALUE;
-        double maxX = Double.MIN_VALUE;
-        double maxY = Double.MIN_VALUE;
+        double minX = Double.POSITIVE_INFINITY;
+        double minY = Double.POSITIVE_INFINITY;
+        double maxX = Double.NEGATIVE_INFINITY;
+        double maxY = Double.NEGATIVE_INFINITY;
 
         boolean isInView = false;
 
-        for (Vec3 corner : corners) {
-            double x = corner.xCoord;
-            double y = corner.yCoord;
-            double z = corner.zCoord;
+        for (int corner = 0; corner < 8; corner++) {
+            double x = (corner & 1) == 0 ? minRelX : maxRelX;
+            double y = (corner & 2) == 0 ? minRelY : maxRelY;
+            double z = (corner & 4) == 0 ? minRelZ : maxRelZ;
 
-            Vec3 screenVec = RenderUtils.convertTo2D(scaledResolution.getScaleFactor(), x, y, z);
-            if (screenVec != null) {
-                if (screenVec.zCoord >= 1.0003684 || screenVec.zCoord <= 0) {
+            if (RenderUtils.projectTo2D(projectionContext, x, y, z, projectedPoint)) {
+                double depth = projectedPoint[2];
+                if (depth >= 1.0003684D || depth <= 0.0D) {
                     continue;
                 }
 
                 isInView = true;
-
-                double screenX = screenVec.xCoord;
-                double screenY = screenVec.yCoord;
+                double screenX = projectedPoint[0];
+                double screenY = projectedPoint[1];
 
                 if (screenX < minX) minX = screenX;
                 if (screenY < minY) minY = screenY;
@@ -316,20 +398,18 @@ public class PlayerESP extends Module {
             return;
         }
 
-        mc.entityRenderer.setupOverlayRendering();
-
-        ScaledResolution res = new ScaledResolution(mc);
-        int screenWidth = res.getScaledWidth();
-        int screenHeight = res.getScaledHeight();
-
         minX = Math.max(0, minX);
         minY = Math.max(0, minY);
         maxX = Math.min(screenWidth, maxX);
         maxY = Math.min(screenHeight, maxY);
+        if (maxX <= minX || maxY <= minY) {
+            return;
+        }
 
+        int rgb = renderState.renderColor;
         float red = ((rgb >> 16) & 0xFF) / 255.0F;
         float green = ((rgb >> 8) & 0xFF) / 255.0F;
-        float blue = ( rgb & 0xFF) / 255.0F;
+        float blue = (rgb & 0xFF) / 255.0F;
 
         GL11.glPushMatrix();
         GL11.glDisable(GL11.GL_TEXTURE_2D);

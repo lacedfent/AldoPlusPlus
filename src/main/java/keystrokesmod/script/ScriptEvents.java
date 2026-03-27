@@ -102,7 +102,6 @@ public class ScriptEvents {
         }
     }
 
-    // ClientRotationEvent fires before getMouseOver (from RotationHelper.updateServerRotations)
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public void onClientRotations(ClientRotationEvent e) {
         Float[] rotations = Raven.scriptManager.invokeFloatArray("getRotations", module);
@@ -111,9 +110,11 @@ public class ScriptEvents {
         }
         if (rotations[0] != null) {
             e.yaw = rotations[0];
+            e.scriptRotations = true;
         }
         if (rotations.length == 2 && rotations[1] != null) {
             e.pitch = rotations[1];
+            e.scriptRotations = true;
         }
     }
 

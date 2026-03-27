@@ -4,6 +4,7 @@ import keystrokesmod.Raven;
 import keystrokesmod.event.ClientRotationEvent;
 import keystrokesmod.event.PreUpdateEvent;
 import keystrokesmod.module.Module;
+import keystrokesmod.module.ModuleManager;
 import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.utility.Utils;
 import net.minecraft.entity.player.InventoryPlayer;
@@ -91,6 +92,9 @@ public class WaterBucket extends Module {
 
     @SubscribeEvent
     public void onClientRotation(ClientRotationEvent e) {
+        if (ModuleManager.bedAura != null && ModuleManager.bedAura.shouldOverrideMouseOver()) {
+            return;
+        }
         if (silentAim.isToggled() && (fallCheck() || Utils.timeBetween(lastPlace, System.currentTimeMillis()) < PLACE_DELAY) && getWaterBucketSlot() != -1) {
             e.setYaw(mc.thePlayer.rotationYaw);
             e.setPitch(90.0f);
