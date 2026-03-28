@@ -38,8 +38,10 @@ public class AutoTool extends Module {
     private final ButtonSetting overrideSwapBack;
     public final ButtonSetting spoofItem;
 
-    private final ButtonSetting restrictAllowedBlocks;
-    private final BlockListSetting allowedBlocks;
+    private final ButtonSetting blockWhitelistToggle;
+    private final BlockListSetting blockWhitelist;
+    private final ButtonSetting blockBlacklistToggle;
+    private final BlockListSetting blockBlacklist;
 
     private boolean hasSwapped;
     public int previousSlot = -1;
@@ -63,10 +65,12 @@ public class AutoTool extends Module {
         this.registerSetting(overrideSwapBack = new ButtonSetting(swapGroup, "Override swap back", true));
         this.registerSetting(spoofItem = new ButtonSetting(swapGroup, "Spoof item", false));
 
-        this.registerSetting(ignoredHeldItemsToggle = new ButtonSetting("Ignore held items", false, "Restrict held items", "Allow while holding"));
-        this.registerSetting(ignoredHeldItems = new ItemListSetting("Items"));
-        this.registerSetting(restrictAllowedBlocks = new ButtonSetting("Restrict allowed blocks", false, "Block whitelist"));
-        this.registerSetting(allowedBlocks = new BlockListSetting("Blocks"));
+        this.registerSetting(ignoredHeldItemsToggle = new ButtonSetting("Held item blacklist", false, "Ignore held items", "Restrict held items", "Allow while holding"));
+        this.registerSetting(ignoredHeldItems = new ItemListSetting("Held items", "Items"));
+        this.registerSetting(blockWhitelistToggle = new ButtonSetting("Block whitelist", false, "Restrict allowed blocks", "Blocks.Block whitelist"));
+        this.registerSetting(blockWhitelist = new BlockListSetting("Whitelisted blocks", "Blocks", "Blocks.Whitelisted blocks"));
+        this.registerSetting(blockBlacklistToggle = new ButtonSetting("Block blacklist", false, "Blocks.Block blacklist"));
+        this.registerSetting(blockBlacklist = new BlockListSetting("Blacklisted blocks", "Block blacklist", "Blocks.Block blacklist", "Blocks.Blacklisted blocks"));
         this.closetModule = true;
     }
 
@@ -74,7 +78,8 @@ public class AutoTool extends Module {
     public void guiUpdate() {
         activationTime.setVisible(requireLeftMouse.isToggled(), this);
         ignoredHeldItems.setVisible(ignoredHeldItemsToggle.isToggled(), this);
-        allowedBlocks.setVisible(restrictAllowedBlocks.isToggled(), this);
+        blockWhitelist.setVisible(blockWhitelistToggle.isToggled(), this);
+        blockBlacklist.setVisible(blockBlacklistToggle.isToggled(), this);
     }
 
     @Override
@@ -173,7 +178,12 @@ public class AutoTool extends Module {
             return;
         }
 
-        if (restrictAllowedBlocks.isToggled() && !isAllowedBlock(hoverPos)) {
+        if (isBlockedBlock(hoverPos)) {
+            resetSlot();
+            return;
+        }
+
+        if (blockWhitelistToggle.isToggled() && !isWhitelistedBlock(hoverPos)) {
             resetSlot();
             return;
         }
@@ -237,11 +247,21 @@ public class AutoTool extends Module {
         return useActive;
     }
 
-    private boolean isAllowedBlock(BlockPos blockPos) {
-        if (allowedBlocks.getBlocks().isEmpty()) {
+    private boolean isBlockedBlock(BlockPos blockPos) {
+        if (!blockBlacklistToggle.isToggled()) {
             return false;
         }
+        return matchesBlockList(blockPos, blockBlacklist);
+    }
 
+    private boolean isWhitelistedBlock(BlockPos blockPos) {
+        if (blockWhitelist.getBlocks().isEmpty()) {
+            return false;
+        }
+        return matchesBlockList(blockPos, blockWhitelist);
+    }
+
+    private boolean matchesBlockList(BlockPos blockPos, BlockListSetting blockList) {
         IBlockState state = BlockUtils.getBlockState(blockPos);
         Block hoveredBlock = state.getBlock();
         if (hoveredBlock == null || Block.blockRegistry.getNameForObject(hoveredBlock) == null) {
@@ -251,7 +271,7 @@ public class AutoTool extends Module {
         String registryId = Block.blockRegistry.getNameForObject(hoveredBlock).toString();
         int meta = hoveredBlock.getMetaFromState(state);
         String storageId = meta != 0 ? registryId + ":" + meta : registryId;
-        return allowedBlocks.contains(storageId) || allowedBlocks.contains(registryId);
+        return blockList.contains(storageId) || blockList.contains(registryId);
     }
 
     private boolean hasElapsed(int startTick, double requiredMs, int currentTick) {

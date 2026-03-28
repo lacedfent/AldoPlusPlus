@@ -29,6 +29,7 @@ import java.nio.file.Files;
 import java.util.*;
 
 public class ProfileManager implements IMinecraftInstance {
+    private static final String DEFAULT_PROFILE_NAME = "default";
     private static final char[] INVALID_PROFILE_NAME_CHARS = new char[]{'\\', '/', ':', '*', '?', '"', '<', '>', '|'};
 
     private static final class SavedCategoryState {
@@ -54,8 +55,8 @@ public class ProfileManager implements IMinecraftInstance {
                 return;
             }
         }
-        if (directory.listFiles().length == 0) { // if theres no profile in the folder upon launch, create new default profile
-            saveProfile(new Profile("default", 0));
+        if (getProfileFiles().isEmpty()) {
+            saveProfile(new Profile(DEFAULT_PROFILE_NAME, 0));
         }
     }
 
@@ -97,10 +98,14 @@ public class ProfileManager implements IMinecraftInstance {
             return null;
         }
 
+        boolean shouldActivateProfile = Raven.currentProfile == null && profiles.isEmpty();
         Profile profile = new Profile(profileName, bind);
         saveProfile(profile);
         profiles.add(profile);
         refreshProfileModules();
+        if (shouldActivateProfile) {
+            loadProfile(profile.getName());
+        }
         return profile;
     }
 
@@ -148,15 +153,19 @@ public class ProfileManager implements IMinecraftInstance {
     }
 
     public void loadProfile(String name) {
+        Profile existingProfile = getProfile(name);
+        String profileName = existingProfile != null ? existingProfile.getName() : normalizeProfileName(name);
+        boolean foundProfile = false;
         for (File file : getProfileFiles()) {
             if (!file.exists()) {
-                failedMessage("load", name);
-                System.out.println("Failed to load " + name);
+                failedMessage("load", profileName);
+                System.out.println("Failed to load " + profileName);
                 return;
             }
-            if (!file.getName().equals(name + ".json")) {
+            if (!file.getName().equals(profileName + ".json")) {
                 continue;
             }
+            foundProfile = true;
             if (Raven.scriptManager != null) {
                 for (Module module : Raven.scriptManager.scripts.values()) {
                     if (module.canBeEnabled()) {
@@ -175,12 +184,12 @@ public class ProfileManager implements IMinecraftInstance {
                 JsonParser jsonParser = new JsonParser();
                 JsonObject profileJson = jsonParser.parse(fileReader).getAsJsonObject();
                 if (profileJson == null) {
-                    failedMessage("load", name);
+                    failedMessage("load", profileName);
                     return;
                 }
                 JsonArray modules = profileJson.getAsJsonArray("modules");
                 if (modules == null) {
-                    failedMessage("load", name);
+                    failedMessage("load", profileName);
                     return;
                 }
                 Map<String, SavedCategoryState> savedGuiCategoryState = new HashMap<>();
@@ -264,7 +273,7 @@ public class ProfileManager implements IMinecraftInstance {
                         setting.loadProfile(moduleInformation);
                     }
                 }
-                Raven.currentProfile = getProfile(name);
+                Raven.currentProfile = getProfile(profileName);
 
                 boolean loadGuiPositions = Settings.loadGuiPositions.isToggled();
                 Raven.clickGui.refreshAfterProfileLoad();
@@ -277,89 +286,102 @@ public class ProfileManager implements IMinecraftInstance {
                     }
                 }
                 MinecraftForge.EVENT_BUS.post(new PostProfileLoadEvent(Raven.currentProfile.getName()));
+                return;
             }
             catch (Exception e) {
-                failedMessage("load", name);
+                failedMessage("load", profileName);
                 e.printStackTrace();
+                return;
             }
+        }
+        if (!foundProfile) {
+            failedMessage("load", profileName);
         }
     }
 
     public boolean deleteProfile(String name) {
-        Profile removedProfile = null;
-        Iterator<Profile> iterator = profiles.iterator();
-        while (iterator.hasNext()) {
-            Profile profile = iterator.next();
-            if (profile.getName().equals(name)) {
-                removedProfile = profile;
-                iterator.remove();
-            }
+        Profile removedProfile = getProfile(name);
+        String profileName = removedProfile != null ? removedProfile.getName() : normalizeProfileName(name);
+        File profileFile = new File(directory, profileName + ".json");
+
+        if (profileFile.exists() && !(profileFile.delete() || !profileFile.exists())) {
+            return false;
         }
 
-        boolean deleted = false;
-        if (directory.exists()) {
-            File[] files = directory.listFiles();
-            if (files != null) {
-                for (File file : files) {
-                    if (file.isFile() && file.getName().equals(name + ".json")) {
-                        deleted = file.delete() || !file.exists();
-                    }
+        boolean wasCurrentProfile = removedProfile != null && Raven.currentProfile == removedProfile;
+        if (removedProfile != null) {
+            profiles.remove(removedProfile);
+        }
+        if (wasCurrentProfile) {
+            Raven.currentProfile = null;
+        }
+
+        if (profiles.isEmpty()) {
+            Profile fallbackProfile = createProfile(DEFAULT_PROFILE_NAME, 0);
+            if (fallbackProfile == null) {
+                return false;
+            }
+        }
+        else {
+            refreshProfileModules();
+            if (wasCurrentProfile) {
+                Profile fallbackProfile = getDefaultOrFirstProfile();
+                if (fallbackProfile != null) {
+                    loadProfile(fallbackProfile.getName());
                 }
             }
         }
-
-        if (removedProfile != null && Raven.currentProfile == removedProfile) {
-            Raven.currentProfile = null;
-        }
-        if (removedProfile != null) {
-            refreshProfileModules();
-        }
-        return removedProfile != null && (deleted || !new File(directory, name + ".json").exists());
+        return removedProfile != null;
     }
 
     public void loadProfiles() {
         String currentProfileName = Raven.currentProfile != null ? Raven.currentProfile.getName() : null;
         boolean currentProfileSaved = Raven.currentProfile == null || Raven.currentProfile.getModule().saved;
         profiles.clear();
-        if (directory.exists()) {
-            File[] files = directory.listFiles();
-            for (File file : files) {
-                if (!file.isFile() || !file.getName().endsWith(".json")) {
-                    continue;
-                }
-                try (FileReader fileReader = new FileReader(file)) {
-                    JsonParser jsonParser = new JsonParser();
-                    JsonObject profileJson = jsonParser.parse(fileReader).getAsJsonObject();
-                    String profileName = file.getName().replace(".json", "");
-
-                    if (profileJson == null) {
-                        failedMessage("load", profileName);
-                        return;
-                    }
-
-                    int keybind = 0;
-
-                    if (profileJson.has("keybind")) {
-                        keybind = profileJson.get("keybind").getAsInt();
-                    }
-
-                    Profile profile = new Profile(profileName, keybind);
-                    profiles.add(profile);
-                } catch (Exception e) {
-                    Utils.sendMessage("&cFailed to load profiles.");
-                    e.printStackTrace();
-                }
-            }
-
-            if (currentProfileName != null) {
-                Raven.currentProfile = getProfile(currentProfileName);
-                if (Raven.currentProfile != null) {
-                    Raven.currentProfile.getModule().saved = currentProfileSaved;
-                }
-            }
-            refreshProfileModules();
-            Utils.sendMessage("&b" + Raven.profileManager.getProfileFiles().size() + " &7profiles loaded.");
+        if (!directory.exists() && !directory.mkdirs()) {
+            Utils.sendMessage("&cFailed to load profiles.");
+            return;
         }
+
+        List<File> profileFiles = getProfileFiles();
+        if (profileFiles.isEmpty()) {
+            saveProfile(new Profile(DEFAULT_PROFILE_NAME, 0));
+            profileFiles = getProfileFiles();
+        }
+
+        for (File file : profileFiles) {
+            try (FileReader fileReader = new FileReader(file)) {
+                JsonParser jsonParser = new JsonParser();
+                JsonObject profileJson = jsonParser.parse(fileReader).getAsJsonObject();
+                String profileName = file.getName().replace(".json", "");
+
+                if (profileJson == null) {
+                    failedMessage("load", profileName);
+                    return;
+                }
+
+                int keybind = 0;
+
+                if (profileJson.has("keybind")) {
+                    keybind = profileJson.get("keybind").getAsInt();
+                }
+
+                Profile profile = new Profile(profileName, keybind);
+                profiles.add(profile);
+            } catch (Exception e) {
+                Utils.sendMessage("&cFailed to load profiles.");
+                e.printStackTrace();
+            }
+        }
+
+        if (currentProfileName != null) {
+            Raven.currentProfile = getProfile(currentProfileName);
+            if (Raven.currentProfile != null) {
+                Raven.currentProfile.getModule().saved = currentProfileSaved;
+            }
+        }
+        refreshProfileModules();
+        Utils.sendMessage("&b" + profileFiles.size() + " &7profiles loaded.");
     }
 
     public List<File> getProfileFiles() {
@@ -378,11 +400,18 @@ public class ProfileManager implements IMinecraftInstance {
 
     public Profile getProfile(String name) {
         for (Profile profile : profiles) {
-            if (profile.getName().equals(name)) {
+            if (profile.getName().equalsIgnoreCase(name)) {
                 return profile;
             }
         }
         return null;
+    }
+
+    public void loadInitialProfile() {
+        Profile profile = getDefaultOrFirstProfile();
+        if (profile != null) {
+            loadProfile(profile.getName());
+        }
     }
 
     public void failedMessage(String reason, String name) {
@@ -438,6 +467,14 @@ public class ProfileManager implements IMinecraftInstance {
                 break;
             }
         }
+    }
+
+    private Profile getDefaultOrFirstProfile() {
+        Profile defaultProfile = getProfile(DEFAULT_PROFILE_NAME);
+        if (defaultProfile != null) {
+            return defaultProfile;
+        }
+        return profiles.isEmpty() ? null : profiles.get(0);
     }
 
     private String validateProfileName(String profileName, String currentName) {

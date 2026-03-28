@@ -1,11 +1,11 @@
 package keystrokesmod.module.impl.render;
 
-import keystrokesmod.mixin.impl.accessor.IAccessorMinecraft;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.impl.player.Freecam;
 import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
 import keystrokesmod.utility.RenderUtils;
+import keystrokesmod.utility.Utils;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.item.EntityItem;
@@ -16,19 +16,20 @@ import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.MathHelper;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.common.gameevent.TickEvent;
 import org.lwjgl.opengl.GL11;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Map;
+import java.util.ArrayList;
 
 public class ItemESP extends Module {
     private final ButtonSetting renderIron;
     private final ButtonSetting renderGold;
     private final SliderSetting maxDistance;
 
-    private final HashMap<Item, ArrayList<EntityItem>> itemsMap = new HashMap<>();
-    private final HashMap<Double, Integer> colorMap = new HashMap<>();
+    private final ArrayList<ItemRenderState> renderStates = new ArrayList<>();
+    private final HashMap<Double, Integer> stackCounts = new HashMap<>();
+    private int renderStateCount = 0;
 
     public ItemESP() {
         super("ItemESP", category.render);
@@ -38,86 +39,111 @@ public class ItemESP extends Module {
     }
 
     @SubscribeEvent
+    public void onClientTick(TickEvent.ClientTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) {
+            return;
+        }
+        updateRenderStates();
+    }
+
+    @SubscribeEvent
     public void onRenderWorldLast(RenderWorldLastEvent e) {
-        itemsMap.clear();
-        colorMap.clear();
+        if (!Utils.nullCheck() || renderStateCount == 0) {
+            return;
+        }
+
+        float partialTicks = e.partialTicks;
+        EntityPlayer self = (Freecam.freeEntity == null) ? mc.thePlayer : Freecam.freeEntity;
+        if (self == null) {
+            return;
+        }
+
+        for (int i = 0; i < renderStateCount; i++) {
+            ItemRenderState renderState = renderStates.get(i);
+            EntityItem entityItem = renderState.entityItem;
+            if (entityItem == null || entityItem.isDead || entityItem.getEntityItem() == null || entityItem.getEntityItem().stackSize == 0) {
+                continue;
+            }
+
+            Integer stackCount = stackCounts.get(renderState.groupKey);
+            if (stackCount == null) {
+                continue;
+            }
+
+            double interpolatedX = entityItem.lastTickPosX + (entityItem.posX - entityItem.lastTickPosX) * partialTicks;
+            double interpolatedY = entityItem.lastTickPosY + (entityItem.posY - entityItem.lastTickPosY) * partialTicks;
+            double interpolatedZ = entityItem.lastTickPosZ + (entityItem.posZ - entityItem.lastTickPosZ) * partialTicks;
+
+            double diffX = self.lastTickPosX + (self.posX - self.lastTickPosX) * partialTicks - interpolatedX;
+            double diffY = self.lastTickPosY + (self.posY - self.lastTickPosY) * partialTicks - interpolatedY;
+            double diffZ = self.lastTickPosZ + (self.posZ - self.lastTickPosZ) * partialTicks - interpolatedZ;
+            double dist = MathHelper.sqrt_double(diffX * diffX + diffY * diffY + diffZ * diffZ);
+
+            GlStateManager.pushMatrix();
+            drawBox(renderState.boxColor, renderState.textColor, stackCount, interpolatedX, interpolatedY, interpolatedZ, dist);
+            GlStateManager.popMatrix();
+        }
+    }
+
+    private void updateRenderStates() {
+        renderStateCount = 0;
+        stackCounts.clear();
+        if (!Utils.nullCheck() || mc.theWorld == null) {
+            return;
+        }
 
         double maxDistSq = maxDistance.getInput() * maxDistance.getInput();
         for (Entity entity : mc.theWorld.loadedEntityList) {
-            if (entity instanceof EntityItem) {
-                if (!RenderUtils.isWithinDistanceSqToRenderView(entity, maxDistSq)) {
-                    continue;
-                }
-                if (entity.ticksExisted < 3) {
-                    continue;
-                }
-                EntityItem entityItem = (EntityItem) entity;
-                if (entityItem.getEntityItem().stackSize == 0) {
-                    continue;
-                }
-                Item currentItem = entityItem.getEntityItem().getItem();
-                if (currentItem == null) {
-                    continue;
-                }
-
-                int stackSize = entityItem.getEntityItem().stackSize;
-                double colorDouble = getColorForItem(currentItem, entity.posX, entity.posY, entity.posZ);
-
-                Integer existingStackCount = colorMap.get(colorDouble);
-                int newStackCount;
-                if (existingStackCount == null) {
-                    newStackCount = stackSize;
-                    itemsMap.computeIfAbsent(currentItem, k -> new ArrayList<>()).add(entityItem);
-                }
-                else {
-                    newStackCount = existingStackCount + stackSize;
-                }
-                colorMap.put(colorDouble, newStackCount);
+            if (!(entity instanceof EntityItem)) {
+                continue;
             }
-        }
-        if (!itemsMap.isEmpty()) {
-            float renderPartialTicks = ((IAccessorMinecraft) mc).getTimer().renderPartialTicks;
-            for (Map.Entry<Item, ArrayList<EntityItem>> entry : itemsMap.entrySet()) {
-                Item item = entry.getKey();
-                int boxColor;
-                int textColor;
-                if (item == Items.iron_ingot && renderIron.isToggled()) {
-                    textColor = (boxColor = -1);
-                }
-                else if (item == Items.gold_ingot && renderGold.isToggled()) {
-                    boxColor = -331703;
-                    textColor = -152;
-                }
-                else if (item == Items.diamond) {
-                    boxColor = -10362113;
-                    textColor = -7667713;
-                }
-                else {
-                    if (item != Items.emerald) {
-                        continue;
-                    }
-                    boxColor = -15216030;
-                    textColor = -14614644;
-                }
-
-                for (EntityItem entityItem2 : entry.getValue()) {
-                    double itemColor = getColorForItem(item, entityItem2.posX, entityItem2.posY, entityItem2.posZ);
-                    double interpolatedX = entityItem2.lastTickPosX + (entityItem2.posX - entityItem2.lastTickPosX) * renderPartialTicks;
-                    double interpolatedY = entityItem2.lastTickPosY + (entityItem2.posY - entityItem2.lastTickPosY) * renderPartialTicks;
-                    double interpolatedZ = entityItem2.lastTickPosZ + (entityItem2.posZ - entityItem2.lastTickPosZ) * renderPartialTicks;
-
-                    EntityPlayer self = (Freecam.freeEntity == null) ? mc.thePlayer : Freecam.freeEntity;
-                    double diffX = self.lastTickPosX + (self.posX - self.lastTickPosX) * renderPartialTicks - interpolatedX;
-                    double diffY = self.lastTickPosY + (self.posY - self.lastTickPosY) * renderPartialTicks - interpolatedY;
-                    double diffZ = self.lastTickPosZ + (self.posZ - self.lastTickPosZ) * renderPartialTicks - interpolatedZ;
-
-                    double dist = MathHelper.sqrt_double(diffX * diffX + diffY * diffY + diffZ * diffZ);
-
-                    GlStateManager.pushMatrix();
-                    drawBox(boxColor, textColor, colorMap.get(itemColor), interpolatedX, interpolatedY, interpolatedZ, dist);
-                    GlStateManager.popMatrix();
-                }
+            if (!RenderUtils.isWithinDistanceSqToRenderView(entity, maxDistSq)) {
+                continue;
             }
+            if (entity.ticksExisted < 3) {
+                continue;
+            }
+
+            EntityItem entityItem = (EntityItem) entity;
+            if (entityItem.getEntityItem() == null || entityItem.getEntityItem().stackSize == 0) {
+                continue;
+            }
+
+            Item item = entityItem.getEntityItem().getItem();
+            if (item == null) {
+                continue;
+            }
+
+            int boxColor;
+            int textColor;
+            if (item == Items.iron_ingot && renderIron.isToggled()) {
+                boxColor = -1;
+                textColor = -1;
+            }
+            else if (item == Items.gold_ingot && renderGold.isToggled()) {
+                boxColor = -331703;
+                textColor = -152;
+            }
+            else if (item == Items.diamond) {
+                boxColor = -10362113;
+                textColor = -7667713;
+            }
+            else if (item == Items.emerald) {
+                boxColor = -15216030;
+                textColor = -14614644;
+            }
+            else {
+                continue;
+            }
+
+            double groupKey = getColorForItem(item, entity.posX, entity.posY, entity.posZ);
+            Integer existingStackCount = stackCounts.get(groupKey);
+            stackCounts.put(groupKey, (existingStackCount == null ? 0 : existingStackCount) + entityItem.getEntityItem().stackSize);
+
+            if (renderStateCount >= renderStates.size()) {
+                renderStates.add(new ItemRenderState());
+            }
+            renderStates.get(renderStateCount++).set(entityItem, boxColor, textColor, groupKey);
         }
     }
 
@@ -187,5 +213,19 @@ public class ItemESP extends Module {
         GlStateManager.depthMask(true);
         GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
         GlStateManager.popMatrix();
+    }
+
+    private static final class ItemRenderState {
+        private EntityItem entityItem;
+        private int boxColor;
+        private int textColor;
+        private double groupKey;
+
+        private void set(EntityItem entityItem, int boxColor, int textColor, double groupKey) {
+            this.entityItem = entityItem;
+            this.boxColor = boxColor;
+            this.textColor = textColor;
+            this.groupKey = groupKey;
+        }
     }
 }

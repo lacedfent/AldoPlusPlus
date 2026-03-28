@@ -10,15 +10,23 @@ public final class CombatTargeting implements IMinecraftInstance {
     }
 
     public static EntityPlayer findTarget(double maxDistanceSq) {
-        EntityPlayer mouseOverTarget = getMouseOverTarget(maxDistanceSq);
+        return findTarget(maxDistanceSq, true);
+    }
+
+    public static EntityPlayer findTarget(double maxDistanceSq, boolean ignoreTeammates) {
+        EntityPlayer mouseOverTarget = getMouseOverTarget(maxDistanceSq, ignoreTeammates);
         if (mouseOverTarget != null) {
             return mouseOverTarget;
         }
 
-        return findClosestTarget(maxDistanceSq);
+        return findClosestTarget(maxDistanceSq, ignoreTeammates);
     }
 
     public static EntityPlayer findClosestTarget(double maxDistanceSq) {
+        return findClosestTarget(maxDistanceSq, true);
+    }
+
+    public static EntityPlayer findClosestTarget(double maxDistanceSq, boolean ignoreTeammates) {
         if (mc == null || mc.theWorld == null) {
             return null;
         }
@@ -27,7 +35,7 @@ public final class CombatTargeting implements IMinecraftInstance {
         double closestDistanceSq = Double.MAX_VALUE;
 
         for (EntityPlayer player : mc.theWorld.playerEntities) {
-            if (!isValidPlayer(player, maxDistanceSq)) {
+            if (!isValidPlayer(player, maxDistanceSq, ignoreTeammates)) {
                 continue;
             }
 
@@ -42,33 +50,53 @@ public final class CombatTargeting implements IMinecraftInstance {
     }
 
     public static EntityPlayer getMouseOverTarget(double maxDistanceSq) {
+        return getMouseOverTarget(maxDistanceSq, true);
+    }
+
+    public static EntityPlayer getMouseOverTarget(double maxDistanceSq, boolean ignoreTeammates) {
         if (mc == null || mc.objectMouseOver == null) {
             return null;
         }
 
         MovingObjectPosition objectMouseOver = mc.objectMouseOver;
-        return asValidPlayer(objectMouseOver.entityHit, maxDistanceSq);
+        return asValidPlayer(objectMouseOver.entityHit, maxDistanceSq, ignoreTeammates);
     }
 
     public static EntityPlayer asValidPlayer(Entity entity, double maxDistanceSq) {
+        return asValidPlayer(entity, maxDistanceSq, true);
+    }
+
+    public static EntityPlayer asValidPlayer(Entity entity, double maxDistanceSq, boolean ignoreTeammates) {
         if (!(entity instanceof EntityPlayer)) {
             return null;
         }
 
         EntityPlayer player = (EntityPlayer) entity;
-        return isValidPlayer(player, maxDistanceSq) ? player : null;
+        return isValidPlayer(player, maxDistanceSq, ignoreTeammates) ? player : null;
     }
 
     public static boolean isValidPlayer(EntityPlayer player, double maxDistanceSq) {
-        return isTrackablePlayer(player) && isWithinRange(player, maxDistanceSq);
+        return isValidPlayer(player, maxDistanceSq, true);
+    }
+
+    public static boolean isValidPlayer(EntityPlayer player, double maxDistanceSq, boolean ignoreTeammates) {
+        return isTrackablePlayer(player, ignoreTeammates) && isWithinRange(player, maxDistanceSq);
     }
 
     public static boolean isTrackablePlayer(EntityPlayer player) {
+        return isTrackablePlayer(player, true);
+    }
+
+    public static boolean isTrackablePlayer(EntityPlayer player, boolean ignoreTeammates) {
         if (!Utils.nullCheck() || player == null || player == mc.thePlayer || player.isDead || player.deathTime != 0) {
             return false;
         }
 
-        if (Utils.isFriended(player) || Utils.isTeammate(player) || AntiBot.isBot(player)) {
+        if (Utils.isFriended(player) || AntiBot.isBot(player)) {
+            return false;
+        }
+
+        if (ignoreTeammates && Utils.isTeammate(player)) {
             return false;
         }
 

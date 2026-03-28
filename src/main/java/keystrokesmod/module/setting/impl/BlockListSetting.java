@@ -11,15 +11,26 @@ import java.util.List;
 
 public class BlockListSetting extends Setting {
     private final List<String> blocks = new ArrayList<>();
+    private final String[] legacyProfileKeys;
     public GroupSetting group;
 
     public BlockListSetting(String name) {
+        this(name, new String[0]);
+    }
+
+    public BlockListSetting(String name, String... legacyProfileKeys) {
         super(name);
+        this.legacyProfileKeys = legacyProfileKeys != null ? legacyProfileKeys : new String[0];
     }
 
     public BlockListSetting(GroupSetting group, String name) {
+        this(group, name, new String[0]);
+    }
+
+    public BlockListSetting(GroupSetting group, String name, String... legacyProfileKeys) {
         super(name);
         this.group = group;
+        this.legacyProfileKeys = legacyProfileKeys != null ? legacyProfileKeys : new String[0];
     }
 
     public void addBlock(String registryName) {
@@ -58,8 +69,22 @@ public class BlockListSetting extends Setting {
 
     @Override
     public void loadProfile(JsonObject data) {
-        String key = data.has(getProfileKey()) ? getProfileKey() : getName();
-        if (!data.has(key)) return;
+        String key = null;
+        if (data.has(getProfileKey())) {
+            key = getProfileKey();
+        }
+        else if (data.has(getName())) {
+            key = getName();
+        }
+        else {
+            for (String legacyProfileKey : legacyProfileKeys) {
+                if (data.has(legacyProfileKey)) {
+                    key = legacyProfileKey;
+                    break;
+                }
+            }
+        }
+        if (key == null) return;
         blocks.clear();
         JsonElement el = data.get(key);
         if (el.isJsonArray()) {

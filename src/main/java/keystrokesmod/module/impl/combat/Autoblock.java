@@ -31,6 +31,7 @@ public class Autoblock extends Module {
     private final ButtonSetting requireLmb;
     private final ButtonSetting requireRmb;
     private final ButtonSetting onlyWhenDamaged;
+    private final ButtonSetting ignoreTeammates;
 
     private final SliderSetting lagChance;
     private final SliderSetting lagMaxDuration;
@@ -68,6 +69,7 @@ public class Autoblock extends Module {
         this.registerSetting(requireLmb = new ButtonSetting("Require Left mouse", true));
         this.registerSetting(requireRmb = new ButtonSetting("Require right mouse", false));
         this.registerSetting(onlyWhenDamaged = new ButtonSetting("Damaged", false));
+        this.registerSetting(ignoreTeammates = new ButtonSetting("Ignore teammates", true));
         this.closetModule = true;
     }
 
@@ -149,7 +151,7 @@ public class Autoblock extends Module {
         tickCounter++;
         int currentTick = tickCounter;
 
-        currentTarget = CombatTargeting.findTarget(range.getInput() * range.getInput());
+        currentTarget = CombatTargeting.findTarget(range.getInput() * range.getInput(), ignoreTeammates.isToggled());
         boolean killAuraAttacking = ModuleManager.killAura != null && ModuleManager.killAura.isEnabled() && !ModuleManager.killAura.isRequireMouseDown() && currentTarget != null;
         boolean rmbDown = Mouse.isButtonDown(1);
         boolean lmbDown = Mouse.isButtonDown(0) || killAuraAttacking;

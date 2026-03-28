@@ -187,9 +187,6 @@ public class Nametags extends Module {
         renderStateCount = 0;
 
         for (EntityPlayer player : mc.theWorld.playerEntities) {
-            if (!RenderUtils.isInViewFrustum(player)) {
-                continue;
-            }
             if (!shouldRenderNametag(player)) {
                 continue;
             }
@@ -261,7 +258,11 @@ public class Nametags extends Module {
         ((IAccessorEntityRenderer) mc.entityRenderer).callSetupCameraTransform(partialTicks, 0);
 
         for (int i = 0; i < renderStateCount; i++) {
-            renderCustomName(renderStates.get(i), partialTicks, renderManager, textRenderer, itemFontRenderer);
+            NametagRenderState renderState = renderStates.get(i);
+            if (renderState.player == null || !RenderUtils.isInViewFrustum(renderState.player)) {
+                continue;
+            }
+            renderCustomName(renderState, partialTicks, renderManager, textRenderer, itemFontRenderer);
         }
 
         GlStateManager.enableDepth();

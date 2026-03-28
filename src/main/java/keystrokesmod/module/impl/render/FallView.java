@@ -22,7 +22,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class FallView extends Module {
-
     private ButtonSetting disableWhileFlying;
     private ButtonSetting onlyWhileSneaking;
     private ButtonSetting overrideHealthFormat;
@@ -37,8 +36,14 @@ public class FallView extends Module {
     private ItemStack[] cachedArmorInventory = new ItemStack[4];
     private boolean armorCacheValid = false;
 
-    private Map<DamageCacheKey, Integer> damageCache = new HashMap<>();
+    private final Map<DamageCacheKey, Integer> damageCache = new HashMap<>();
     private static final int MAX_CACHE_SIZE = 1000;
+
+    private String damageText;
+    private boolean showDamageText;
+    private String distanceText;
+    private int distanceTextColor = Color.WHITE.getRGB();
+    private boolean showDistanceText;
 
     public FallView() {
         super("Fall View", category.render);
@@ -60,11 +65,17 @@ public class FallView extends Module {
         cachedArmorInventory = new ItemStack[4];
         armorCacheValid = false;
         damageCache.clear();
+        clearOverlayState();
     }
 
     @SubscribeEvent
-    public void onRenderTick(TickEvent.RenderTickEvent ev) {
-        if (ev.phase != TickEvent.Phase.END || mc.currentScreen != null) {
+    public void onClientTick(TickEvent.ClientTickEvent ev) {
+        if (ev.phase != TickEvent.Phase.END) {
+            return;
+        }
+
+        clearOverlayState();
+        if (mc.currentScreen != null) {
             return;
         }
         if (!Utils.nullCheck() || mc.thePlayer.capabilities.isCreativeMode) {
@@ -78,31 +89,30 @@ public class FallView extends Module {
         }
 
         boolean onGround = mc.thePlayer.onGround;
-
         if (onGround) {
             fallStartY = -1;
             groundY = -1;
             cachedFallDistance = 0;
         }
+        else if (fallStartY == -1) {
+            fallStartY = mc.thePlayer.posY;
+            groundY = findGroundY(mc.thePlayer.posX, mc.thePlayer.posZ);
+        }
         else {
-            if (fallStartY == -1) {
-                fallStartY = mc.thePlayer.posY;
-                groundY = findGroundY(mc.thePlayer.posX, mc.thePlayer.posZ);
-            }
-            else {
-                double newGroundY = findGroundY(mc.thePlayer.posX, mc.thePlayer.posZ);
-                if (newGroundY != groundY) {
-                    groundY = newGroundY;
-                    cachedFallDistance = 0;
-                }
+            double newGroundY = findGroundY(mc.thePlayer.posX, mc.thePlayer.posZ);
+            if (newGroundY != groundY) {
+                groundY = newGroundY;
+                cachedFallDistance = 0;
             }
         }
 
         float fallDistance = calculateFallDistance();
-        if (fallDistance <= 2.5f) return;
+        if (fallDistance <= 2.5f) {
+            return;
+        }
 
         PotionEffect jumpEffect = mc.thePlayer.getActivePotionEffect(Potion.jump);
-        float jumpAmplifier = (jumpEffect != null) ? ((float) (jumpEffect.getAmplifier() + 1)) : 0.0f;
+        float jumpAmplifier = jumpEffect != null ? (float) (jumpEffect.getAmplifier() + 1) : 0.0f;
         int jumpBoostLevel = jumpEffect != null ? jumpEffect.getAmplifier() + 1 : 0;
 
         PotionEffect resistanceEffect = mc.thePlayer.getActivePotionEffect(Potion.resistance);
@@ -121,7 +131,10 @@ public class FallView extends Module {
             if (currentArmor != null) {
                 armorHash = armorHash * 31 + (currentArmor.getItem() != null ? currentArmor.getItem().hashCode() : 0);
                 armorHash = armorHash * 31 + currentArmor.getItemDamage();
-                armorHash = armorHash * 31 + EnchantmentHelper.getEnchantmentLevel(net.minecraft.enchantment.Enchantment.featherFalling.effectId, currentArmor);
+                armorHash = armorHash * 31 + EnchantmentHelper.getEnchantmentLevel(
+                    net.minecraft.enchantment.Enchantment.featherFalling.effectId,
+                    currentArmor
+                );
             }
         }
 
@@ -130,7 +143,9 @@ public class FallView extends Module {
             long totalModifier = 0;
             for (int i = 0; i < 100; i++) {
                 int mod = EnchantmentHelper.getEnchantmentModifierDamage(armorInventory, DamageSource.fall);
-                if (mod > 20) mod = 20;
+                if (mod > 20) {
+                    mod = 20;
+                }
                 totalModifier += mod;
             }
             enchantmentModifier = (int) Math.round(totalModifier / 100.0);
@@ -144,18 +159,18 @@ public class FallView extends Module {
 
         DamageCacheKey cacheKey = new DamageCacheKey(armorHash, fallDistance, jumpBoostLevel, resistanceLevel);
         Integer cachedFinalDamage = damageCache.get(cacheKey);
-
         int finalDamage;
         if (cachedFinalDamage != null) {
             finalDamage = cachedFinalDamage;
-        } else {
+        }
+        else {
             float damagePoints = fallDistance - 3.0f - jumpAmplifier;
             double damage = Math.max(0, MathHelper.ceiling_double_int(damagePoints));
 
             if (hasResistance && damage > 0) {
-                int i = resistanceLevel * 5;
-                int j = 25 - i;
-                damage = j * damage / 25.0;
+                int resistanceReduction = resistanceLevel * 5;
+                int damageMultiplier = 25 - resistanceReduction;
+                damage = damageMultiplier * damage / 25.0;
             }
 
             if (damage > 0 && enchantmentModifier > 0) {
@@ -163,7 +178,6 @@ public class FallView extends Module {
             }
 
             finalDamage = MathHelper.ceiling_double_int(damage);
-
             if (damageCache.size() >= MAX_CACHE_SIZE) {
                 damageCache.clear();
             }
@@ -173,28 +187,59 @@ public class FallView extends Module {
         double currentHealth = mc.thePlayer.getHealth();
         double damagePercent = (double) finalDamage / currentHealth * 100.0;
         if (showDamage.isToggled() && finalDamage > 0 && damagePercent > damageThreshold.getInput()) {
-            ScaledResolution scaledResolution = new ScaledResolution(mc);
             float hearts = finalDamage;
             if (Settings.showHealthAsHearts.isToggled() || overrideHealthFormat.isToggled()) {
                 hearts = finalDamage / 2.0f;
                 hearts = (float) Utils.round(hearts, 1);
             }
+
             double percent = (double) finalDamage / currentHealth;
-            String healthStr = (finalDamage >= currentHealth) ? "§4" : ((percent >= 0.7) ? "§c" : ((percent >= 0.5) ? "§6" : ((percent >= 0.3) ? "§e" : "§a")));
-            String damageStr = healthStr + Utils.asWholeNum(hearts);
+            String healthStr = finalDamage >= currentHealth
+                ? "\u00a74"
+                : (percent >= 0.7 ? "\u00a7c" : (percent >= 0.5 ? "\u00a76" : (percent >= 0.3 ? "\u00a7e" : "\u00a7a")));
+            damageText = healthStr + Utils.asWholeNum(hearts);
             if (Settings.showHeartSymbol.isToggled()) {
-                damageStr += "§c\u2764§r";
+                damageText += "\u00a7c\u2764\u00a7r";
             }
-            mc.fontRendererObj.drawStringWithShadow(damageStr, scaledResolution.getScaledWidth() / 2 - mc.fontRendererObj.getStringWidth(damageStr) / 2, scaledResolution.getScaledHeight() / 2 - 15, Color.WHITE.getRGB());
+            showDamageText = true;
         }
 
         if (showDistance.isToggled()) {
-            ScaledResolution scaledResolution = new ScaledResolution(mc);
-            Color distanceColor = getDistanceColor(fallDistance);
-            String distanceStr = Utils.asWholeNum(Utils.round(fallDistance, 2)) + "m";
-            mc.fontRendererObj.drawStringWithShadow(distanceStr, scaledResolution.getScaledWidth() / 2 - mc.fontRendererObj.getStringWidth(distanceStr) / 2, scaledResolution.getScaledHeight() / 2 + 6, distanceColor.getRGB());
+            distanceText = Utils.asWholeNum(Utils.round(fallDistance, 2)) + "m";
+            distanceTextColor = getDistanceColor(fallDistance).getRGB();
+            showDistanceText = true;
         }
     }
+
+    @SubscribeEvent
+    public void onRenderTick(TickEvent.RenderTickEvent ev) {
+        if (ev.phase != TickEvent.Phase.END || mc.currentScreen != null || !Utils.nullCheck()) {
+            return;
+        }
+        if (!showDamageText && !showDistanceText) {
+            return;
+        }
+
+        ScaledResolution scaledResolution = new ScaledResolution(mc);
+        if (showDamageText && damageText != null) {
+            mc.fontRendererObj.drawStringWithShadow(
+                damageText,
+                scaledResolution.getScaledWidth() / 2 - mc.fontRendererObj.getStringWidth(damageText) / 2,
+                scaledResolution.getScaledHeight() / 2 - 15,
+                Color.WHITE.getRGB()
+            );
+        }
+
+        if (showDistanceText && distanceText != null) {
+            mc.fontRendererObj.drawStringWithShadow(
+                distanceText,
+                scaledResolution.getScaledWidth() / 2 - mc.fontRendererObj.getStringWidth(distanceText) / 2,
+                scaledResolution.getScaledHeight() / 2 + 6,
+                distanceTextColor
+            );
+        }
+    }
+
     private float calculateFallDistance() {
         if (fallStartY == -1 || groundY == -1) {
             double currentY = mc.thePlayer.posY;
@@ -225,14 +270,20 @@ public class FallView extends Module {
     private Color getDistanceColor(float distance) {
         float minDistance = 2.5f;
         float maxDistance = 20.0f;
-        
         float normalized = MathHelper.clamp_float((distance - minDistance) / (maxDistance - minDistance), 0.0f, 1.0f);
 
         int red = 255;
         int green = (int) (255 * (1.0f - normalized));
         int blue = 0;
-        
         return new Color(red, green, blue);
+    }
+
+    private void clearOverlayState() {
+        damageText = null;
+        showDamageText = false;
+        distanceText = null;
+        distanceTextColor = Color.WHITE.getRGB();
+        showDistanceText = false;
     }
 
     private static class DamageCacheKey {
@@ -257,7 +308,10 @@ public class FallView extends Module {
                 return false;
             }
             DamageCacheKey that = (DamageCacheKey) o;
-            return armorHash == that.armorHash && fallDistanceInt == that.fallDistanceInt && jumpBoostLevel == that.jumpBoostLevel && resistanceLevel == that.resistanceLevel;
+            return armorHash == that.armorHash
+                && fallDistanceInt == that.fallDistanceInt
+                && jumpBoostLevel == that.jumpBoostLevel
+                && resistanceLevel == that.resistanceLevel;
         }
 
         @Override

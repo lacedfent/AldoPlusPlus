@@ -47,7 +47,6 @@ public class CategoryComponent {
     public boolean hoveringOverCategory = false;
     public Timer smoothTimer;
     private Timer textTimer;
-    /** Visible content height (float). Used for overCategory hit-testing. */
     public float big;
 
     private static final int TRANSLUCENT_BACKGROUND = new Color(0, 0, 0, 110).getRGB();
@@ -58,16 +57,13 @@ public class CategoryComponent {
     private float lastHeight;
     private float lastNamePos;
     private float animationStartNamePos;
-    /** Current animated scroll position (float). Driven by scrollAnim each frame. */
     public float moduleY;
     private float screenHeight;
     private float screenWidth;
     private float animationStartHeight;
 
-    /** Persistent Expo-Out scroll animation — mirrors OneConfig/PolyUI behaviour. */
     private final ScrollOffsetAnimation scrollAnim = new ScrollOffsetAnimation(200);
 
-    /** Time of last user interaction (drag, click, scroll). Used for render/input order. */
     public long lastInteractedTime = 0L;
 
     public CategoryComponent(Module.category category) {

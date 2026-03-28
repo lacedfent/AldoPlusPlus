@@ -46,10 +46,17 @@ public class Profiles extends Command { // credit: https://github.com/BoxDevelop
                     return;
                 }
                 String saveName = args[2];
-                Profile newProfile = new Profile(saveName, 0);
-                Raven.profileManager.saveProfile(newProfile);
+                Profile savedProfile = Raven.profileManager.getProfile(saveName);
+                if (savedProfile == null) {
+                    savedProfile = Raven.profileManager.createProfile(saveName, 0);
+                    if (savedProfile == null) {
+                        return;
+                    }
+                }
+                else {
+                    Raven.profileManager.saveProfile(savedProfile);
+                }
                 chatWithPrefix("&7Saved profile: &b" + saveName);
-                Raven.profileManager.loadProfiles();
                 break;
             case "load":
             case "l":
@@ -97,12 +104,10 @@ public class Profiles extends Command { // credit: https://github.com/BoxDevelop
                     chatWithPrefix("&b" + newName + " &7already exists");
                     return;
                 }
-                Profile renamedProfile = new Profile(newName, oldProfile.getBind()); // save this to that pls
-                Raven.profileManager.saveProfile(renamedProfile);
-                Raven.profileManager.deleteProfile(oldName); // delete old shit (i think thats needed)
-                chatWithPrefix("&b" + oldName + " &7renamed to &b" + newName);
-                Raven.profileManager.loadProfiles(); // ok so fun fact!! you need to load them again (i think??)
-                Raven.profileManager.loadProfile(newName);
+                if (!Raven.profileManager.renameProfile(oldProfile, newName)) {
+                    return;
+                }
+                chatWithPrefix("&b" + oldName + " &7renamed to &b" + oldProfile.getName());
                 break;
             default:
                 syntaxError();

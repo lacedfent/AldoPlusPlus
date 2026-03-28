@@ -53,6 +53,7 @@ public class ClickGui extends GuiScreen {
     public int originalScale;
     public int previousScale;
     private static boolean isNotFirstOpen;
+    private boolean usingCustomGuiScale;
 
     public ClickGui() {
         categories = new ArrayList();
@@ -307,29 +308,26 @@ public class ClickGui extends GuiScreen {
 
     /**
      * Refreshes the ClickGui for the newly loaded profile's Gui scale. Call after
-     * all module settings (including Gui.guiScale) are loaded. Applies the new scale,
-     * recomputes resolution, and reinitializes. If the GUI is currently open, it
-     * updates in place.
+     * all module settings (including Gui.guiScale) are loaded. Recomputes the
+     * ClickGui layout using the profile's configured scale. If the GUI is not
+     * currently open, the game's real GUI scale is restored immediately after.
      */
     public void refreshAfterProfileLoad() {
         if (mc == null) {
             mc = Minecraft.getMinecraft();
         }
-        originalScale = mc.gameSettings.guiScale;
-        mc.gameSettings.guiScale = (int) Gui.guiScale.getInput() + 1;
-        this.sr = new ScaledResolution(mc);
-        this.width = this.sr.getScaledWidth();
-        this.height = this.sr.getScaledHeight();
-        this.previousScale = (int) Gui.guiScale.getInput();
-        this.buttonList.clear();
-        initGui();
+        boolean keepConfiguredScaleApplied = usingCustomGuiScale && mc.currentScreen == this;
+        reinitializeForConfiguredScale(keepConfiguredScaleApplied);
     }
 
     @Override
     public void setWorldAndResolution(Minecraft p_setWorldAndResolution_1_, final int p_setWorldAndResolution_2_, final int p_setWorldAndResolution_3_) {
         this.mc = p_setWorldAndResolution_1_;
-        originalScale = this.mc.gameSettings.guiScale;
-        this.mc.gameSettings.guiScale = (int) Gui.guiScale.getInput() + 1;
+        if (!usingCustomGuiScale) {
+            originalScale = this.mc.gameSettings.guiScale;
+            usingCustomGuiScale = true;
+        }
+        this.mc.gameSettings.guiScale = getConfiguredGuiScale();
         this.itemRender = p_setWorldAndResolution_1_.getRenderItem();
         this.fontRendererObj = p_setWorldAndResolution_1_.fontRendererObj;
         final ScaledResolution scaledresolution = new ScaledResolution(this.mc);
@@ -403,7 +401,10 @@ public class ClickGui extends GuiScreen {
                 m.onGuiClosed();
             }
         }
-        this.mc.gameSettings.guiScale = originalScale;
+        if (usingCustomGuiScale) {
+            this.mc.gameSettings.guiScale = originalScale;
+            usingCustomGuiScale = false;
+        }
     }
 
     @Override
@@ -433,5 +434,27 @@ public class ClickGui extends GuiScreen {
                 m.onSliderChange();
             }
         }
+    }
+
+    private void reinitializeForConfiguredScale(boolean keepConfiguredScaleApplied) {
+        int previousGameScale = mc.gameSettings.guiScale;
+        this.mc.gameSettings.guiScale = getConfiguredGuiScale();
+        try {
+            this.sr = new ScaledResolution(mc);
+            this.width = this.sr.getScaledWidth();
+            this.height = this.sr.getScaledHeight();
+            this.previousScale = (int) Gui.guiScale.getInput();
+            this.buttonList.clear();
+            initGui();
+        }
+        finally {
+            if (!keepConfiguredScaleApplied) {
+                this.mc.gameSettings.guiScale = previousGameScale;
+            }
+        }
+    }
+
+    private int getConfiguredGuiScale() {
+        return (int) Gui.guiScale.getInput() + 1;
     }
 }

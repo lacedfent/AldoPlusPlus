@@ -10,8 +10,16 @@ public class ItemListSetting extends BlockListSetting {
         super(name);
     }
 
+    public ItemListSetting(String name, String... legacyProfileKeys) {
+        super(name, legacyProfileKeys);
+    }
+
     public ItemListSetting(GroupSetting group, String name) {
         super(group, name);
+    }
+
+    public ItemListSetting(GroupSetting group, String name, String... legacyProfileKeys) {
+        super(group, name, legacyProfileKeys);
     }
 
     public void addItem(String storageId) {

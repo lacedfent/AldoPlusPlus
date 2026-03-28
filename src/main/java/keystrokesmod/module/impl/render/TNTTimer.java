@@ -15,10 +15,12 @@ import net.minecraft.scoreboard.ScoreObjective;
 import net.minecraft.scoreboard.Scoreboard;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.common.gameevent.TickEvent;
 import org.lwjgl.opengl.GL11;
 
 import java.awt.*;
 import java.text.DecimalFormat;
+import java.util.ArrayList;
 
 public class TNTTimer extends Module {
     private static final int BEDWARS_FUSE_OFFSET = 28;
@@ -27,6 +29,9 @@ public class TNTTimer extends Module {
 
     private final SliderSetting scale;
     private final DecimalFormat timeFormatter = new DecimalFormat("0.0");
+    private final ArrayList<EntityTNTPrimed> trackedTnt = new ArrayList<>();
+    private int trackedTntCount = 0;
+    private boolean trackedBedwars = false;
 
     public TNTTimer() {
         super("TNT Timer", category.render, 0);
@@ -34,29 +39,59 @@ public class TNTTimer extends Module {
     }
 
     @SubscribeEvent
+    public void onClientTick(TickEvent.ClientTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) {
+            return;
+        }
+        updateTrackedTnt();
+    }
+
+    @SubscribeEvent
     public void onRenderWorldLast(RenderWorldLastEvent e) {
-        if (!Utils.nullCheck()) return;
+        if (!Utils.nullCheck() || trackedTntCount == 0) return;
 
         RenderManager rm = mc.getRenderManager();
         FontRenderer fr = mc.fontRendererObj;
         float partialTicks = e.partialTicks;
-        boolean bedwars = isSidebarBedwars();
+        boolean bedwars = trackedBedwars;
 
-        for (Entity entity : mc.theWorld.loadedEntityList) {
-            if (!(entity instanceof EntityTNTPrimed)) continue;
-            EntityTNTPrimed tnt = (EntityTNTPrimed) entity;
+        for (int i = 0; i < trackedTntCount; i++) {
+            EntityTNTPrimed tnt = trackedTnt.get(i);
+            if (tnt == null || tnt.isDead) continue;
 
             int fuse = bedwars ? (tnt.fuse - BEDWARS_FUSE_OFFSET) : tnt.fuse;
             if (fuse < 1) continue;
-
-            double distSq = tnt.getDistanceSqToEntity(mc.thePlayer);
-            if (distSq > 4096.0) continue;
 
             double x = tnt.lastTickPosX + (tnt.posX - tnt.lastTickPosX) * partialTicks - rm.viewerPosX;
             double y = tnt.lastTickPosY + (tnt.posY - tnt.lastTickPosY) * partialTicks - rm.viewerPosY;
             double z = tnt.lastTickPosZ + (tnt.posZ - tnt.lastTickPosZ) * partialTicks - rm.viewerPosZ;
 
             renderTimer(fr, rm, tnt, x, y, z, fuse, partialTicks, bedwars);
+        }
+    }
+
+    private void updateTrackedTnt() {
+        trackedTntCount = 0;
+        trackedBedwars = false;
+        if (!Utils.nullCheck() || mc.theWorld == null) {
+            return;
+        }
+
+        trackedBedwars = isSidebarBedwars();
+        for (Entity entity : mc.theWorld.loadedEntityList) {
+            if (!(entity instanceof EntityTNTPrimed)) continue;
+            EntityTNTPrimed tnt = (EntityTNTPrimed) entity;
+            int fuse = trackedBedwars ? (tnt.fuse - BEDWARS_FUSE_OFFSET) : tnt.fuse;
+            if (fuse < 1) continue;
+            if (tnt.getDistanceSqToEntity(mc.thePlayer) > 4096.0) continue;
+
+            if (trackedTntCount >= trackedTnt.size()) {
+                trackedTnt.add(tnt);
+            }
+            else {
+                trackedTnt.set(trackedTntCount, tnt);
+            }
+            trackedTntCount++;
         }
     }
 

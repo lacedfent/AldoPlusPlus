@@ -15,6 +15,7 @@ import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.BlockPos;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.common.gameevent.TickEvent;
 import org.lwjgl.opengl.GL11;
 
 import java.util.ArrayList;
@@ -31,6 +32,7 @@ public class ChestESP extends Module {
     private static final ThreadLocal<Boolean> CHEST_CHAMS_ACTIVE = ThreadLocal.withInitial(() -> false);
 
     private final EnumMap<ChestKind, ChestVisualSettings> chestSettingsByKind = new EnumMap<>(ChestKind.class);
+    private final EnumMap<ChestKind, List<BlockPos>> trackedWorldBatches = new EnumMap<>(ChestKind.class);
     private final SliderSetting maxDistance;
 
 
@@ -149,20 +151,61 @@ public class ChestESP extends Module {
     }
 
     @SubscribeEvent
-    public void onRenderWorld(RenderWorldLastEvent ev) {
-        if (!Utils.nullCheck() || !hasAnyWorldOverlayEnabled()) {
+    public void onClientTick(TickEvent.ClientTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) {
             return;
         }
+        updateTrackedWorldBatches();
+    }
+
+    @SubscribeEvent
+    public void onRenderWorld(RenderWorldLastEvent ev) {
+        if (!Utils.nullCheck() || trackedWorldBatches.isEmpty()) {
+            return;
+        }
+        for (ChestKind chestKind : RENDERABLE_CHEST_KINDS) {
+            List<BlockPos> trackedBatch = trackedWorldBatches.get(chestKind);
+            if (trackedBatch == null || trackedBatch.isEmpty()) {
+                continue;
+            }
+
+            ChestVisualSettings settings = getChestSettings(chestKind);
+            if (settings == null || !settings.hasWorldOverlayEnabled()) {
+                continue;
+            }
+
+            List<BlockPos> visibleBatch = new ArrayList<>();
+            for (BlockPos pos : trackedBatch) {
+                if (RenderUtils.isInViewFrustum(getChestBoundingBox(pos))) {
+                    visibleBatch.add(pos);
+                }
+            }
+            if (visibleBatch.isEmpty()) {
+                continue;
+            }
+
+            RenderUtils.renderChestBatch(
+                    visibleBatch,
+                    settings.getOutlineColor(),
+                    settings.getShadeColor(),
+                    settings.isOutlineEnabled(),
+                    settings.isShadeEnabled()
+            );
+        }
+    }
+
+    private void updateTrackedWorldBatches() {
+        trackedWorldBatches.clear();
+        if (!Utils.nullCheck() || mc.theWorld == null || !hasAnyWorldOverlayEnabled()) {
+            return;
+        }
+
         double maxDistSq = maxDistance.getInput() * maxDistance.getInput();
-        EnumMap<ChestKind, List<BlockPos>> batches = new EnumMap<>(ChestKind.class);
         for (ChestKind chestKind : RENDERABLE_CHEST_KINDS) {
             ChestVisualSettings settings = getChestSettings(chestKind);
-            if (settings.hasWorldOverlayEnabled()) {
-                batches.put(chestKind, new ArrayList<>());
+            if (settings != null && settings.hasWorldOverlayEnabled()) {
+                trackedWorldBatches.put(chestKind, new ArrayList<>());
             }
-        }
-        if (batches.isEmpty()) {
-            return;
         }
 
         for (TileEntity tileEntity : mc.theWorld.loadedTileEntityList) {
@@ -176,26 +219,11 @@ public class ChestESP extends Module {
             if (!RenderUtils.isBlockPosWithinDistanceSqToView(pos, maxDistSq)) {
                 continue;
             }
-            if (!RenderUtils.isInViewFrustum(getChestBoundingBox(pos))) {
-                continue;
-            }
-            batches.get(chestKind).add(pos);
-        }
 
-        for (ChestKind chestKind : RENDERABLE_CHEST_KINDS) {
-            List<BlockPos> batch = batches.get(chestKind);
-            if (batch == null || batch.isEmpty()) {
-                continue;
+            List<BlockPos> trackedBatch = trackedWorldBatches.get(chestKind);
+            if (trackedBatch != null) {
+                trackedBatch.add(pos);
             }
-
-            ChestVisualSettings settings = getChestSettings(chestKind);
-            RenderUtils.renderChestBatch(
-                    batch,
-                    settings.getOutlineColor(),
-                    settings.getShadeColor(),
-                    settings.isOutlineEnabled(),
-                    settings.isShadeEnabled()
-            );
         }
     }
 

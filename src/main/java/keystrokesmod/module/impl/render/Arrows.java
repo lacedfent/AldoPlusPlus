@@ -17,6 +17,7 @@ import net.minecraftforge.fml.common.gameevent.TickEvent;
 import org.lwjgl.opengl.GL11;
 
 import java.awt.*;
+import java.util.ArrayList;
 
 public class Arrows extends Module {
     private SliderSetting arrow;
@@ -30,6 +31,8 @@ public class Arrows extends Module {
 
     private int friendColor = new Color(0, 255, 0, 255).getRGB();
     private int enemyColor = new Color(255, 0, 0, 255).getRGB();
+    private final ArrayList<ArrowRenderState> renderStates = new ArrayList<>();
+    private int renderStateCount = 0;
 
     private String[] arrowTypes = new String[] { "Caret", "Greater than", "Triangle" };
 
@@ -46,6 +49,14 @@ public class Arrows extends Module {
     }
 
     @SubscribeEvent
+    public void onClientTick(TickEvent.ClientTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) {
+            return;
+        }
+        updateRenderStates();
+    }
+
+    @SubscribeEvent
     public void onRenderTick(TickEvent.RenderTickEvent event) {
         if (event.phase != TickEvent.Phase.END) {
             return;
@@ -54,36 +65,55 @@ public class Arrows extends Module {
             return;
         }
         try {
-            for (EntityPlayer en : mc.theWorld.playerEntities) {
-                if (en == null || en == mc.thePlayer) {
+            for (int i = 0; i < renderStateCount; i++) {
+                ArrowRenderState renderState = renderStates.get(i);
+                if (renderState.player == null) {
                     continue;
                 }
-                if (AntiBot.isBot(en)) {
-                    continue;
-                }
-                this.renderIndicatorFor(en, event.renderTickTime);
+                this.renderIndicatorFor(renderState.player, renderState.color, event.renderTickTime);
             }
         }
         catch (Exception e) {}
     }
 
-    private void renderIndicatorFor(EntityPlayer en, float partialTicks) {
+    private void updateRenderStates() {
+        renderStateCount = 0;
+        if (!Utils.nullCheck() || mc.theWorld == null) {
+            return;
+        }
+
+        for (EntityPlayer en : mc.theWorld.playerEntities) {
+            if (en == null || en == mc.thePlayer) {
+                continue;
+            }
+            if (AntiBot.isBot(en)) {
+                continue;
+            }
+            if (Utils.isTeammate(en) && hideTeammates.isToggled()) {
+                continue;
+            }
+
+            int color = -1;
+            if (renderFriends.isToggled() && Utils.isFriended(en)) {
+                color = friendColor;
+            }
+            else if (renderEnemies.isToggled() && Utils.isEnemy(en)) {
+                color = enemyColor;
+            }
+            else if (teamColor.isToggled()) {
+                color = Utils.getColorFromEntity(en);
+            }
+
+            if (renderStateCount >= renderStates.size()) {
+                renderStates.add(new ArrowRenderState());
+            }
+            renderStates.get(renderStateCount++).set(en, color);
+        }
+    }
+
+    private void renderIndicatorFor(EntityPlayer en, int color, float partialTicks) {
         if (renderOnlyOffScreen.isToggled() && RenderUtils.isInViewFrustum(en)) {
             return;
-        }
-        int color = -1;
-
-        if (Utils.isTeammate(en) && hideTeammates.isToggled()) {
-            return;
-        }
-        if (renderFriends.isToggled() && Utils.isFriended(en)) {
-            color = friendColor;
-        }
-        else if (renderEnemies.isToggled() && Utils.isEnemy(en)) {
-            color = enemyColor;
-        }
-        else if (teamColor.isToggled()) {
-            color = Utils.getColorFromEntity(en);
         }
 
         double x = en.lastTickPosX + (en.posX - en.lastTickPosX) * partialTicks - mc.getRenderManager().viewerPosX;
@@ -185,6 +215,16 @@ public class Arrows extends Module {
             }
 
             GlStateManager.popMatrix();
+        }
+    }
+
+    private static final class ArrowRenderState {
+        private EntityPlayer player;
+        private int color;
+
+        private void set(EntityPlayer player, int color) {
+            this.player = player;
+            this.color = color;
         }
     }
 }

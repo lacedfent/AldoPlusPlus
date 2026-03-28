@@ -96,7 +96,7 @@ public class Raven {
         ScriptDefaults.reloadModules();
         scriptManager.loadScripts();
         profileManager.loadProfiles();
-        profileManager.loadProfile("default");
+        profileManager.loadInitialProfile();
         ReflectionUtils.setKeyBindings();
 
         commandManager = new CommandManager();
