@@ -101,4 +101,8 @@ public class BlockListSetting extends Setting {
         }
         return arr;
     }
+
+    protected String[] getLegacyProfileKeys() {
+        return legacyProfileKeys;
+    }
 }

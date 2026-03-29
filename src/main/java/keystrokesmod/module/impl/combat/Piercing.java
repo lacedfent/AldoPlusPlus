@@ -1,7 +1,6 @@
 package keystrokesmod.module.impl.combat;
 
 import com.google.common.base.Predicates;
-import keystrokesmod.event.PrePlayerInteractEvent;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.impl.world.AntiBot;
 import keystrokesmod.module.setting.impl.ButtonSetting;
@@ -37,25 +36,29 @@ public class Piercing extends Module {
         this.registerSetting(insideHitboxOnly = new ButtonSetting("Inside hitbox only", false));
     }
 
+    public boolean shouldOverrideMouseOver() {
+        if (!this.isEnabled()) {
+            return false;
+        }
+        if (mc == null || mc.thePlayer == null || mc.theWorld == null) {
+            return false;
+        }
+        if (this.weaponOnly.isToggled() && !Utils.holdingWeapon()) {
+            return false;
+        }
+        return ignoreBlocks.isToggled()
+                || mc.objectMouseOver == null
+                || mc.objectMouseOver.typeOfHit != MovingObjectPosition.MovingObjectType.BLOCK;
+    }
+
     public void modifyMouseOverFromGetMouseOver(float partialTicks) {
-        if (mc == null || mc.thePlayer == null) return;
+        if (!shouldOverrideMouseOver()) return;
         keystrokesmod$modifyMouseOverVanillaLook(partialTicks);
     }
 
     private void keystrokesmod$modifyMouseOverVanillaLook(final float partialTicks) {
-        if (!this.isEnabled()) {
-            return;
-        }
-        if (this.weaponOnly.isToggled() && !Utils.holdingWeapon()) {
-            return;
-        }
-
         final Entity viewEntity = mc.getRenderViewEntity();
         if (viewEntity == null || mc.theWorld == null) {
-            return;
-        }
-
-        if (!ignoreBlocks.isToggled() && mc.objectMouseOver != null && mc.objectMouseOver.typeOfHit == MovingObjectPosition.MovingObjectType.BLOCK) {
             return;
         }
 
@@ -94,7 +97,7 @@ public class Piercing extends Module {
             double dist = inside ? 0.0 : eyes.distanceTo(hit.hitVec);
             if (!mc.playerController.extendedReach() && dist > 3.0) continue;
             if (dist > reach) continue;
-            if (dist >= bestDist && (KillAura.attackingEntity == null || e != KillAura.attackingEntity)) continue;
+            if (dist >= bestDist) continue;
             if (this.insideHitboxOnly.isToggled() && dist > 0.10000000149011612) continue;
 
             if (e == viewEntity.ridingEntity && !viewEntity.canRiderInteract() && best != null) continue;
@@ -104,10 +107,7 @@ public class Piercing extends Module {
             float hp = living ? ((EntityLivingBase) e).getHealth() : Float.POSITIVE_INFINITY;
 
             boolean take = false;
-            if (KillAura.attackingEntity != null && e == KillAura.attackingEntity) {
-                take = true;
-            }
-            else if (best == null) {
+            if (best == null) {
                 take = true;
             }
             else if (living && !bestLiving) {
@@ -142,7 +142,6 @@ public class Piercing extends Module {
                 bestLiving = living;
                 bestHurt = hurt;
                 bestHp = hp;
-                if (KillAura.attackingEntity != null && best == KillAura.attackingEntity) break;
             }
         }
 

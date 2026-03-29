@@ -251,6 +251,10 @@ public class CategoryComponent {
                         BlockSearchComponent bsc = (BlockSearchComponent) comp;
                         if (bsc.capturesCategoryScroll(mouseX, mouseY))
                             return;
+                    } else if (comp instanceof InventoryItemSearchComponent) {
+                        InventoryItemSearchComponent iisc = (InventoryItemSearchComponent) comp;
+                        if (iisc.capturesCategoryScroll(mouseX, mouseY))
+                            return;
                     } else if (comp instanceof ItemSearchComponent) {
                         ItemSearchComponent isc = (ItemSearchComponent) comp;
                         if (isc.capturesCategoryScroll(mouseX, mouseY))

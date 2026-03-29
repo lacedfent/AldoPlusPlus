@@ -23,7 +23,9 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 
+@Deprecated
 public class InvManager extends Module {
+    // Deprecated and intentionally left unregistered as reference-only legacy code.
     private static SliderSetting chestStealer;
     private static SliderSetting autoSort;
     private static SliderSetting autoArmor;

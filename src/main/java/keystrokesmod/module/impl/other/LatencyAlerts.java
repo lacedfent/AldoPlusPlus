@@ -50,6 +50,13 @@ public class LatencyAlerts extends Module {
 
     @Override
     public void onUpdate() {
+        if (!Utils.nullCheck()) {
+            this.lastPacketTime = System.currentTimeMillis();
+            this.lastAlert = System.currentTimeMillis();
+            this.lastPacket = null;
+            return;
+        }
+
         if (mc.isSingleplayer() || (this.ignoreLimbo.isToggled() && inLimbo())) {
             this.lastPacketTime = System.currentTimeMillis();
             this.lastAlert = System.currentTimeMillis();
@@ -62,7 +69,8 @@ public class LatencyAlerts extends Module {
             ChatComponentText component = new ChatComponentText(Utils.formatColor("&7[&dR&7]&r &7Packet loss detected: "));
             ChatStyle style = new ChatStyle();
 
-            String contents = "&7Last packet: &b" + lastPacket.getClass().getSimpleName();
+            String packetName = this.lastPacket == null ? "Unknown" : this.lastPacket.getClass().getSimpleName();
+            String contents = "&7Last packet: &b" + packetName;
 
             String timeString = new SimpleDateFormat("h:mm:ss a").format(new Date(this.lastPacketTime));
             contents += "\n&7Received at: &b" + timeString;
@@ -82,6 +90,9 @@ public class LatencyAlerts extends Module {
     }
 
     public boolean inLimbo() {
+        if (!Utils.nullCheck()) {
+            return false;
+        }
         List<String> scoreboard = Utils.getSidebarLines();
         if (scoreboard.isEmpty()) {
             return mc.theWorld.provider.getDimensionName().equals("The End");

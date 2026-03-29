@@ -154,7 +154,6 @@ public class TextFieldComponent extends Component implements FocusableTextCompon
         textField.setFocused(false);
     }
 
-    /** Returns true if the point is inside the text input box. */
     public boolean containsClick(int mouseX, int mouseY) {
         float left = moduleComponent.categoryComponent.getX() + 4f + (xOffset / 2f);
         float right = moduleComponent.categoryComponent.getX() + moduleComponent.categoryComponent.getWidth() - 4f;

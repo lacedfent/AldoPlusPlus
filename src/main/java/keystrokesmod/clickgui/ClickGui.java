@@ -4,9 +4,7 @@ import keystrokesmod.Raven;
 import keystrokesmod.clickgui.components.Component;
 import keystrokesmod.clickgui.components.FocusableTextComponent;
 import keystrokesmod.clickgui.components.impl.BindComponent;
-import keystrokesmod.clickgui.components.impl.BlockSearchComponent;
 import keystrokesmod.clickgui.components.impl.CategoryComponent;
-import keystrokesmod.clickgui.components.impl.ItemSearchComponent;
 import keystrokesmod.clickgui.components.impl.TextFieldComponent;
 import keystrokesmod.clickgui.components.impl.ModuleComponent;
 import keystrokesmod.module.Module;
@@ -342,41 +340,31 @@ public class ClickGui extends GuiScreen {
 
     @Override
     public void keyTyped(char t, int k) {
-        if (k == Keyboard.KEY_ESCAPE && !binding()) {
-            for (CategoryComponent category : categories) {
-                if (!category.isOpened()) continue;
-                for (ModuleComponent mod : category.getModules()) {
-                    for (Component comp : mod.settings) {
-                        if (comp instanceof BlockSearchComponent && ((BlockSearchComponent) comp).isSearchFocused()) {
-                            ((BlockSearchComponent) comp).unfocusSearch();
-                            return;
-                        }
-                        if (comp instanceof ItemSearchComponent && ((ItemSearchComponent) comp).isSearchFocused()) {
-                            ((ItemSearchComponent) comp).unfocusSearch();
-                            return;
-                        }
-                    }
-                }
+        if (k == Keyboard.KEY_ESCAPE) {
+            if (unfocusFocusedTextInput()) {
+                return;
             }
-            this.mc.displayGuiScreen(null);
+            if (!binding()) {
+                this.mc.displayGuiScreen(null);
+                return;
+            }
         }
-        else {
-            for (CategoryComponent category : categories) {
-                if (category.isOpened() && !category.getModules().isEmpty()) {
-                    for (Component module : category.getModules()) {
-                        module.keyTyped(t, k);
-                    }
+
+        for (CategoryComponent category : categories) {
+            if (category.isOpened() && !category.getModules().isEmpty()) {
+                for (Component module : category.getModules()) {
+                    module.keyTyped(t, k);
                 }
             }
-            if (CommandLine.opened) {
-                String cm = this.commandLineInput.getText();
-                if (k == 28 && !cm.isEmpty()) {
-                    CommandHandler.runCommand(this.commandLineInput.getText());
-                    this.commandLineInput.setText("");
-                    return;
-                }
-                this.commandLineInput.textboxKeyTyped(t, k);
+        }
+        if (CommandLine.opened) {
+            String cm = this.commandLineInput.getText();
+            if (k == 28 && !cm.isEmpty()) {
+                CommandHandler.runCommand(this.commandLineInput.getText());
+                this.commandLineInput.setText("");
+                return;
             }
+            this.commandLineInput.textboxKeyTyped(t, k);
         }
     }
 
@@ -421,6 +409,23 @@ public class ClickGui extends GuiScreen {
                     }
                     if (component instanceof FocusableTextComponent && ((FocusableTextComponent) component).isTextInputFocused()) {
                         return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean unfocusFocusedTextInput() {
+        for (CategoryComponent category : categories) {
+            for (ModuleComponent module : category.getModules()) {
+                for (Component component : module.settings) {
+                    if (component instanceof FocusableTextComponent) {
+                        FocusableTextComponent textComponent = (FocusableTextComponent) component;
+                        if (textComponent.isTextInputFocused()) {
+                            textComponent.unfocusTextInput();
+                            return true;
+                        }
                     }
                 }
             }

@@ -108,6 +108,12 @@ public class ModuleComponent extends Component {
                     this.settings.add(cc);
                     y += 12;
                 }
+                else if (v instanceof InventoryItemListSetting) {
+                    InventoryItemListSetting iils = (InventoryItemListSetting) v;
+                    InventoryItemSearchComponent iisc = new InventoryItemSearchComponent(iils, this, y);
+                    this.settings.add(iisc);
+                    y += 12;
+                }
                 else if (v instanceof ItemListSetting) {
                     ItemListSetting ils = (ItemListSetting) v;
                     ItemSearchComponent isc = new ItemSearchComponent(ils, this, y);
@@ -240,6 +246,8 @@ public class ModuleComponent extends Component {
                         ((BlockSearchComponent) child).xOffset = GROUP_CHILD_INDENT;
                     } else if (child instanceof ItemSearchComponent) {
                         ((ItemSearchComponent) child).xOffset = GROUP_CHILD_INDENT;
+                    } else if (child instanceof InventoryItemSearchComponent) {
+                        ((InventoryItemSearchComponent) child).xOffset = GROUP_CHILD_INDENT;
                     } else if (child instanceof TextFieldComponent) {
                         ((TextFieldComponent) child).xOffset = GROUP_CHILD_INDENT;
                     }
@@ -265,6 +273,8 @@ public class ModuleComponent extends Component {
                     ((BlockSearchComponent) co).xOffset = indent;
                 } else if (co instanceof ItemSearchComponent) {
                     ((ItemSearchComponent) co).xOffset = indent;
+                } else if (co instanceof InventoryItemSearchComponent) {
+                    ((InventoryItemSearchComponent) co).xOffset = indent;
                 } else if (co instanceof TextFieldComponent) {
                     ((TextFieldComponent) co).xOffset = indent;
                 }
@@ -514,6 +524,9 @@ public class ModuleComponent extends Component {
         if (component instanceof ItemSearchComponent && ((ItemSearchComponent) component).setting.group != null) {
             return ((ItemSearchComponent) component).setting.group.getName();
         }
+        if (component instanceof InventoryItemSearchComponent && ((InventoryItemSearchComponent) component).setting.group != null) {
+            return ((InventoryItemSearchComponent) component).setting.group.getName();
+        }
         return "";
     }
 
@@ -532,6 +545,9 @@ public class ModuleComponent extends Component {
         }
         if (component instanceof ItemSearchComponent) {
             return ((ItemSearchComponent) component).getCurrentHeight();
+        }
+        if (component instanceof InventoryItemSearchComponent) {
+            return ((InventoryItemSearchComponent) component).getCurrentHeight();
         }
         if (component instanceof TextFieldComponent) {
             return component.getHeightF();

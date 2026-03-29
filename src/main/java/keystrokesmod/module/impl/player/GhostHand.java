@@ -75,17 +75,20 @@ public class GhostHand extends Module {
         this.registerSetting(notSword = new ButtonSetting(conditionsGroup, "Not holding a sword", false));
     }
 
+    public boolean shouldOverrideMouseOver() {
+        if (!this.isEnabled()) return false;
+        if (mc == null || mc.theWorld == null || mc.thePlayer == null) return false;
+        if (mc.getRenderViewEntity() == null) return false;
+        if (notSword.isToggled() && Utils.holdingSword()) return false;
+        if (requireLmb.isToggled() && !Mouse.isButtonDown(0)) return false;
+        if (requireRmb.isToggled() && !Mouse.isButtonDown(1)) return false;
+        return heldItemAllowed();
+    }
+
     public void modifyMouseOverFromGetMouseOver(float partialTicks) {
-        if (!this.isEnabled()) return;
-        if (mc == null || mc.theWorld == null || mc.thePlayer == null) return;
+        if (!shouldOverrideMouseOver()) return;
 
         Entity viewEntity = mc.getRenderViewEntity();
-        if (viewEntity == null) return;
-
-        if (notSword.isToggled() && Utils.holdingSword()) return;
-        if (requireLmb.isToggled() && !Mouse.isButtonDown(0)) return;
-        if (requireRmb.isToggled() && !Mouse.isButtonDown(1)) return;
-        if (!heldItemAllowed()) return;
 
         double reach = mc.playerController.getBlockReachDistance();
         if (mc.playerController.extendedReach()) reach = 6.0;

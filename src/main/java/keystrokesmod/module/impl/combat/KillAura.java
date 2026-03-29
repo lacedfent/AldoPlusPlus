@@ -4,6 +4,7 @@ import keystrokesmod.Raven;
 import keystrokesmod.event.ClientRotationEvent;
 import keystrokesmod.event.PrePlayerInteractEvent;
 import keystrokesmod.helper.RotationHelper;
+import keystrokesmod.mixin.impl.accessor.IAccessorEntityRenderer;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.ModuleManager;
 import keystrokesmod.module.impl.minigames.SkyWars;
@@ -13,6 +14,7 @@ import keystrokesmod.module.setting.impl.SliderSetting;
 import keystrokesmod.utility.ReflectionUtils;
 import keystrokesmod.utility.RotationUtils;
 import keystrokesmod.utility.Utils;
+import net.minecraft.client.renderer.EntityRenderer;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityCreature;
@@ -23,6 +25,9 @@ import net.minecraft.entity.monster.EntityIronGolem;
 import net.minecraft.entity.monster.EntityPigZombie;
 import net.minecraft.entity.monster.EntitySilverfish;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.util.AxisAlignedBB;
+import net.minecraft.util.MovingObjectPosition;
+import net.minecraft.util.Vec3;
 import net.minecraftforge.event.entity.EntityJoinWorldEvent;
 import net.minecraftforge.event.entity.living.LivingSetAttackTargetEvent;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
@@ -62,6 +67,7 @@ public class KillAura extends Module {
     public boolean isRequireMouseDown() {
         return requireMouseDown.isToggled();
     }
+
     private HashMap<Integer, Integer> hitMap = new HashMap<>();
     private List<Entity> hostileMobs = new ArrayList<>();
     private Map<Integer, Boolean> golems = new HashMap<>();
@@ -473,6 +479,57 @@ public class KillAura extends Module {
 
     public SliderSetting getAimRangeSetting() {
         return aimRange;
+    }
+
+    public boolean shouldOverrideMouseOver() {
+        return this.isEnabled()
+                && Utils.nullCheck()
+                && attackingEntity != null
+                && target == attackingEntity
+                && basicCondition()
+                && settingCondition()
+                && targetDistance <= swingRange.getInput()
+                && (!notUsingItem.isToggled() || !mc.thePlayer.isUsingItem());
+    }
+
+    public void modifyMouseOverFromGetMouseOver(float partialTicks) {
+        if (!shouldOverrideMouseOver()) {
+            return;
+        }
+
+        Entity viewEntity = mc.getRenderViewEntity();
+        if (viewEntity == null) {
+            return;
+        }
+
+        Vec3 eyes = viewEntity.getPositionEyes(partialTicks);
+        Vec3 look = viewEntity.getLook(partialTicks);
+        double reach = attackRange.getInput();
+        Vec3 rayEnd = eyes.addVector(look.xCoord * reach, look.yCoord * reach, look.zCoord * reach);
+
+        float border = attackingEntity.getCollisionBorderSize();
+        AxisAlignedBB bb = attackingEntity.getEntityBoundingBox().expand(border, border, border);
+        MovingObjectPosition intercept = bb.calculateIntercept(eyes, rayEnd);
+        boolean inside = bb.isVecInside(eyes);
+        if (!inside && intercept == null) {
+            return;
+        }
+
+        Vec3 hitVec = inside ? (intercept == null ? eyes : intercept.hitVec) : intercept.hitVec;
+        if (!aimThroughBlocks.isToggled()) {
+            MovingObjectPosition blockHit = mc.theWorld.rayTraceBlocks(eyes, hitVec, false, false, true);
+            if (blockHit != null && blockHit.typeOfHit == MovingObjectPosition.MovingObjectType.BLOCK) {
+                return;
+            }
+        }
+
+        mc.objectMouseOver = new MovingObjectPosition(attackingEntity, hitVec);
+        mc.pointedEntity = attackingEntity;
+
+        EntityRenderer renderer = mc.entityRenderer;
+        if (renderer instanceof IAccessorEntityRenderer) {
+            ((IAccessorEntityRenderer) renderer).setPointedEntity(attackingEntity);
+        }
     }
 
     private static final class Candidate {

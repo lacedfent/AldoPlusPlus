@@ -62,7 +62,7 @@ public class InvMove extends Module {
 
     @SubscribeEvent
     public void onPreUpdate(PreUpdateEvent e) {
-        if (invManagerOnly.isToggled() && !ModuleManager.invManager.isEnabled()) {
+        if (invManagerOnly.isToggled() && (ModuleManager.invManager == null || !ModuleManager.invManager.isEnabled())) {
             return;
         }
         if (!guiCheck()) {
@@ -145,7 +145,7 @@ public class InvMove extends Module {
         }
         else if (e.getPacket() instanceof C0DPacketCloseWindow) {
             if (canBlink()) {
-                if (inventory.getInput() == 3 && ModuleManager.invManager.isEnabled()) {
+                if (inventory.getInput() == 3 && ModuleManager.invManager != null && ModuleManager.invManager.isEnabled()) {
                     PacketUtils.sendPacketNoEvent(new C16PacketClientStatus(C16PacketClientStatus.EnumState.OPEN_INVENTORY_ACHIEVEMENT));
                 }
                 releasePackets();

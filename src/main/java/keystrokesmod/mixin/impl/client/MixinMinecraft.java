@@ -4,6 +4,7 @@ import keystrokesmod.event.*;
 import net.minecraft.util.MovingObjectPosition;
 import keystrokesmod.helper.RotationHelper;
 import keystrokesmod.module.ModuleManager;
+import keystrokesmod.module.impl.player.BedAura;
 import keystrokesmod.module.impl.render.Freelook;
 import keystrokesmod.module.impl.player.FastMine;
 import org.objectweb.asm.Opcodes;
@@ -78,6 +79,10 @@ public class MixinMinecraft {
         )
     )
     private void raven$fastMinePassiveBlockHitDelay(CallbackInfo ci) {
+        BedAura bedAura = ModuleManager.bedAura;
+        if (bedAura != null && bedAura.shouldOverrideFastMine()) {
+            return;
+        }
         FastMine fm = ModuleManager.fastMine;
         if (fm != null) {
             fm.tickPassiveBlockHitDecay((Minecraft) (Object) this);

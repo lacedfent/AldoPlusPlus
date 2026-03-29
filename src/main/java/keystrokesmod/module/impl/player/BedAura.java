@@ -29,6 +29,7 @@ import net.minecraftforge.client.event.MouseEvent;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import org.lwjgl.input.Mouse;
 
 import java.util.*;
 
@@ -37,6 +38,8 @@ public class BedAura extends Module {
     private final SliderSetting fov;
     private final SliderSetting range;
     private final SliderSetting rate;
+    private final SliderSetting breakDelay;
+    private final SliderSetting breakSpeed;
     private final GroupSetting swapGroup;
     private final ButtonSetting switchBackWhenDone;
     private final ButtonSetting overrideSwapBack;
@@ -59,9 +62,10 @@ public class BedAura extends Module {
 
     public BedAura() {
         super("BedAura", category.player);
-        this.registerSetting(new DescriptionSetting("Break speed controlled by FastMine."));
-        this.registerSetting(fov = new SliderSetting("FOV", "", 180.0, 30.0, 360.0, 1.0));
+        this.registerSetting(breakSpeed = new SliderSetting("Break speed", "x", 1.0, 1.0, 2.0, 0.02));
+        this.registerSetting(breakDelay = new SliderSetting("Break delay", "ms", 250.0, 0.0, 250.0, 50.0));
         this.registerSetting(range = new SliderSetting("Range", " blocks", 4.5, 2.0, 6.0, 0.1));
+        this.registerSetting(fov = new SliderSetting("FOV", "", 180.0, 30.0, 360.0, 1.0));
         this.registerSetting(rate = new SliderSetting("Scan rate", "ms", 250.0, 50.0, 2000.0, 50.0));
         this.registerSetting(swapGroup = new GroupSetting("Swap"));
         this.registerSetting(switchBackWhenDone = new ButtonSetting(swapGroup, "Switch back when done", true, "Swap to previous slot"));
@@ -153,9 +157,21 @@ public class BedAura extends Module {
         return miningActive && canMineBlocks() ? targetPos : null;
     }
 
-    /** True while BedAura is holding attack and suppressing manual combat input for the current bed break. */
     public boolean isActivelyMining() {
         return miningActive && isEnabled() && Utils.nullCheck() && mc.currentScreen == null && canMineBlocks();
+    }
+
+    public boolean shouldOverrideFastMine() {
+        return isActivelyMining();
+    }
+
+    public float getBreakSpeedMultiplier() {
+        float multiplier = (float) breakSpeed.getInput();
+        return multiplier > 1.0f ? multiplier : 1.0f;
+    }
+
+    public int getBreakDelayTicks() {
+        return Math.max(0, Math.min(5, (int) (breakDelay.getInput() / 50.0)));
     }
 
     public float getAuraBreakProgress() {
@@ -258,6 +274,8 @@ public class BedAura extends Module {
         if (switchBackWhenDone.isToggled() && previousSlot != -1 && Utils.nullCheck()) {
             setSlot(previousSlot);
         }
+        KeyBinding.setKeyBindState(mc.gameSettings.keyBindAttack.getKeyCode(), Mouse.isButtonDown(0));
+        KeyBinding.setKeyBindState(mc.gameSettings.keyBindUseItem.getKeyCode(), Mouse.isButtonDown(1));
         hotbarProgrammaticDepth = 0;
         targetPos = null;
         targetHitVec = null;

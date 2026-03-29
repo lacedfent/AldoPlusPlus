@@ -72,7 +72,8 @@ public class ModuleManager {
     public static AntiKnockback antiKnockback;
     public static ExtendCamera extendCamera;
     public static Freelook freelook;
-    public static InvManager invManager;
+    public static InvManager invManager; // Legacy reference only; intentionally no longer registered.
+    public static Inventory inventory;
     public static NoCameraClip noCameraClip;
     public static BedWars bedwars;
     public static BHop bHop;
@@ -164,7 +165,7 @@ public class ModuleManager {
         this.addModule(fastPlace = new FastPlace());
         this.addModule(new FakeLag());
         this.addModule(new Freecam());
-        this.addModule(invManager = new InvManager());
+        this.addModule(inventory = new Inventory());
         this.addModule(noFall = new NoFall());
         this.addModule(noRotate = new NoRotate());
         this.addModule(safeWalk = new SafeWalk());

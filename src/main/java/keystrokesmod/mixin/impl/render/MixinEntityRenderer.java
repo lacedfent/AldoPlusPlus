@@ -185,11 +185,16 @@ public class MixinEntityRenderer implements ISaturationRenderer {
             ModuleManager.bedAura.modifyMouseOverFromGetMouseOver(partialTicks);
             return;
         }
-        if (ModuleManager.piercing != null && ModuleManager.piercing.isEnabled()) {
-            ModuleManager.piercing.modifyMouseOverFromGetMouseOver(partialTicks);
+        if (ModuleManager.killAura != null && ModuleManager.killAura.shouldOverrideMouseOver()) {
+            ModuleManager.killAura.modifyMouseOverFromGetMouseOver(partialTicks);
+            return;
         }
-        if (ModuleManager.ghostHand != null) {
+        if (ModuleManager.ghostHand != null && ModuleManager.ghostHand.shouldOverrideMouseOver()) {
             ModuleManager.ghostHand.modifyMouseOverFromGetMouseOver(partialTicks);
+            return;
+        }
+        if (ModuleManager.piercing != null && ModuleManager.piercing.shouldOverrideMouseOver()) {
+            ModuleManager.piercing.modifyMouseOverFromGetMouseOver(partialTicks);
         }
     }
 

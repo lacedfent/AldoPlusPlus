@@ -685,11 +685,15 @@ public class BedESP extends Module {
         BlockPos foot = BlockPos.ORIGIN;
         BlockPos head = foot.offset(canonicalFacing);
         boolean facingZ = canonicalFacing.getAxis() == EnumFacing.Axis.Z;
-        BlockPos[] bedParts = {foot, head};
+        BlockPos firstBedPart = facingZ
+                ? (head.getZ() > foot.getZ() ? head : foot)
+                : (head.getX() > foot.getX() ? head : foot);
+        BlockPos secondBedPart = firstBedPart.equals(foot) ? head : foot;
+        BlockPos[] bedParts = {firstBedPart, secondBedPart};
         LayerOffsets[] layers = new LayerOffsets[DEFENSE_MAX_LAYERS];
+        Set<Long> seenAcrossLayers = new HashSet<>();
 
         for (int layer = 1; layer <= DEFENSE_MAX_LAYERS; layer++) {
-            Set<Long> seen = new HashSet<>();
             List<RelativeOffset> offsets = new ArrayList<>();
 
             for (int bedIndex = 0; bedIndex < bedParts.length; bedIndex++) {
@@ -722,8 +726,9 @@ public class BedESP extends Module {
                             secondZ = startZ + breadth;
                         }
 
-                        addOffset(offsets, seen, firstX, firstY, firstZ);
-                        addOffset(offsets, seen, secondX, secondY, secondZ);
+                        // Treat each physical block position as belonging to the first shell that reaches it.
+                        addOffset(offsets, seenAcrossLayers, firstX, firstY, firstZ);
+                        addOffset(offsets, seenAcrossLayers, secondX, secondY, secondZ);
 
                         if (breadth > 0) {
                             yOffset++;
