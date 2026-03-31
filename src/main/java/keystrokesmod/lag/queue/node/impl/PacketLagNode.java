@@ -23,7 +23,9 @@ public final class PacketLagNode extends AbstractLagNode {
     }
 
     public void goThrough(final @NotNull AbstractFastTrackProvider fastTrack) {
-        fastTrack.forPacket(packet);
+        if (direction == EnumLagDirection.OUTBOUND) {
+            fastTrack.forPacket(packet);
+        }
         direction.passThroughChannel(packet);
     }
 

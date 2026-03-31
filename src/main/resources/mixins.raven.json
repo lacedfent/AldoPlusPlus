@@ -22,6 +22,7 @@
     "world.MixinWorldInfo",
     "world.MixinWorld",
     "render.MixinGuiChat",
+    "render.MixinGuiContainer",
     "render.MixinGuiScreen",
     "network.MixinNetHandlerPlayClient",
     "render.MixinRenderEntityItem",

@@ -5,14 +5,27 @@ import net.minecraft.network.Packet;
 import net.minecraft.network.play.client.C07PacketPlayerDigging;
 import net.minecraft.util.BlockPos;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Set;
 
 import static net.minecraft.util.EnumFacing.DOWN;
 
 public class PacketUtils implements IMinecraftInstance {
-    public static List<Packet> skipSendEvent = new ArrayList<>();
-    public static List<Packet> skipReceiveEvent = new ArrayList<>();
+    private static final Set<Packet<?>> skipSendEvent = Collections.newSetFromMap(
+            Collections.synchronizedMap(new IdentityHashMap<Packet<?>, Boolean>())
+    );
+    private static final Set<Packet<?>> skipReceiveEvent = Collections.newSetFromMap(
+            Collections.synchronizedMap(new IdentityHashMap<Packet<?>, Boolean>())
+    );
+
+    public static boolean consumeSendEventSkip(Packet<?> packet) {
+        return skipSendEvent.remove(packet);
+    }
+
+    public static boolean consumeReceiveEventSkip(Packet<?> packet) {
+        return skipReceiveEvent.remove(packet);
+    }
 
     public static void sendPacketNoEvent(Packet packet) {
         if (packet == null || packet.getClass().getSimpleName().startsWith("S")) {
@@ -24,7 +37,6 @@ public class PacketUtils implements IMinecraftInstance {
 
     public static void receivePacketNoEvent(Packet packet) {
         try {
-            skipReceiveEvent.add(packet);
             packet.processPacket(Raven.mc.getNetHandler());
         }
         catch (Exception e) {

@@ -15,16 +15,19 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Set;
 
 @SuppressWarnings("DuplicatedCode")
 public final class UnifiedLagHandler extends AbstractFastTrackProvider {
 
     private final @NotNull BiTrackLagNodeQueue queue = new BiTrackLagNodeQueue(this);
 
-    private final @NotNull List<Packet<?>> packetFastTrack = new ArrayList<>();
-    private @Nullable Vec3 serverPosition;
+    private final @NotNull Set<Packet<?>> packetFastTrack = Collections.newSetFromMap(
+            Collections.synchronizedMap(new IdentityHashMap<Packet<?>, Boolean>())
+    );
+    private volatile @Nullable Vec3 serverPosition;
 
     public void requestLag(final @NotNull LagRequest request) {
         queue.requestLag(request);
@@ -46,13 +49,14 @@ public final class UnifiedLagHandler extends AbstractFastTrackProvider {
             return;
         }
 
+        final @NotNull Packet<?> packet = event.getPacket();
+        final boolean fastTracked = consumeFastTrack(packet);
+
         if (event.isCanceled()) {
             return;
         }
 
-        final @NotNull Packet<?> packet = event.getPacket();
-
-        if (packetFastTrack.remove(packet)) {
+        if (fastTracked) {
             updateServerPosition(packet);
             return;
         }
@@ -73,13 +77,14 @@ public final class UnifiedLagHandler extends AbstractFastTrackProvider {
             return;
         }
 
+        final @NotNull Packet<?> packet = event.getPacket();
+        final boolean fastTracked = consumeFastTrack(packet);
+
         if (event.isCanceled()) {
             return;
         }
 
-        final @NotNull Packet<?> packet = event.getPacket();
-
-        if (packetFastTrack.remove(packet)) {
+        if (fastTracked) {
             return;
         }
 
@@ -102,6 +107,10 @@ public final class UnifiedLagHandler extends AbstractFastTrackProvider {
     @Override
     public void forPacket(final @NotNull Packet<?> packet) {
         packetFastTrack.add(packet);
+    }
+
+    private boolean consumeFastTrack(final @NotNull Packet<?> packet) {
+        return packetFastTrack.remove(packet);
     }
 
     private void updateServerPosition(final @NotNull Packet<?> packet) {

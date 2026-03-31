@@ -72,7 +72,6 @@ public class ModuleManager {
     public static AntiKnockback antiKnockback;
     public static ExtendCamera extendCamera;
     public static Freelook freelook;
-    public static InvManager invManager; // Legacy reference only; intentionally no longer registered.
     public static Inventory inventory;
     public static NoCameraClip noCameraClip;
     public static BedWars bedwars;

@@ -31,7 +31,6 @@ public class InvMove extends Module {
     private ButtonSetting slowWhenNecessary;
     private ButtonSetting allowJumping;
     private ButtonSetting allowSprinting;
-    public ButtonSetting invManagerOnly;
     private ButtonSetting allowRotating;
 
     public int ticks;
@@ -52,7 +51,6 @@ public class InvMove extends Module {
         this.registerSetting(allowJumping = new ButtonSetting("Allow jumping", true));
         this.registerSetting(allowRotating = new ButtonSetting("Allow rotating", true));
         this.registerSetting(allowSprinting = new ButtonSetting("Allow sprinting", true));
-        this.registerSetting(invManagerOnly = new ButtonSetting("Only with inventory manager", false));
     }
 
     public void onDisable() {
@@ -62,9 +60,6 @@ public class InvMove extends Module {
 
     @SubscribeEvent
     public void onPreUpdate(PreUpdateEvent e) {
-        if (invManagerOnly.isToggled() && (ModuleManager.invManager == null || !ModuleManager.invManager.isEnabled())) {
-            return;
-        }
         if (!guiCheck()) {
             reset();
             return;
@@ -145,7 +140,7 @@ public class InvMove extends Module {
         }
         else if (e.getPacket() instanceof C0DPacketCloseWindow) {
             if (canBlink()) {
-                if (inventory.getInput() == 3 && ModuleManager.invManager != null && ModuleManager.invManager.isEnabled()) {
+                if (inventory.getInput() == 3) {
                     PacketUtils.sendPacketNoEvent(new C16PacketClientStatus(C16PacketClientStatus.EnumState.OPEN_INVENTORY_ACHIEVEMENT));
                 }
                 releasePackets();

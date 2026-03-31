@@ -20,7 +20,7 @@ public class Module {
     protected ArrayList<Setting> settings;
     private String moduleName;
     private Module.category moduleCategory;
-    private boolean enabled;
+    private volatile boolean enabled;
     private int keycode;
     protected static Minecraft mc;
     private boolean isToggled = false;

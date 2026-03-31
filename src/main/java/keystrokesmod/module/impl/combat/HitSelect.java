@@ -56,7 +56,7 @@ public class HitSelect extends Module {
         super("Hit Select", category.combat);
 
         this.registerSetting(new DescriptionSetting("Filters unnecessary clicks."));
-        this.registerSetting(pauseDuration = new SliderSetting("Pause duration", "ms", 500.0D, 0.0D, 1000.0D, 50.0D));
+        this.registerSetting(pauseDuration = new SliderSetting("Pause duration", "ms", 500.0D, 0.0D, 500.0D, 50.0D));
         this.registerSetting(mode = new SliderSetting("Mode", 0, modes));
         this.registerSetting(waitForFirstHit = new SliderSetting("Wait for first hit", "ms", 0.0D, 0.0D, 500.0D, 50.0D));
         this.registerSetting(disableDuringKnockback = new ButtonSetting("Disable during knockback", false));
@@ -229,7 +229,7 @@ public class HitSelect extends Module {
     }
 
     private void updateTargetDamage(int currentTick) {
-        if (currentTarget == null) {
+        if (currentTarget == null || !useServerAttackTime.isToggled()) {
             return;
         }
 
@@ -239,15 +239,11 @@ public class HitSelect extends Module {
             state.pendingServerConfirmationTick = -1;
         }
 
-        if (useServerAttackTime.isToggled()) {
-            if (state.pendingServerConfirmationTick >= 0 && targetHurtTime > state.lastObservedTargetHurtTime) {
-                state.pendingServerConfirmationTick = -1;
-                state.lastConfirmedTargetDamageTick = currentTick;
-                state.rawBlockMask = BLOCK_SERVER_COOLDOWN;
-                state.rawBlockStartTick = currentTick;
-            }
-        } else {
-            syncPredictedBurstWindow(state, currentTarget, currentTick);
+        if (state.pendingServerConfirmationTick >= 0 && targetHurtTime > state.lastObservedTargetHurtTime) {
+            state.pendingServerConfirmationTick = -1;
+            state.lastConfirmedTargetDamageTick = currentTick;
+            state.rawBlockMask = BLOCK_SERVER_COOLDOWN;
+            state.rawBlockStartTick = currentTick;
         }
 
         state.lastObservedTargetHurtTime = targetHurtTime;
@@ -381,7 +377,7 @@ public class HitSelect extends Module {
         }
 
         if (!isPredictedBurstWindowActive(state, currentTick)) {
-            startPredictedBurstWindow(state, currentTick, getHurtWindowTicks(target));
+            startPredictedBurstWindow(state, currentTick, HURT_WINDOW_TICKS);
         }
     }
 
@@ -455,8 +451,9 @@ public class HitSelect extends Module {
         TargetState state = targetStates.get(target.getEntityId());
         if (state == null) {
             state = new TargetState();
-            state.lastObservedTargetHurtTime = target.hurtTime;
-            syncPredictedBurstWindow(state, target, currentTick);
+            if (useServerAttackTime.isToggled()) {
+                state.lastObservedTargetHurtTime = target.hurtTime;
+            }
             targetStates.put(target.getEntityId(), state);
         }
         return state;

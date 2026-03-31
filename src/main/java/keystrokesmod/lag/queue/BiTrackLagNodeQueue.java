@@ -56,11 +56,11 @@ public final class BiTrackLagNodeQueue {
         for (final @NotNull EnumLagDirection direction : request.getDirections()) {
             switch (direction) {
                 case OUTBOUND: {
-                    outgoingState.track.add(new AddRequestLagNode(request));
+                    outgoingState.addRequest(request);
                 }
                 break;
                 case INBOUND: {
-                    incomingState.track.add(new AddRequestLagNode(request));
+                    incomingState.addRequest(request);
                 }
                 break;
             }
@@ -93,7 +93,11 @@ public final class BiTrackLagNodeQueue {
             this.fastTrackProvider = fastTrackProvider;
         }
 
-        private boolean tick(final @Nullable Packet<?> packet, final @Nullable EnumLagDirection direction) {
+        private synchronized void addRequest(final @NotNull LagRequest request) {
+            track.add(new AddRequestLagNode(request));
+        }
+
+        private synchronized boolean tick(final @Nullable Packet<?> packet, final @Nullable EnumLagDirection direction) {
             if (track.isEmpty() && (currentlyAwaiting == null || currentlyAwaiting.getTimeout().isTimedOut())) {
                 currentlyAwaiting = null;
                 return false;
@@ -130,7 +134,7 @@ public final class BiTrackLagNodeQueue {
             return true;
         }
 
-        private void releaseExpiredPackets(long maxAgeMs) {
+        private synchronized void releaseExpiredPackets(long maxAgeMs) {
             long cutoff = System.currentTimeMillis() - maxAgeMs;
             List<PacketLagNode> toRelease = new ArrayList<>();
             // Snapshot: goThrough() can re-enter and append to track via ReceivePacketEvent.
@@ -151,7 +155,7 @@ public final class BiTrackLagNodeQueue {
             }
         }
 
-        private void clear() {
+        private synchronized void clear() {
             track.clear();
             currentlyAwaiting = null;
         }

@@ -137,6 +137,13 @@ public abstract class MixinEntityPlayerSP extends AbstractClientPlayer {
         restoreInterpolationState(interpolationState);
     }
 
+    @Inject(method = "closeScreen", at = @At("HEAD"))
+    private void raven$beforeCloseScreen(CallbackInfo callbackInfo) {
+        if (ModuleManager.inventory != null) {
+            ModuleManager.inventory.handlePreInventoryClose("EntityPlayerSP.closeScreen");
+        }
+    }
+
     @Overwrite
     public void onUpdateWalkingPlayer() {
         PreMotionEvent.setRotations = false;

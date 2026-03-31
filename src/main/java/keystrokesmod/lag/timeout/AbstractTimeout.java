@@ -2,7 +2,7 @@ package keystrokesmod.lag.timeout;
 
 public abstract class AbstractTimeout {
 
-    private boolean forcefullyTimedOut = false;
+    private volatile boolean forcefullyTimedOut = false;
 
     protected abstract boolean shouldHaveTimedOut();
 

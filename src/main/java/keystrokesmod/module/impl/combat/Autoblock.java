@@ -262,10 +262,15 @@ public class Autoblock extends Module {
 
     private void startLag(int currentTick) {
         if (isLagging) return;
+        int lagReferenceTick = blockStartTick >= 0 ? blockStartTick : currentTick;
+        int lagMaxTicks = msToTicks(lagMaxDuration.getInput());
+        if (lagMaxTicks > 0 && currentTick - lagReferenceTick >= lagMaxTicks) {
+            return;
+        }
         outboundLag = new LagRequest(EnumLagDirection.ONLY_OUTBOUND, new ModuleBackedTimeout(this));
         Raven.lagHandler.requestLag(outboundLag);
         isLagging = true;
-        lagStartTick = currentTick;
+        lagStartTick = lagReferenceTick;
     }
 
     private void releaseLag() {

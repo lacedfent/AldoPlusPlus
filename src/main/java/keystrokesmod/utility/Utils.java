@@ -246,21 +246,38 @@ public class Utils implements IMinecraftInstance {
     }
 
     public static int getColorFromEntity(Entity entity) {
+        if (entity == null) {
+            return -1;
+        }
+
         if (entity instanceof EntityPlayer) {
-            ScorePlayerTeam scoreplayerteam = (ScorePlayerTeam)((EntityLivingBase) entity).getTeam();
+            ScorePlayerTeam scoreplayerteam = (ScorePlayerTeam) ((EntityLivingBase) entity).getTeam();
             if (scoreplayerteam != null) {
                 String s = FontRenderer.getFormatFromString(scoreplayerteam.getColorPrefix());
                 if (s.length() >= 2) {
-                    return mc.getRenderManager().getFontRenderer().getColorCode(s.charAt(1));
+                    int teamColor = getColorFromFormattingCode(s.charAt(1));
+                    if (teamColor != -1) {
+                        return teamColor;
+                    }
                 }
             }
         }
-        String displayName = entity.getDisplayName().getFormattedText();
-        displayName = removeFormatCodes(displayName);
-        if (displayName.isEmpty() || !displayName.startsWith("§") || displayName.charAt(1) == 'f') {
+
+        IChatComponent displayNameComponent = entity.getDisplayName();
+        if (displayNameComponent == null) {
             return -1;
         }
-        switch (displayName.charAt(1)) {
+
+        String displayName = removeFormatCodes(displayNameComponent.getFormattedText());
+        if (displayName.length() < 2 || !displayName.startsWith("§") || Character.toLowerCase(displayName.charAt(1)) == 'f') {
+            return -1;
+        }
+
+        return getColorFromFormattingCode(displayName.charAt(1));
+    }
+
+    private static int getColorFromFormattingCode(char formatCode) {
+        switch (Character.toLowerCase(formatCode)) {
             case '0':
                 return ColorConstants.BLACK;
             case '1':
@@ -291,8 +308,11 @@ public class Utils implements IMinecraftInstance {
                 return ColorConstants.LIGHT_PURPLE;
             case 'e':
                 return ColorConstants.YELLOW;
+            case 'f':
+                return 0xFFFFFFFF;
+            default:
+                return -1;
         }
-        return -1;
     }
 
     public static boolean overVoid(double posX, double posY, double posZ) {
