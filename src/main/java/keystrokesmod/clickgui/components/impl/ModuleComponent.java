@@ -1,6 +1,7 @@
 package keystrokesmod.clickgui.components.impl;
 
 import keystrokesmod.Raven;
+import keystrokesmod.clickgui.ClickGui;
 import keystrokesmod.clickgui.components.Component;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.setting.Setting;
@@ -242,14 +243,8 @@ public class ModuleComponent extends Component {
                         ((BindComponent) child).xOffset = GROUP_CHILD_INDENT;
                     } else if (child instanceof ColorComponent) {
                         ((ColorComponent) child).xOffset = GROUP_CHILD_INDENT;
-                    } else if (child instanceof BlockSearchComponent) {
-                        ((BlockSearchComponent) child).xOffset = GROUP_CHILD_INDENT;
-                    } else if (child instanceof ItemSearchComponent) {
-                        ((ItemSearchComponent) child).xOffset = GROUP_CHILD_INDENT;
-                    } else if (child instanceof InventoryItemSearchComponent) {
-                        ((InventoryItemSearchComponent) child).xOffset = GROUP_CHILD_INDENT;
-                    } else if (child instanceof TextFieldComponent) {
-                        ((TextFieldComponent) child).xOffset = GROUP_CHILD_INDENT;
+                    } else if (child instanceof AbstractTextInputComponent) {
+                        ((AbstractTextInputComponent) child).setXOffset(GROUP_CHILD_INDENT);
                     }
                     idx++;
                 }
@@ -269,14 +264,8 @@ public class ModuleComponent extends Component {
                     ((BindComponent) co).xOffset = indent;
                 } else if (co instanceof ColorComponent) {
                     ((ColorComponent) co).xOffset = indent;
-                } else if (co instanceof BlockSearchComponent) {
-                    ((BlockSearchComponent) co).xOffset = indent;
-                } else if (co instanceof ItemSearchComponent) {
-                    ((ItemSearchComponent) co).xOffset = indent;
-                } else if (co instanceof InventoryItemSearchComponent) {
-                    ((InventoryItemSearchComponent) co).xOffset = indent;
-                } else if (co instanceof TextFieldComponent) {
-                    ((TextFieldComponent) co).xOffset = indent;
+                } else if (co instanceof AbstractTextInputComponent) {
+                    ((AbstractTextInputComponent) co).setXOffset(indent);
                 }
 
                 y += getBaseComponentHeightF(co);
@@ -312,11 +301,12 @@ public class ModuleComponent extends Component {
         if (scissorRequired) {
             ScaledResolution sr = new ScaledResolution(Minecraft.getMinecraft());
             int scale = sr.getScaleFactor();
+            double guiScale = ClickGui.getActiveRenderScale();
             float scrollOffset = this.categoryComponent.getModuleY() - this.categoryComponent.getY();
-            int scissorX = (int) ((this.categoryComponent.getX() - 2) * scale);
-            int scissorY = (int) ((sr.getScaledHeight() - (this.categoryComponent.getY() + this.yPos + smoothingY + scrollOffset)) * scale);
-            int scissorW = (int) ((this.categoryComponent.getWidth() + 4) * scale);
-            int scissorH = (int) (smoothingY * scale);
+            int scissorX = (int) Math.floor((this.categoryComponent.getX() - 2) * guiScale * scale);
+            int scissorY = (int) Math.floor((sr.getScaledHeight() - ((this.categoryComponent.getY() + this.yPos + smoothingY + scrollOffset) * guiScale)) * scale);
+            int scissorW = (int) Math.ceil((this.categoryComponent.getWidth() + 4) * guiScale * scale);
+            int scissorH = (int) Math.ceil(smoothingY * guiScale * scale);
             pushScissor(scissorX, scissorY, scissorW, scissorH);
         }
 
@@ -515,17 +505,8 @@ public class ModuleComponent extends Component {
         if (component instanceof ColorComponent && ((ColorComponent) component).colorSetting.groupSetting != null) {
             return ((ColorComponent) component).colorSetting.groupSetting.getName();
         }
-        if (component instanceof TextFieldComponent && ((TextFieldComponent) component).textSetting.group != null) {
-            return ((TextFieldComponent) component).textSetting.group.getName();
-        }
-        if (component instanceof BlockSearchComponent && ((BlockSearchComponent) component).setting.group != null) {
-            return ((BlockSearchComponent) component).setting.group.getName();
-        }
-        if (component instanceof ItemSearchComponent && ((ItemSearchComponent) component).setting.group != null) {
-            return ((ItemSearchComponent) component).setting.group.getName();
-        }
-        if (component instanceof InventoryItemSearchComponent && ((InventoryItemSearchComponent) component).setting.group != null) {
-            return ((InventoryItemSearchComponent) component).setting.group.getName();
+        if (component instanceof AbstractTextInputComponent) {
+            return ((AbstractTextInputComponent) component).getGroupName();
         }
         return "";
     }
@@ -540,16 +521,7 @@ public class ModuleComponent extends Component {
             float progress = cc.getAnimationProgress();
             return 12f + (cc.getExpandedHeight() - 12f) * progress;
         }
-        if (component instanceof BlockSearchComponent) {
-            return ((BlockSearchComponent) component).getCurrentHeight();
-        }
-        if (component instanceof ItemSearchComponent) {
-            return ((ItemSearchComponent) component).getCurrentHeight();
-        }
-        if (component instanceof InventoryItemSearchComponent) {
-            return ((InventoryItemSearchComponent) component).getCurrentHeight();
-        }
-        if (component instanceof TextFieldComponent) {
+        if (component instanceof AbstractSearchListComponent || component instanceof TextFieldComponent) {
             return component.getHeightF();
         }
         return 12f;
@@ -617,14 +589,15 @@ public class ModuleComponent extends Component {
                     float revealHeight = groupContentHeight * progress;
                     ScaledResolution sr = new ScaledResolution(Minecraft.getMinecraft());
                     int sf = sr.getScaleFactor();
+                    double guiScale = ClickGui.getActiveRenderScale();
                     double screenH = sr.getScaledHeight();
                     float compLeft = this.categoryComponent.getX();
                     float compWidth = this.categoryComponent.getWidth() + 4;
-                    int newLeft = (int) Math.floor(compLeft * sf);
-                    int newRight = (int) Math.ceil((compLeft + compWidth) * sf);
+                    int newLeft = (int) Math.floor(compLeft * guiScale * sf);
+                    int newRight = (int) Math.ceil((compLeft + compWidth) * guiScale * sf);
                     int newW = Math.max(0, newRight - newLeft);
-                    int newGlBottom = (int) Math.floor((screenH - (groupContentTop + revealHeight)) * sf);
-                    int newGlTop = (int) Math.ceil((screenH - groupContentTop) * sf);
+                    int newGlBottom = (int) Math.floor((screenH - ((groupContentTop + revealHeight) * guiScale)) * sf);
+                    int newGlTop = (int) Math.ceil((screenH - (groupContentTop * guiScale)) * sf);
                     int newH = Math.max(0, newGlTop - newGlBottom);
                     pushScissor(newLeft, newGlBottom, newW, newH);
                     while (i < j) {

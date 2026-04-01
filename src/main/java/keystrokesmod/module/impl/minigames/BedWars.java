@@ -25,7 +25,6 @@ import net.minecraft.network.play.server.S23PacketBlockChange;
 import net.minecraft.util.BlockPos;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.Vec3;
-import net.minecraftforge.client.event.ClientChatReceivedEvent;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.event.entity.EntityJoinWorldEvent;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
@@ -37,19 +36,11 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class BedWars extends Module {
-    public static ButtonSetting whitelistOwnBed;
     private ButtonSetting diamondArmor;
     private ButtonSetting fireball;
     private ButtonSetting enderPearl;
     private ButtonSetting obsidian;
     private ButtonSetting shouldPing;
-
-    private BlockPos spawnPos;
-    private boolean check;
-    private boolean waitForRespawn;
-    private long respawnMessageTime;
-
-    public static boolean outsideSpawn = true;
 
     private List<String> armoredPlayer = new ArrayList<>();
     private Map<String, String> lastHeldMap = new ConcurrentHashMap<>();
@@ -61,7 +52,6 @@ public class BedWars extends Module {
 
     public BedWars() {
         super("Bed Wars", category.minigames);
-        this.registerSetting(whitelistOwnBed = new ButtonSetting("Whitelist own bed", true));
         this.registerSetting(new DescriptionSetting("Game alerts"));
         this.registerSetting(diamondArmor = new ButtonSetting("Diamond armor", true));
         this.registerSetting(fireball = new ButtonSetting("Fireball", false));
@@ -71,13 +61,7 @@ public class BedWars extends Module {
         this.closetModule = true;
     }
 
-    public void onEnable() {
-        check = false;
-        outsideSpawn = true;
-    }
-
     public void onDisable() {
-        outsideSpawn = true;
         entitySpawnQueue.clear();
         spawnedMobs.clear();
     }
@@ -115,7 +99,6 @@ public class BedWars extends Module {
             obsidianPos.clear();
             entitySpawnQueue.clear();
             spawnedMobs.clear();
-            waitForRespawn = false;
         }
         else {
             if (e.entity != null && e.entity instanceof EntityIronGolem) {
@@ -175,21 +158,6 @@ public class BedWars extends Module {
                     }
                 }
             }
-            if (whitelistOwnBed.isToggled()) {
-                if (check) {
-                    spawnPos = mc.thePlayer.getPosition();
-                    check = false;
-                }
-                if (spawnPos == null) {
-                    outsideSpawn = true;
-                }
-                else {
-                    outsideSpawn = mc.thePlayer.getDistanceSq(spawnPos) > 800;
-                }
-            }
-            else {
-                outsideSpawn = true;
-            }
         }
     }
 
@@ -229,26 +197,6 @@ public class BedWars extends Module {
             }
         }
         return false;
-    }
-
-    @SubscribeEvent
-    public void onChat(ClientChatReceivedEvent c) {
-        if (!Utils.nullCheck()) {
-            return;
-        }
-        String strippedMessage = Utils.stripColor(c.message.getUnformattedText());
-        if (strippedMessage.startsWith(" ") && strippedMessage.contains("Protect your bed and destroy the enemy beds.")) {
-            check = true;
-            waitForRespawn = false;
-        }
-        else if (strippedMessage.equals("You will respawn because you still have a bed!")) {
-            waitForRespawn = true;
-            respawnMessageTime = System.currentTimeMillis();
-        }
-        else if (strippedMessage.equals("You have respawned!") && waitForRespawn && Utils.timeBetween(System.currentTimeMillis(), respawnMessageTime) <= 12000) {
-            check = true;
-            waitForRespawn = false;
-        }
     }
 
     private String getItemType(ItemStack item) {

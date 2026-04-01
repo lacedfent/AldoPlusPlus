@@ -14,7 +14,6 @@ import keystrokesmod.utility.profile.Manager;
 import keystrokesmod.utility.profile.Profile;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
-import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.RenderHelper;
 import net.minecraft.client.renderer.entity.RenderItem;
@@ -33,6 +32,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
 public class CategoryComponent {
+    private static long interactionSequence;
+
     public List<ModuleComponent> modules = new CopyOnWriteArrayList<>();
     public Module.category category;
     public boolean opened;
@@ -219,6 +220,10 @@ public class CategoryComponent {
         return this.opened;
     }
 
+    public void markInteracted() {
+        this.lastInteractedTime = ++interactionSequence;
+    }
+
     public void mouseClicked(boolean on) {
         this.animationStartHeight = getCurrentAnimatedCategoryHeight();
         this.animationStartNamePos = getCurrentAnimatedNamePos();
@@ -263,7 +268,7 @@ public class CategoryComponent {
                 }
             }
         }
-        this.lastInteractedTime = System.currentTimeMillis();
+        this.markInteracted();
         float scrollSpeed = (float) Gui.scrollSpeed.getInput();
         float minScrollY = computeMinScrollY();
         float maxScrollY = this.y;
@@ -426,14 +431,12 @@ public class CategoryComponent {
             float newX = mouseX - this.xx;
             float newY = mouseY - this.yy;
 
-            if (Gui.limitToScreen.isToggled()) {
-                newX = Math.max(newX, 2);
-                newX = Math.min(newX, screenWidth - this.width - 4);
+            newX = Math.max(newX, 2);
+            newX = Math.min(newX, screenWidth - this.width - 4);
 
-                newY = Math.max(newY, 1);
-                int maxY = (int) (screenHeight - this.titleHeight - 5);
-                newY = Math.min(newY, maxY);
-            }
+            newY = Math.max(newY, 1);
+            int maxY = (int) (screenHeight - this.titleHeight - 5);
+            newY = Math.min(newY, maxY);
 
             this.setX(newX, false);
             this.setY(newY, false);
@@ -549,10 +552,9 @@ public class CategoryComponent {
         return this.y + this.titleHeight + 4;
     }
 
-    public void setScreenHeight(int screenHeight) {
+    public void setScreenSize(float screenWidth, float screenHeight) {
+        this.screenWidth = screenWidth;
         this.screenHeight = screenHeight;
-        ScaledResolution sr = new ScaledResolution(Minecraft.getMinecraft());
-        this.screenWidth = sr.getScaledWidth();
     }
 
     public void limitPositions() {

@@ -1,5 +1,6 @@
 package keystrokesmod.utility;
 
+import keystrokesmod.clickgui.ClickGui;
 import keystrokesmod.mixin.impl.accessor.IAccessorMinecraft;
 import keystrokesmod.module.impl.player.Freecam;
 
@@ -122,6 +123,12 @@ public class RenderUtils implements IMinecraftInstance {
      * the clip rectangle does not lose/gain a pixel at animation boundaries.
      */
     public static void scissor(double x, double y, double width, double height) {
+        double guiScale = ClickGui.getActiveRenderScale();
+        x *= guiScale;
+        y *= guiScale;
+        width *= guiScale;
+        height *= guiScale;
+
         ScaledResolution sr = new ScaledResolution(mc);
         int scale = sr.getScaleFactor();
         double screenH = sr.getScaledHeight();
@@ -148,6 +155,12 @@ public class RenderUtils implements IMinecraftInstance {
     private static int scissorPushDepth = 0;
 
     public static void scissorPushGui(double x, double y, double width, double height) {
+        double guiScale = ClickGui.getActiveRenderScale();
+        x *= guiScale;
+        y *= guiScale;
+        width *= guiScale;
+        height *= guiScale;
+
         ScaledResolution sr = new ScaledResolution(mc);
         int scale = sr.getScaleFactor();
         double screenH = sr.getScaledHeight();

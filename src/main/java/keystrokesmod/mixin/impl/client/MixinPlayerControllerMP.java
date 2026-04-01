@@ -32,7 +32,11 @@ public class MixinPlayerControllerMP {
 
     @Inject(method = "sendUseItem(Lnet/minecraft/entity/player/EntityPlayer;Lnet/minecraft/world/World;Lnet/minecraft/item/ItemStack;)Z", at = @At("HEAD"))
     public void injectUseItemEvent(EntityPlayer p_sendUseItem_1_, World p_sendUseItem_2_, ItemStack p_sendUseItem_3_, CallbackInfoReturnable<Boolean> ci) {
-        MinecraftForge.EVENT_BUS.post(new UseItemEvent(p_sendUseItem_3_));
+        UseItemEvent event = new UseItemEvent(p_sendUseItem_3_);
+        MinecraftForge.EVENT_BUS.post(event);
+        if (event.isCanceled()) {
+            ci.setReturnValue(false);
+        }
     }
 
     @Inject(method = "attackEntity", at = @At("HEAD"), cancellable = true)

@@ -426,7 +426,7 @@ public class Nametags extends Module {
         float innerLeft = -stringWidth - 3.0f;
         float innerRight = stringWidth + 3.0f;
         float innerTop = textY + fontRenderer.getTextTopOffset() - 3.0f;
-        float innerBottom = textY + fontRenderer.getTextBottomOffset() + 3.0f;
+        float innerBottom = textY + fontRenderer.getTextBottomOffset() + 2.0f;
 
         worldRenderer.begin(7, DefaultVertexFormats.POSITION_COLOR);
         worldRenderer.pos(innerLeft, innerTop, 0).color(0.0F, 0.0F, 0.0F, alpha).endVertex();

@@ -20,6 +20,7 @@ import java.util.List;
 
 public class Inventory extends Module {
     private static final int HOTBAR_SIZE = InventoryPlayer.getHotbarSize();
+    private static final double QUALITY_EPSILON = 1.0E-6D;
 
     private static final Comparator<PlannedAction> ACTION_COMPARATOR = new Comparator<PlannedAction>() {
         @Override
@@ -65,6 +66,7 @@ public class Inventory extends Module {
 
     private final SliderSetting targetCPS;
     private final ButtonSetting disableWhenComplete;
+    private final ButtonSetting stackItems;
     private final InventoryItemListSetting items;
 
     private PlannedAction currentAction;
@@ -72,11 +74,11 @@ public class Inventory extends Module {
     private double windowClickBudget;
     private boolean sessionOpen;
     private SessionState sessionState = SessionState.ACTIVE;
-
     public Inventory() {
         super("Inventory", category.player);
-        this.registerSetting(targetCPS = new SliderSetting("Target CPS", 10.0, 1.0, 40.0, 0.5));
+        this.registerSetting(targetCPS = new SliderSetting("Target CPS", 10.0, 1.0, 20.0, 0.5));
         this.registerSetting(disableWhenComplete = new ButtonSetting("Disable when complete", false));
+        this.registerSetting(stackItems = new ButtonSetting("Stack items", false));
         this.registerSetting(items = new InventoryItemListSetting("Items"));
         this.closetModule = true;
     }
@@ -150,14 +152,10 @@ public class Inventory extends Module {
         }
 
         while (clickBudget > 0) {
-            SnapshotContext context = SnapshotContext.create(snapshot, resolveAssignments(snapshot));
+            SlotAssignment[] assignments = resolveAssignments(snapshot);
+            SnapshotContext context = SnapshotContext.create(snapshot, assignments);
             if (currentAction == null) {
                 if (snapshot.carried != null) {
-                    if (cursorRecoveryInventoryIndex < 0) {
-                        sessionState = SessionState.ACTIVE;
-                        return;
-                    }
-
                     currentAction = buildRecoveryAction(context, PlanType.RECOVER_CURSOR, false);
                     if (currentAction == null) {
                         sessionState = SessionState.ACTIVE;
@@ -166,6 +164,7 @@ public class Inventory extends Module {
                     sessionState = SessionState.EXECUTING;
                 }
                 else {
+                    cursorRecoveryInventoryIndex = -1;
                     currentAction = findBestSortingAction(context);
                     if (currentAction == null) {
                         sessionState = disableWhenComplete.isToggled() ? SessionState.COMPLETE_LATCHED : SessionState.ACTIVE;
@@ -241,13 +240,13 @@ public class Inventory extends Module {
 
     private int consumeWindowClickBudget() {
         windowClickBudget += Math.max(0.0, targetCPS.getInput()) / 20.0;
-        int clicks = (int) windowClickBudget;
+        int clicks = Math.min(1, (int) windowClickBudget);
         if (clicks <= 0) {
             return 0;
         }
 
         windowClickBudget -= clicks;
-        windowClickBudget = Math.min(windowClickBudget, 2.0);
+        windowClickBudget = Math.min(windowClickBudget, 1.0);
         return clicks;
     }
 
@@ -298,7 +297,7 @@ public class Inventory extends Module {
     }
 
     private PlannedAction findBestSortingAction(SnapshotContext context) {
-        List<PlannedAction> actions = new ArrayList<PlannedAction>();
+        PlannedAction bestAction = null;
 
         for (SlotAssignment assignment : context.assignments) {
             if (assignment == null) {
@@ -306,61 +305,37 @@ public class Inventory extends Module {
             }
 
             ItemStack targetStack = context.snapshot.getSlot(assignment.hotbarSlot);
-            boolean targetMatchesRule = ItemSearchIndex.matches(assignment.storageId, targetStack);
+            boolean targetMatchesRule = isAssignedTargetSatisfied(context, assignment, targetStack);
 
             if (targetMatchesRule && isPartialStack(targetStack)) {
                 PlannedAction mergeAction = buildMergeAction(context, assignment, targetStack);
-                if (mergeAction != null) {
-                    actions.add(mergeAction);
-                }
+                bestAction = pickBetterAction(bestAction, mergeAction);
 
                 PlannedAction pickupAllAction = buildPickupAllAction(context, assignment, targetStack);
-                if (pickupAllAction != null) {
-                    actions.add(pickupAllAction);
-                }
+                bestAction = pickBetterAction(bestAction, pickupAllAction);
             }
             else if (!targetMatchesRule) {
                 PlannedAction placementAction = buildPlacementAction(context, assignment);
-                if (placementAction != null) {
-                    actions.add(placementAction);
+                PlannedAction pickupAllPlacementAction = buildPickupAllPlacementAction(context, assignment, targetStack);
+
+                if (pickupAllPlacementAction != null && (placementAction == null || pickupAllPlacementAction.resultingSize > placementAction.resultingSize)) {
+                    bestAction = pickBetterAction(bestAction, pickupAllPlacementAction);
+                }
+                else if (placementAction != null) {
+                    bestAction = pickBetterAction(bestAction, placementAction);
                 }
             }
         }
 
-        if (actions.isEmpty()) {
-            return null;
+        if (bestAction != null || !stackItems.isToggled()) {
+            return bestAction;
         }
 
-        actions.sort(ACTION_COMPARATOR);
-        return actions.get(0);
+        return buildUnconfiguredStackAction(context);
     }
 
     private PlannedAction buildPlacementAction(SnapshotContext context, SlotAssignment assignment) {
-        PlacementSource bestSource = null;
-
-        for (int inventoryIndex = 0; inventoryIndex < InventorySnapshot.INVENTORY_SIZE; inventoryIndex++) {
-            if (inventoryIndex == assignment.hotbarSlot) {
-                continue;
-            }
-
-            ItemStack sourceStack = context.snapshot.getSlot(inventoryIndex);
-            if (!ItemSearchIndex.matches(assignment.storageId, sourceStack)) {
-                continue;
-            }
-
-            if (inventoryIndex < HOTBAR_SIZE && isCorrectHotbarSlot(context, inventoryIndex)) {
-                continue;
-            }
-
-            PlacementSource candidate = new PlacementSource(
-                inventoryIndex,
-                inventoryIndex < HOTBAR_SIZE ? 1 : 0,
-                sourceStack != null ? sourceStack.stackSize : 0
-            );
-            if (bestSource == null || candidate.isBetterThan(bestSource)) {
-                bestSource = candidate;
-            }
-        }
+        PlacementSource bestSource = findBestPlacementSource(context, assignment, assignment.hotbarSlot);
 
         if (bestSource == null) {
             return null;
@@ -385,7 +360,7 @@ public class Inventory extends Module {
             NO_OP
         ));
 
-        return new PlannedAction(
+        PlannedAction action = new PlannedAction(
             PlanType.PLACE_TO_HOTBAR,
             1,
             assignment.hotbarSlot,
@@ -396,6 +371,7 @@ public class Inventory extends Module {
             sourceInventoryIndex,
             steps
         );
+        return action;
     }
 
     private PlannedAction buildMergeAction(SnapshotContext context, SlotAssignment assignment, ItemStack targetStack) {
@@ -503,7 +479,7 @@ public class Inventory extends Module {
             }
         }
 
-        return new PlannedAction(
+        PlannedAction action = new PlannedAction(
             PlanType.MERGE_TO_TARGET,
             mergePlan.clickCount,
             assignment.hotbarSlot,
@@ -514,6 +490,7 @@ public class Inventory extends Module {
             mergePlan.primarySourceIndex,
             steps
         );
+        return action;
     }
 
     private PlannedAction buildPickupAllAction(SnapshotContext context, SlotAssignment assignment, ItemStack targetStack) {
@@ -581,7 +558,7 @@ public class Inventory extends Module {
             }
         ));
 
-        return new PlannedAction(
+        PlannedAction action = new PlannedAction(
             PlanType.PICKUP_ALL_TO_TARGET,
             3,
             assignment.hotbarSlot,
@@ -592,6 +569,248 @@ public class Inventory extends Module {
             assignment.hotbarSlot,
             steps
         );
+        return action;
+    }
+
+    private PlannedAction buildPickupAllPlacementAction(SnapshotContext context, SlotAssignment assignment, ItemStack targetStack) {
+        PlacementSource bestSource = null;
+
+        for (int inventoryIndex = 0; inventoryIndex < InventorySnapshot.INVENTORY_SIZE; inventoryIndex++) {
+            if (inventoryIndex == assignment.hotbarSlot) {
+                continue;
+            }
+
+            ItemStack sourceStack = context.snapshot.getSlot(inventoryIndex);
+            if (!ItemSearchIndex.matches(assignment.storageId, sourceStack)) {
+                continue;
+            }
+
+            if (inventoryIndex < HOTBAR_SIZE && isCorrectHotbarSlot(context, inventoryIndex)) {
+                continue;
+            }
+
+            int resultingSize = getPickupAllResultingSize(context, inventoryIndex, sourceStack);
+            if (resultingSize <= sourceStack.stackSize) {
+                continue;
+            }
+
+            PlacementSource candidate = new PlacementSource(
+                inventoryIndex,
+                ItemSearchIndex.getMatchQuality(assignment.storageId, sourceStack),
+                inventoryIndex < HOTBAR_SIZE ? 1 : 0,
+                resultingSize
+            );
+            if (bestSource == null || candidate.isBetterThan(bestSource)) {
+                bestSource = candidate;
+            }
+        }
+
+        if (bestSource == null) {
+            return null;
+        }
+
+        final int sourceInventoryIndex = bestSource.inventoryIndex;
+        final int targetHotbarSlot = assignment.hotbarSlot;
+        final String storageId = assignment.storageId;
+        final boolean targetOccupiedByDifferentItem = targetStack != null && !ItemSearchIndex.matches(storageId, targetStack);
+        List<PlannedClick> steps = new ArrayList<PlannedClick>(targetOccupiedByDifferentItem ? 4 : 3);
+
+        steps.add(new PlannedClick(
+            toContainerSlot(sourceInventoryIndex),
+            0,
+            0,
+            new StepValidator() {
+                @Override
+                public boolean isValid(SnapshotContext current, Inventory module) {
+                    return current.snapshot.carried == null
+                        && ItemSearchIndex.matches(storageId, current.snapshot.getSlot(sourceInventoryIndex))
+                        && (sourceInventoryIndex >= HOTBAR_SIZE || !module.isCorrectHotbarSlot(current, sourceInventoryIndex));
+                }
+            },
+            new StepHook() {
+                @Override
+                public void run(Inventory module) {
+                    module.cursorRecoveryInventoryIndex = sourceInventoryIndex;
+                }
+            },
+            NO_OP
+        ));
+        steps.add(new PlannedClick(
+            toContainerSlot(sourceInventoryIndex),
+            0,
+            6,
+            new StepValidator() {
+                @Override
+                public boolean isValid(SnapshotContext current, Inventory module) {
+                    return current.snapshot.carried != null
+                        && ItemSearchIndex.matches(storageId, current.snapshot.carried)
+                        && current.snapshot.getSlot(sourceInventoryIndex) == null
+                        && module.getPickupAllResultingSize(current, sourceInventoryIndex, current.snapshot.carried) > current.snapshot.carried.stackSize;
+                }
+            },
+            NO_OP,
+            NO_OP
+        ));
+        steps.add(new PlannedClick(
+            toContainerSlot(targetHotbarSlot),
+            0,
+            0,
+            new StepValidator() {
+                @Override
+                public boolean isValid(SnapshotContext current, Inventory module) {
+                    if (current.snapshot.carried == null || !ItemSearchIndex.matches(storageId, current.snapshot.carried)) {
+                        return false;
+                    }
+
+                    ItemStack currentTarget = current.snapshot.getSlot(targetHotbarSlot);
+                    if (currentTarget == null) {
+                        return true;
+                    }
+
+                    if (ItemSearchIndex.matches(storageId, currentTarget)) {
+                        return canStacksMerge(current.snapshot.carried, currentTarget) && isPartialStack(currentTarget);
+                    }
+
+                    return true;
+                }
+            },
+            NO_OP,
+            targetOccupiedByDifferentItem ? NO_OP : new StepHook() {
+                @Override
+                public void run(Inventory module) {
+                    module.cursorRecoveryInventoryIndex = -1;
+                }
+            }
+        ));
+
+        if (targetOccupiedByDifferentItem) {
+            steps.add(new PlannedClick(
+                toContainerSlot(sourceInventoryIndex),
+                0,
+                0,
+                new StepValidator() {
+                    @Override
+                    public boolean isValid(SnapshotContext current, Inventory module) {
+                        return current.snapshot.carried != null && canDepositToSlot(current.snapshot, sourceInventoryIndex);
+                    }
+                },
+                NO_OP,
+                new StepHook() {
+                    @Override
+                    public void run(Inventory module) {
+                        module.cursorRecoveryInventoryIndex = -1;
+                    }
+                }
+            ));
+        }
+
+        PlannedAction action = new PlannedAction(
+            PlanType.PICKUP_ALL_TO_TARGET,
+            steps.size(),
+            assignment.hotbarSlot,
+            assignment.priorityIndex,
+            bestSource.resultingSize,
+            bestSource.resultingSize >= context.snapshot.getSlot(sourceInventoryIndex).getMaxStackSize(),
+            0,
+            sourceInventoryIndex,
+            steps
+        );
+        return action;
+    }
+
+    private PlannedAction buildUnconfiguredStackAction(SnapshotContext context) {
+        PlannedAction bestAction = null;
+
+        for (int targetInventoryIndex = 0; targetInventoryIndex < InventorySnapshot.INVENTORY_SIZE; targetInventoryIndex++) {
+            ItemStack targetStack = context.snapshot.getSlot(targetInventoryIndex);
+            if (!isPartialStack(targetStack) || isManagedStack(targetStack)) {
+                continue;
+            }
+
+            PlannedAction pickupAllAction = buildUnconfiguredPickupAllAction(context, targetInventoryIndex, targetStack);
+            bestAction = pickBetterAction(bestAction, pickupAllAction);
+        }
+
+        return bestAction;
+    }
+
+    private PlannedAction buildUnconfiguredPickupAllAction(SnapshotContext context, int targetInventoryIndex, ItemStack targetStack) {
+        int resultingSize = getUnconfiguredPickupAllResultingSize(context, targetInventoryIndex, targetStack);
+        if (resultingSize <= targetStack.stackSize) {
+            return null;
+        }
+
+        final int selectedTargetInventoryIndex = targetInventoryIndex;
+        List<PlannedClick> steps = new ArrayList<PlannedClick>(3);
+        steps.add(new PlannedClick(
+            toContainerSlot(selectedTargetInventoryIndex),
+            0,
+            0,
+            new StepValidator() {
+                @Override
+                public boolean isValid(SnapshotContext current, Inventory module) {
+                    ItemStack currentTarget = current.snapshot.getSlot(selectedTargetInventoryIndex);
+                    return current.snapshot.carried == null
+                        && isPartialStack(currentTarget)
+                        && !module.isManagedStack(currentTarget)
+                        && module.getUnconfiguredPickupAllResultingSize(current, selectedTargetInventoryIndex, currentTarget) > currentTarget.stackSize;
+                }
+            },
+            new StepHook() {
+                @Override
+                public void run(Inventory module) {
+                    module.cursorRecoveryInventoryIndex = selectedTargetInventoryIndex;
+                }
+            },
+            NO_OP
+        ));
+        steps.add(new PlannedClick(
+            toContainerSlot(selectedTargetInventoryIndex),
+            0,
+            6,
+            new StepValidator() {
+                @Override
+                public boolean isValid(SnapshotContext current, Inventory module) {
+                    return current.snapshot.carried != null
+                        && !module.isManagedStack(current.snapshot.carried)
+                        && current.snapshot.getSlot(selectedTargetInventoryIndex) == null
+                        && module.getUnconfiguredPickupAllResultingSize(current, selectedTargetInventoryIndex, current.snapshot.carried) > current.snapshot.carried.stackSize;
+                }
+            },
+            NO_OP,
+            NO_OP
+        ));
+        steps.add(new PlannedClick(
+            toContainerSlot(selectedTargetInventoryIndex),
+            0,
+            0,
+            new StepValidator() {
+                @Override
+                public boolean isValid(SnapshotContext current, Inventory module) {
+                    return current.snapshot.carried != null && canDepositToSlot(current.snapshot, selectedTargetInventoryIndex);
+                }
+            },
+            NO_OP,
+            new StepHook() {
+                @Override
+                public void run(Inventory module) {
+                    module.cursorRecoveryInventoryIndex = -1;
+                }
+            }
+        ));
+
+        PlannedAction action = new PlannedAction(
+            PlanType.STACK_UNCONFIGURED_ITEMS,
+            3,
+            selectedTargetInventoryIndex,
+            Integer.MAX_VALUE,
+            resultingSize,
+            resultingSize >= targetStack.getMaxStackSize(),
+            0,
+            selectedTargetInventoryIndex,
+            steps
+        );
+        return action;
     }
 
     private PlannedAction buildRecoveryAction(SnapshotContext context, PlanType type, boolean allowDrop) {
@@ -650,7 +869,7 @@ public class Inventory extends Module {
             ));
         }
 
-        return new PlannedAction(
+        PlannedAction action = new PlannedAction(
             type,
             steps.size(),
             Integer.MAX_VALUE,
@@ -661,6 +880,7 @@ public class Inventory extends Module {
             recoveryPlan.depositIndices.isEmpty() ? Integer.MAX_VALUE : recoveryPlan.depositIndices.get(0),
             steps
         );
+        return action;
     }
 
     private MergePlanData buildMergePlanData(SnapshotContext context, SlotAssignment assignment, ItemStack targetStack) {
@@ -832,6 +1052,28 @@ public class Inventory extends Module {
         return mergedSize;
     }
 
+    private int getUnconfiguredPickupAllResultingSize(SnapshotContext context, int targetInventoryIndex, ItemStack targetStack) {
+        if (!isPartialStack(targetStack) || isManagedStack(targetStack)) {
+            return 0;
+        }
+
+        int mergedSize = targetStack.stackSize;
+        for (int inventoryIndex = 0; inventoryIndex < InventorySnapshot.INVENTORY_SIZE && mergedSize < targetStack.getMaxStackSize(); inventoryIndex++) {
+            if (inventoryIndex == targetInventoryIndex) {
+                continue;
+            }
+
+            ItemStack sourceStack = context.snapshot.getSlot(inventoryIndex);
+            if (sourceStack == null || isManagedStack(sourceStack) || !isPartialStack(sourceStack) || !canStacksMerge(sourceStack, targetStack)) {
+                continue;
+            }
+
+            mergedSize = Math.min(targetStack.getMaxStackSize(), mergedSize + sourceStack.stackSize);
+        }
+
+        return mergedSize;
+    }
+
     private void recoverCarriedStackImmediately(InventorySnapshot snapshot, boolean allowDrop) {
         if (!(mc.thePlayer.openContainer instanceof ContainerPlayer) || snapshot.carried == null) {
             currentAction = null;
@@ -979,6 +1221,63 @@ public class Inventory extends Module {
         return assignment != null && ItemSearchIndex.matches(assignment.storageId, context.snapshot.getSlot(hotbarSlot));
     }
 
+    private boolean isManagedStack(ItemStack stack) {
+        return stack != null && items.matches(stack);
+    }
+
+    private boolean isAssignedTargetSatisfied(SnapshotContext context, SlotAssignment assignment, ItemStack targetStack) {
+        if (!ItemSearchIndex.matches(assignment.storageId, targetStack)) {
+            return false;
+        }
+
+        PlacementSource betterSource = findBestPlacementSource(context, assignment, assignment.hotbarSlot);
+        if (betterSource == null) {
+            return true;
+        }
+
+        double targetQuality = ItemSearchIndex.getMatchQuality(assignment.storageId, targetStack);
+        return betterSource.quality <= targetQuality + QUALITY_EPSILON;
+    }
+
+    private PlacementSource findBestPlacementSource(SnapshotContext context, SlotAssignment assignment, int excludedInventoryIndex) {
+        PlacementSource bestSource = null;
+
+        for (int inventoryIndex = 0; inventoryIndex < InventorySnapshot.INVENTORY_SIZE; inventoryIndex++) {
+            if (inventoryIndex == excludedInventoryIndex) {
+                continue;
+            }
+
+            ItemStack sourceStack = context.snapshot.getSlot(inventoryIndex);
+            if (!ItemSearchIndex.matches(assignment.storageId, sourceStack)) {
+                continue;
+            }
+
+            if (inventoryIndex < HOTBAR_SIZE && isCorrectHotbarSlot(context, inventoryIndex)) {
+                continue;
+            }
+
+            PlacementSource candidate = new PlacementSource(
+                inventoryIndex,
+                ItemSearchIndex.getMatchQuality(assignment.storageId, sourceStack),
+                inventoryIndex < HOTBAR_SIZE ? 1 : 0,
+                sourceStack != null ? sourceStack.stackSize : 0
+            );
+            if (bestSource == null || candidate.isBetterThan(bestSource)) {
+                bestSource = candidate;
+            }
+        }
+
+        return bestSource;
+    }
+
+    private static PlannedAction pickBetterAction(PlannedAction currentBest, PlannedAction candidate) {
+        if (candidate == null) {
+            return currentBest;
+        }
+
+        return currentBest == null || ACTION_COMPARATOR.compare(candidate, currentBest) < 0 ? candidate : currentBest;
+    }
+
     private void click(int slotId, int button, int mode) {
         mc.playerController.windowClick(mc.thePlayer.openContainer.windowId, slotId, button, mode, mc.thePlayer);
     }
@@ -1075,6 +1374,7 @@ public class Inventory extends Module {
         PLACE_TO_HOTBAR,
         MERGE_TO_TARGET,
         PICKUP_ALL_TO_TARGET,
+        STACK_UNCONFIGURED_ITEMS,
         RECOVER_CURSOR,
         PRE_CLOSE_RECOVERY
     }
@@ -1141,17 +1441,24 @@ public class Inventory extends Module {
 
     private static final class PlacementSource {
         final int inventoryIndex;
+        final double quality;
         final int sourcePreference;
         final int resultingSize;
 
-        PlacementSource(int inventoryIndex, int sourcePreference, int resultingSize) {
+        PlacementSource(int inventoryIndex, double quality, int sourcePreference, int resultingSize) {
             this.inventoryIndex = inventoryIndex;
+            this.quality = quality;
             this.sourcePreference = sourcePreference;
             this.resultingSize = resultingSize;
         }
 
         boolean isBetterThan(PlacementSource other) {
-            int comparison = Integer.compare(sourcePreference, other.sourcePreference);
+            int comparison = Double.compare(quality, other.quality);
+            if (Math.abs(quality - other.quality) > QUALITY_EPSILON) {
+                return comparison > 0;
+            }
+
+            comparison = Integer.compare(sourcePreference, other.sourcePreference);
             if (comparison != 0) {
                 return comparison < 0;
             }

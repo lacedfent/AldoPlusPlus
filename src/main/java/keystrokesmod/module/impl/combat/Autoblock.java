@@ -2,12 +2,14 @@ package keystrokesmod.module.impl.combat;
 
 import keystrokesmod.Raven;
 import keystrokesmod.event.PrePlayerInteractEvent;
+import keystrokesmod.event.RightClickMouseEvent;
 import keystrokesmod.lag.api.EnumLagDirection;
 import keystrokesmod.lag.api.LagRequest;
 import keystrokesmod.lag.timeout.ModuleBackedTimeout;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.ModuleManager;
 import keystrokesmod.event.SendPacketEvent;
+import keystrokesmod.event.UseItemEvent;
 import keystrokesmod.utility.CombatTargeting;
 import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.DescriptionSetting;
@@ -94,6 +96,20 @@ public class Autoblock extends Module {
         if (!Utils.nullCheck() || !Utils.holdingSword()) return;
         if (ModuleManager.bedAura != null && ModuleManager.bedAura.isActivelyMining()) return;
         if (e.button == 1) {
+            e.setCanceled(true);
+        }
+    }
+
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public void onRightClickMouse(RightClickMouseEvent e) {
+        if (shouldBlockVanillaUse()) {
+            e.setCanceled(true);
+        }
+    }
+
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public void onUseItem(UseItemEvent e) {
+        if (shouldBlockVanillaUse()) {
             e.setCanceled(true);
         }
     }
@@ -234,6 +250,10 @@ public class Autoblock extends Module {
         int triggerTick = (int) Math.round(maxHurtTimeMs.getInput() / 50.0);
         triggerTick = Math.max(1, Math.min(10, triggerTick));
         return ourHurtTime == triggerTick;
+    }
+
+    private boolean shouldBlockVanillaUse() {
+        return isEnabled() && isLagging && Utils.nullCheck() && Utils.holdingSword() && mc.currentScreen == null;
     }
 
     private void startBlocking(int currentTick) {

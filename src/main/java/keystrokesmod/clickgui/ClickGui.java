@@ -22,6 +22,7 @@ import net.minecraft.client.gui.GuiTextField;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.gui.inventory.GuiInventory;
 import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.util.MathHelper;
 import net.minecraftforge.client.event.GuiScreenEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.client.config.GuiButtonExt;
@@ -48,10 +49,11 @@ public class ClickGui extends GuiScreen {
     private GuiButtonExt commandLineSend;
     private GuiTextField commandLineInput;
     public static ArrayList<CategoryComponent> categories;
-    public int originalScale;
-    public int previousScale;
+    private int actualScreenWidth;
+    private int actualScreenHeight;
+    private double previousScale;
     private static boolean isNotFirstOpen;
-    private boolean usingCustomGuiScale;
+    private boolean pendingScaleRefresh;
 
     public ClickGui() {
         categories = new ArrayList();
@@ -78,18 +80,20 @@ public class ClickGui extends GuiScreen {
     @Override
     public void initGui() {
         super.initGui();
+        double configuredScale = getConfiguredGuiScale();
         if (!isNotFirstOpen) {
             isNotFirstOpen = true;
-            this.previousScale = (int) Gui.guiScale.getInput();
+            this.previousScale = configuredScale;
         }
-        if (this.previousScale != Gui.guiScale.getInput()) {
+        for (CategoryComponent categoryComponent : categories) {
+            categoryComponent.setScreenSize(this.width, this.height);
+        }
+        if (Double.compare(this.previousScale, configuredScale) != 0) {
             for (CategoryComponent categoryComponent : categories) {
                 categoryComponent.limitPositions();
             }
         }
-        this.sr = new ScaledResolution(this.mc);
         for (CategoryComponent categoryComponent : categories) {
-            categoryComponent.setScreenHeight(this.sr.getScaledHeight());
             if (categoryComponent.category == Module.category.profiles) {
                 categoryComponent.reloadModules(true);
             } else if (categoryComponent.category == Module.category.scripts) {
@@ -101,35 +105,43 @@ public class ClickGui extends GuiScreen {
         (this.commandLineInput = new GuiTextField(1, this.mc.fontRendererObj, 22, this.height - 100, 150, 20)).setMaxStringLength(256);
         this.buttonList.add(this.commandLineSend = new GuiButtonExt(2, 22, this.height - 70, 150, 20, "Send"));
         this.commandLineSend.visible = CommandLine.opened;
-        this.previousScale = (int) Gui.guiScale.getInput();
+        this.previousScale = configuredScale;
     }
 
     /** Categories in render order: least recently interacted first (so most recent drawn on top). */
     private List<CategoryComponent> getCategoriesInRenderOrder() {
-        categories.sort(Comparator.comparingLong(c -> c.lastInteractedTime));
-        return categories;
+        List<CategoryComponent> renderOrder = new ArrayList<>(categories);
+        renderOrder.sort(Comparator.comparingLong(c -> c.lastInteractedTime));
+        return renderOrder;
     }
 
     /** Returns the topmost CategoryComponent under the cursor, or null. */
-    private CategoryComponent getTopmostUnderCursor(int x, int y) {
-        for (int i = categories.size() - 1; i >= 0; i--) {
-            if (categories.get(i).overRect(x, y)) {
-                return categories.get(i);
+    private CategoryComponent getTopmostUnderCursor(List<CategoryComponent> renderOrder, int x, int y) {
+        for (int i = renderOrder.size() - 1; i >= 0; i--) {
+            if (renderOrder.get(i).overRect(x, y)) {
+                return renderOrder.get(i);
             }
         }
         return null;
     }
 
     public void drawScreen(int x, int y, float p) {
+        int logicalMouseX = toLogicalCoordinate(x);
+        int logicalMouseY = toLogicalCoordinate(y);
+
         if (Gui.backgroundBlur.getInput() != 0) {
             BlurUtils.prepareBlur();
-            RoundedUtils.drawRound(0, 0, this.width, this.height, 0.0f, true, Color.black);
+            RoundedUtils.drawRound(0, 0, this.actualScreenWidth, this.actualScreenHeight, 0.0f, true, Color.black);
             float inputToRange = (float) (3 * ((Gui.backgroundBlur.getInput() + 35) / 100));
             BlurUtils.blurEnd(2, this.blurSmooth.getValueFloat(0, inputToRange, 1));
         }
         if (Gui.darkBackground.isToggled()) {
-            drawRect(0, 0, this.width, this.height, (int) (this.backgroundFade.getValueFloat(0.0F, 0.7F, 2) * 255.0F) << 24);
+            drawRect(0, 0, this.actualScreenWidth, this.actualScreenHeight, (int) (this.backgroundFade.getValueFloat(0.0F, 0.7F, 2) * 255.0F) << 24);
         }
+
+        GlStateManager.pushMatrix();
+        GlStateManager.scale(getRenderScale(), getRenderScale(), 1.0D);
+
         int r;
         if (!Gui.removeWatermark.isToggled()) {
             int h = this.height / 4;
@@ -151,13 +163,13 @@ public class ClickGui extends GuiScreen {
         }
 
         List<CategoryComponent> renderOrder = getCategoriesInRenderOrder();
-        CategoryComponent topmostUnderCursor = getTopmostUnderCursor(x, y);
+        CategoryComponent topmostUnderCursor = getTopmostUnderCursor(renderOrder, logicalMouseX, logicalMouseY);
         for (CategoryComponent c : renderOrder) {
             c.render(this.fontRendererObj);
-            c.mousePosition(x, y, c == topmostUnderCursor);
+            c.mousePosition(logicalMouseX, logicalMouseY, c == topmostUnderCursor);
 
             for (Component m : c.getModules()) {
-                m.drawScreen(x, y);
+                m.drawScreen(logicalMouseX, logicalMouseY);
             }
         }
 
@@ -165,7 +177,7 @@ public class ClickGui extends GuiScreen {
         if (!Gui.removePlayerModel.isToggled()) {
             GlStateManager.pushMatrix();
             GlStateManager.disableBlend();
-            GuiInventory.drawEntityOnScreen(this.width + 15 - this.smoothEntity.getValueInt(0, 40, 2), this.height - 10, 40, (float) (this.width - 25 - x), (float) (this.height - 50 - y), this.mc.thePlayer);
+            GuiInventory.drawEntityOnScreen(this.width + 15 - this.smoothEntity.getValueInt(0, 40, 2), this.height - 10, 40, (float) (this.width - 25 - logicalMouseX), (float) (this.height - 50 - logicalMouseY), this.mc.thePlayer);
             GlStateManager.enableBlend();
             GlStateManager.popMatrix();
         }
@@ -194,11 +206,13 @@ public class ClickGui extends GuiScreen {
             this.commandLineInput.xPosition = x2;
             this.commandLineSend.xPosition = x2;
             this.commandLineInput.drawTextBox();
-            super.drawScreen(x, y, p);
+            super.drawScreen(logicalMouseX, logicalMouseY, p);
         }
         else if (CommandLine.closed) {
             CommandLine.closed = false;
         }
+
+        GlStateManager.popMatrix();
     }
 
     public void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException {
@@ -219,50 +233,39 @@ public class ClickGui extends GuiScreen {
             }
         }
 
-        // categories is sorted ascending by lastInteractedTime after drawScreen;
-        // iterate in reverse for input priority (most recently interacted = last drawn = topmost)
         List<CategoryComponent> inputOrder = new ArrayList<>(categories);
         inputOrder.sort((a, b) -> Long.compare(b.lastInteractedTime, a.lastInteractedTime));
+        CategoryComponent topmostCategory = null;
+        for (CategoryComponent category : inputOrder) {
+            if (category.overRect(mouseX, mouseY)) {
+                topmostCategory = category;
+                break;
+            }
+        }
+
+        if (topmostCategory != null) {
+            topmostCategory.markInteracted();
+        }
 
         if (mouseButton == 0) {
             for (CategoryComponent category : categories) {
                 category.overTitle(false);
             }
-            for (CategoryComponent category : inputOrder) {
-                if (category.draggable(mouseX, mouseY)) {
-                    category.lastInteractedTime = System.currentTimeMillis();
-                    category.overTitle(true);
-                    category.xx = mouseX - category.getX();
-                    category.yy = mouseY - category.getY();
-                    category.dragging = true;
-                    break;
-                }
+            if (topmostCategory != null && topmostCategory.draggable(mouseX, mouseY)) {
+                topmostCategory.overTitle(true);
+                topmostCategory.xx = mouseX - topmostCategory.getX();
+                topmostCategory.yy = mouseY - topmostCategory.getY();
+                topmostCategory.dragging = true;
             }
         }
 
-        if (mouseButton == 1) {
-            for (CategoryComponent category : inputOrder) {
-                if (category.overTitle(mouseX, mouseY)) {
-                    category.lastInteractedTime = System.currentTimeMillis();
-                    category.mouseClicked(!category.isOpened());
-                    break;
-                }
-            }
+        if (mouseButton == 1 && topmostCategory != null && topmostCategory.overTitle(mouseX, mouseY)) {
+            topmostCategory.mouseClicked(!topmostCategory.isOpened());
         }
 
-        for (CategoryComponent category : inputOrder) {
-            if (category.isOpened() && !category.getModules().isEmpty() && !category.overTitle(mouseX, mouseY)) {
-                category.lastInteractedTime = System.currentTimeMillis();
-
-                boolean consumed = false;
-                for (ModuleComponent component : category.getModules()) {
-                    if (component.onClick(mouseX, mouseY, mouseButton)) {
-                        consumed = true;
-                        break;
-                    }
-                }
-
-                if (consumed) {
+        if (topmostCategory != null && topmostCategory.isOpened() && !topmostCategory.getModules().isEmpty() && !topmostCategory.overTitle(mouseX, mouseY)) {
+            for (ModuleComponent component : topmostCategory.getModules()) {
+                if (component.onClick(mouseX, mouseY, mouseButton)) {
                     break;
                 }
             }
@@ -286,6 +289,10 @@ public class ClickGui extends GuiScreen {
                 }
             }
         }
+        if (pendingScaleRefresh) {
+            pendingScaleRefresh = false;
+            refreshLayoutForConfiguredScale();
+        }
     }
 
     @Override
@@ -293,11 +300,8 @@ public class ClickGui extends GuiScreen {
         super.handleMouseInput();
         int wheelInput = Mouse.getDWheel();
         if (wheelInput != 0) {
-            ScaledResolution sr = new ScaledResolution(mc);
-            int w = sr.getScaledWidth();
-            int h = sr.getScaledHeight();
-            int mouseX = Mouse.getX() * w / mc.displayWidth;
-            int mouseY = h - Mouse.getY() * h / mc.displayHeight - 1;
+            int mouseX = Mouse.getEventX() * this.width / mc.displayWidth;
+            int mouseY = this.height - Mouse.getEventY() * this.height / mc.displayHeight - 1;
             for (CategoryComponent category : categories) {
                 category.onScroll(wheelInput, mouseX, mouseY);
             }
@@ -307,30 +311,21 @@ public class ClickGui extends GuiScreen {
     /**
      * Refreshes the ClickGui for the newly loaded profile's Gui scale. Call after
      * all module settings (including Gui.guiScale) are loaded. Recomputes the
-     * ClickGui layout using the profile's configured scale. If the GUI is not
-     * currently open, the game's real GUI scale is restored immediately after.
+     * ClickGui layout using the profile's configured internal scale.
      */
     public void refreshAfterProfileLoad() {
         if (mc == null) {
             mc = Minecraft.getMinecraft();
         }
-        boolean keepConfiguredScaleApplied = usingCustomGuiScale && mc.currentScreen == this;
-        reinitializeForConfiguredScale(keepConfiguredScaleApplied);
+        refreshLayoutForConfiguredScale();
     }
 
     @Override
     public void setWorldAndResolution(Minecraft p_setWorldAndResolution_1_, final int p_setWorldAndResolution_2_, final int p_setWorldAndResolution_3_) {
         this.mc = p_setWorldAndResolution_1_;
-        if (!usingCustomGuiScale) {
-            originalScale = this.mc.gameSettings.guiScale;
-            usingCustomGuiScale = true;
-        }
-        this.mc.gameSettings.guiScale = getConfiguredGuiScale();
         this.itemRender = p_setWorldAndResolution_1_.getRenderItem();
         this.fontRendererObj = p_setWorldAndResolution_1_.fontRendererObj;
-        final ScaledResolution scaledresolution = new ScaledResolution(this.mc);
-        this.width = scaledresolution.getScaledWidth();
-        this.height = scaledresolution.getScaledHeight();
+        refreshScaledResolution();
         if (!MinecraftForge.EVENT_BUS.post(new GuiScreenEvent.InitGuiEvent.Pre(this, this.buttonList))) {
             this.buttonList.clear();
             this.initGui();
@@ -389,10 +384,6 @@ public class ClickGui extends GuiScreen {
                 m.onGuiClosed();
             }
         }
-        if (usingCustomGuiScale) {
-            this.mc.gameSettings.guiScale = originalScale;
-            usingCustomGuiScale = false;
-        }
     }
 
     @Override
@@ -441,25 +432,62 @@ public class ClickGui extends GuiScreen {
         }
     }
 
-    private void reinitializeForConfiguredScale(boolean keepConfiguredScaleApplied) {
-        int previousGameScale = mc.gameSettings.guiScale;
-        this.mc.gameSettings.guiScale = getConfiguredGuiScale();
-        try {
-            this.sr = new ScaledResolution(mc);
-            this.width = this.sr.getScaledWidth();
-            this.height = this.sr.getScaledHeight();
-            this.previousScale = (int) Gui.guiScale.getInput();
-            this.buttonList.clear();
-            initGui();
-        }
-        finally {
-            if (!keepConfiguredScaleApplied) {
-                this.mc.gameSettings.guiScale = previousGameScale;
-            }
-        }
+    public void requestScaleRefresh() {
+        this.pendingScaleRefresh = true;
     }
 
-    private int getConfiguredGuiScale() {
-        return (int) Gui.guiScale.getInput() + 1;
+    private void refreshLayoutForConfiguredScale() {
+        refreshScaledResolution();
+        for (CategoryComponent categoryComponent : categories) {
+            categoryComponent.setScreenSize(this.width, this.height);
+            categoryComponent.limitPositions();
+        }
+        this.buttonList.clear();
+        initGui();
+    }
+
+    private void refreshScaledResolution() {
+        this.sr = new ScaledResolution(mc);
+        this.actualScreenWidth = this.sr.getScaledWidth();
+        this.actualScreenHeight = this.sr.getScaledHeight();
+
+        double targetScaleFactor = getTargetGuiScaleFactor();
+        this.width = Math.max(1, MathHelper.ceiling_double_int((double) mc.displayWidth / targetScaleFactor));
+        this.height = Math.max(1, MathHelper.ceiling_double_int((double) mc.displayHeight / targetScaleFactor));
+    }
+
+    private int getMaximumGuiScaleFactor() {
+        int scaleFactor = 1;
+        while (mc.displayWidth / (scaleFactor + 1) >= 320 && mc.displayHeight / (scaleFactor + 1) >= 240) {
+            ++scaleFactor;
+        }
+
+        if (mc.isUnicode() && scaleFactor % 2 != 0 && scaleFactor != 1) {
+            --scaleFactor;
+        }
+
+        return scaleFactor;
+    }
+
+    private double getTargetGuiScaleFactor() {
+        // Old "Normal" mode forced Minecraft guiScale=2, so treat 1.0x as that baseline.
+        return Math.max(1.0D, Math.min(getMaximumGuiScaleFactor(), getConfiguredGuiScale() * 2.0D));
+    }
+
+    private int toLogicalCoordinate(int coordinate) {
+        return (int) Math.floor(coordinate / getRenderScale());
+    }
+
+    private double getRenderScale() {
+        return actualScreenWidth <= 0 || width <= 0 ? 1.0D : (double) actualScreenWidth / (double) width;
+    }
+
+    public static double getActiveRenderScale() {
+        Minecraft minecraft = Minecraft.getMinecraft();
+        return minecraft.currentScreen instanceof ClickGui ? ((ClickGui) minecraft.currentScreen).getRenderScale() : 1.0D;
+    }
+
+    private double getConfiguredGuiScale() {
+        return Gui.getClickGuiScale();
     }
 }

@@ -76,7 +76,7 @@ public class SliderComponent extends Component {
         GL11.glPushMatrix();
         GL11.glScaled(0.5, 0.5, 0.5);
 
-        double input = this.sliderSetting.getInput();
+        double input = getRenderedInputValue();
         String suffix = this.sliderSetting.getSuffix();
         String valueText;
 
@@ -141,11 +141,13 @@ public class SliderComponent extends Component {
 
             this.displayedValue = displayedValue + (targetValue - displayedValue) * SLIDER_SPEED;
 
-            if (targetValue == -1) {
-                sliderSetting.setValueRaw(-1);
-            }
-            else {
-                sliderSetting.setValue(this.targetValue);
+            if (!shouldCommitOnRelease()) {
+                if (targetValue == -1) {
+                    sliderSetting.setValueRaw(-1);
+                }
+                else {
+                    sliderSetting.setValue(this.targetValue);
+                }
             }
 
             if (this.displayedValue == -1) {
@@ -200,7 +202,18 @@ public class SliderComponent extends Component {
 
     @Override
     public void mouseReleased(int mouseX, int mouseY, int button) {
+        boolean wasHeldDown = this.heldDown;
         this.heldDown = false;
+        if (button == 0 && wasHeldDown && shouldCommitOnRelease()) {
+            if (targetValue == -1) {
+                sliderSetting.setValueRaw(-1);
+            }
+            else {
+                sliderSetting.setValue(this.targetValue);
+            }
+            onSliderChange();
+            Raven.clickGui.requestScaleRefresh();
+        }
     }
 
     public boolean u(int mouseX, int mouseY) {
@@ -224,6 +237,14 @@ public class SliderComponent extends Component {
         return this.sliderSetting.isString
             && ((this.moduleComponent.mod instanceof HUD && this.sliderSetting == HUD.font)
             || (this.moduleComponent.mod instanceof Gui && this.sliderSetting == Gui.font));
+    }
+
+    private boolean shouldCommitOnRelease() {
+        return this.moduleComponent.mod instanceof Gui && this.sliderSetting == Gui.guiScale;
+    }
+
+    private double getRenderedInputValue() {
+        return shouldCommitOnRelease() && this.heldDown ? this.targetValue : this.sliderSetting.getInput();
     }
 
     private void drawFontPreview(float labelX, float labelY, String valueText, String suffix) {

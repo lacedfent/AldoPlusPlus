@@ -935,24 +935,25 @@ public class BedESP extends Module {
 
     private static final class DefenseBlockKey {
         private final IBlockState state;
-        private final int stateId;
+        private final String identityKey;
         private final String sortName;
         private final int hashCode;
         private final ItemStack renderStack;
         private final TextureAtlasSprite blockSprite;
 
-        private DefenseBlockKey(IBlockState state, int stateId, String sortName, ItemStack renderStack, TextureAtlasSprite blockSprite) {
+        private DefenseBlockKey(IBlockState state, String identityKey, String sortName, ItemStack renderStack, TextureAtlasSprite blockSprite) {
             this.state = state;
-            this.stateId = stateId;
+            this.identityKey = identityKey;
             this.sortName = sortName;
             this.renderStack = renderStack;
             this.blockSprite = blockSprite;
-            this.hashCode = stateId;
+            this.hashCode = identityKey.hashCode();
         }
 
         private static DefenseBlockKey from(IBlockState state, BlockPos pos, World world) {
             String fallbackName = getFallbackStateName(state);
             ItemStack stack = resolveBlockItemStack(state, pos, world);
+            String identityKey = resolveIdentityKey(state, stack);
             TextureAtlasSprite sprite = null;
 
             if (stack == null || stack.getItem() == null) {
@@ -965,11 +966,20 @@ public class BedESP extends Module {
             }
 
             String sortName = stack != null && stack.getItem() != null ? getSafeDisplayName(stack, fallbackName) : fallbackName;
-            return new DefenseBlockKey(state, Block.getStateId(state), sortName, stack, sprite);
+            return new DefenseBlockKey(state, identityKey, sortName, stack, sprite);
         }
 
         private ItemStack createRenderStack() {
             return renderStack == null ? null : renderStack.copy();
+        }
+
+        private static String resolveIdentityKey(IBlockState state, ItemStack stack) {
+            if (stack != null && stack.getItem() != null) {
+                return Item.getIdFromItem(stack.getItem()) + ":" + stack.getMetadata();
+            }
+
+            Object registryName = Block.blockRegistry.getNameForObject(state.getBlock());
+            return registryName != null ? registryName.toString() : Integer.toString(Block.getIdFromBlock(state.getBlock()));
         }
 
         private static String getSafeDisplayName(ItemStack stack, String fallback) {
@@ -994,7 +1004,7 @@ public class BedESP extends Module {
                 return false;
             }
             DefenseBlockKey other = (DefenseBlockKey) obj;
-            return stateId == other.stateId;
+            return identityKey.equals(other.identityKey);
         }
 
         @Override

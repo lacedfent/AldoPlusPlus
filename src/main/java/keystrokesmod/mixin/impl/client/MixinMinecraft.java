@@ -62,7 +62,11 @@ public class MixinMinecraft {
 
     @Inject(method = "rightClickMouse", at = @At("HEAD"), cancellable = true)
     public void injectRightClickMouse(CallbackInfo ci) {
-        MinecraftForge.EVENT_BUS.post(new RightClickMouseEvent());
+        RightClickMouseEvent event = new RightClickMouseEvent();
+        MinecraftForge.EVENT_BUS.post(event);
+        if (event.isCanceled()) {
+            ci.cancel();
+        }
     }
 
     @Inject(method = "runTick", at = @At("HEAD"))

@@ -40,3 +40,6 @@ remapped deobf/
 # Minecraft folder
 run/
 /.vscode/
+
+# Local MCP reference source
+/MCP-919-main/

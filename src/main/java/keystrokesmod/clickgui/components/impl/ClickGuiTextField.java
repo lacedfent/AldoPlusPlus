@@ -83,7 +83,8 @@ public class ClickGuiTextField {
     public void render(float left, float top, float right, float bottom) {
         float textLeft = left + 2.0f;
         float width = Math.max(0.0f, right - left - 4.0f);
-        float height = Math.max(0.0f, bottom - top);
+        float backgroundBottom = bottom - 1.0f;
+        float height = Math.max(0.0f, backgroundBottom - top);
         RavenFontRenderer renderer = Gui.getClickGuiSettingFontRenderer();
 
         String fullText = textField.getText();
@@ -98,18 +99,18 @@ public class ClickGuiTextField {
             ? getIntField(textField, ENABLED_COLOR_FIELD, 0xE0E0E0)
             : getIntField(textField, DISABLED_COLOR_FIELD, 0x707070);
 
-        RenderUtils.drawRect(left, top, right, bottom, isFocused() ? FOCUSED_BACKGROUND_COLOR : BACKGROUND_COLOR);
-        RenderUtils.drawOutline(left, top, right, bottom, 1.0f, isFocused() ? FOCUSED_OUTLINE_COLOR : OUTLINE_COLOR);
+        RenderUtils.drawRect(left, top, right, backgroundBottom, isFocused() ? FOCUSED_BACKGROUND_COLOR : BACKGROUND_COLOR);
+        RenderUtils.drawOutline(left, top, right, backgroundBottom, 1.0f, isFocused() ? FOCUSED_OUTLINE_COLOR : OUTLINE_COLOR);
 
         if (!visibleText.isEmpty()) {
-            drawSelection(textLeft, top, bottom, renderer, visibleText, cursorPosition, selectionEnd, visibleStart, visibleEnd);
+            drawSelection(textLeft, top, backgroundBottom, renderer, visibleText, cursorPosition, selectionEnd, visibleStart, visibleEnd);
             drawScaledText(visibleText, textLeft, textY, textColor, renderer);
         } else if (!textField.isFocused() && !placeholder.isEmpty()) {
             drawScaledText("\u00A77" + placeholder, textLeft, textY, 0xAAAAAA, renderer);
         }
 
         if (textField.isFocused() && cursorVisible) {
-            drawCursor(textLeft, top, bottom, renderer, visibleText, cursorPosition, visibleStart, visibleEnd);
+            drawCursor(textLeft, top, backgroundBottom, renderer, visibleText, cursorPosition, visibleStart, visibleEnd);
         }
     }
 

@@ -168,9 +168,11 @@ public class HUD extends Module {
         RavenFontRenderer hudFont = getHudFontRenderer();
         int textTopOffset = hudFont.getTextTopOffset();
         int textBottomOffset = hudFont.getTextBottomOffset();
-        int textPadding = getHudTextPadding();
+        int horizontalTextPadding = getHudHorizontalTextPadding();
+        int textTopPadding = getHudTextTopPadding();
+        int textBottomPadding = getHudTextBottomPadding();
         int outlineThickness = getHudOutlineThickness();
-        int rowHeight = getHudRowHeight(textTopOffset, textBottomOffset, textPadding);
+        int rowHeight = getHudRowHeight(textTopOffset, textBottomOffset, textTopPadding, textBottomPadding);
         float yPos = posY;
         double verticalWaveAccum = 0.0;
         boolean firstVisibleRow = true;
@@ -189,9 +191,9 @@ public class HUD extends Module {
                 String moduleName = getHudRenderText(module);
                 int moduleWidth = hudFont.getStringWidth(moduleName);
                 float xPos = posX;
-                float textY = getHudTextY(yPos, rowHeight, textTopOffset, textBottomOffset);
-                double backgroundLeft = xPos - textPadding;
-                double backgroundRight = xPos + moduleWidth + textPadding;
+                float textY = getHudTextY(yPos, textTopOffset, textTopPadding);
+                double backgroundLeft = xPos - horizontalTextPadding;
+                double backgroundRight = xPos + moduleWidth + horizontalTextPadding;
                 double backgroundTop = yPos;
                 double backgroundBottom = yPos + rowHeight;
                 double outlineLeft = backgroundLeft - outlineThickness;
@@ -200,8 +202,8 @@ public class HUD extends Module {
 
                 if (alignRight.isToggled()) {
                     xPos -= moduleWidth;
-                    backgroundLeft = xPos - textPadding;
-                    backgroundRight = xPos + moduleWidth + textPadding;
+                    backgroundLeft = xPos - horizontalTextPadding;
+                    backgroundRight = xPos + moduleWidth + horizontalTextPadding;
                     outlineLeft = backgroundLeft - outlineThickness;
                     outlineRight = backgroundRight + outlineThickness;
                 }
@@ -226,13 +228,13 @@ public class HUD extends Module {
                 if (outline.getInput() == 1 && !previousModule.isEmpty()) {
                     double difference = hudFont.getStringWidth(previousModule) - moduleWidth;
                     if (alphabeticalSort.isToggled() && difference < 0) {
-                        RenderUtils.drawRect(outlineLeft, outlineTop, xPos - difference + textPadding + outlineThickness, backgroundTop, color);
+                        RenderUtils.drawRect(outlineLeft, outlineTop, xPos - difference + horizontalTextPadding + outlineThickness, backgroundTop, color);
                     }
                     else if (alignRight.isToggled()) {
-                        RenderUtils.drawRect(xPos - difference - textPadding - outlineThickness, outlineTop, backgroundLeft, backgroundTop, color);
+                        RenderUtils.drawRect(xPos - difference - horizontalTextPadding - outlineThickness, outlineTop, backgroundLeft, backgroundTop, color);
                     }
                     else {
-                        RenderUtils.drawRect(backgroundRight, outlineTop, xPos + difference + moduleWidth + textPadding + outlineThickness, backgroundTop, color);
+                        RenderUtils.drawRect(backgroundRight, outlineTop, xPos + difference + moduleWidth + horizontalTextPadding + outlineThickness, backgroundTop, color);
                     }
                 }
 
@@ -388,14 +390,15 @@ public class HUD extends Module {
                 float x = this.minX;
                 float y = this.minY;
                 String[] lines = text.split("-");
-                int localTextPadding = getHudTextPadding();
-                int localRowHeight = getHudRowHeight(hudFont.getTextTopOffset(), hudFont.getTextBottomOffset(), localTextPadding);
+                int localTextTopPadding = getHudTextTopPadding();
+                int localTextBottomPadding = getHudTextBottomPadding();
+                int localRowHeight = getHudRowHeight(hudFont.getTextTopOffset(), hudFont.getTextBottomOffset(), localTextTopPadding, localTextBottomPadding);
 
                 for (String line : lines) {
                     if (HUD.alignRight.isToggled()) {
                         x += hudFont.getStringWidth(lines[0]) - hudFont.getStringWidth(line);
                     }
-                    float textY = getHudTextY(y, localRowHeight, hudFont.getTextTopOffset(), hudFont.getTextBottomOffset());
+                    float textY = getHudTextY(y, hudFont.getTextTopOffset(), localTextTopPadding);
                     drawHudText(hudFont, line, x, textY, Color.white.getRGB());
                     y += localRowHeight;
                 }
@@ -413,9 +416,11 @@ public class HUD extends Module {
             boolean removeVelocity = ModuleManager.antiKnockback.isEnabled();
             int textTopOffset = hudFont.getTextTopOffset();
             int textBottomOffset = hudFont.getTextBottomOffset();
-            int textPadding = getHudTextPadding();
+            int horizontalTextPadding = getHudHorizontalTextPadding();
+            int textTopPadding = getHudTextTopPadding();
+            int textBottomPadding = getHudTextBottomPadding();
             int outlineThickness = getHudOutlineThickness();
-            int rowHeight = getHudRowHeight(textTopOffset, textBottomOffset, textPadding);
+            int rowHeight = getHudRowHeight(textTopOffset, textBottomOffset, textTopPadding, textBottomPadding);
 
             try {
                 for (Module module : ModuleManager.organizedModules) {
@@ -426,9 +431,9 @@ public class HUD extends Module {
                     String moduleName = getHudRenderText(module);
                     int moduleWidth = hudFont.getStringWidth(moduleName);
                     float xPos = posX;
-                    float textY = getHudTextY(y, rowHeight, textTopOffset, textBottomOffset);
-                    double backgroundLeft = xPos - textPadding;
-                    double backgroundRight = xPos + moduleWidth + textPadding;
+                    float textY = getHudTextY(y, textTopOffset, textTopPadding);
+                    double backgroundLeft = xPos - horizontalTextPadding;
+                    double backgroundRight = xPos + moduleWidth + horizontalTextPadding;
                     double backgroundTop = y;
                     double backgroundBottom = y + rowHeight;
                     double outlineLeft = backgroundLeft - outlineThickness;
@@ -437,8 +442,8 @@ public class HUD extends Module {
 
                     if (alignRight.isToggled()) {
                         xPos -= moduleWidth;
-                        backgroundLeft = xPos - textPadding;
-                        backgroundRight = xPos + moduleWidth + textPadding;
+                        backgroundLeft = xPos - horizontalTextPadding;
+                        backgroundRight = xPos + moduleWidth + horizontalTextPadding;
                         outlineLeft = backgroundLeft - outlineThickness;
                         outlineRight = backgroundRight + outlineThickness;
                     }
@@ -463,13 +468,13 @@ public class HUD extends Module {
                     if (outline.getInput() == 1 && !previousModule.isEmpty()) {
                         double difference = hudFont.getStringWidth(previousModule) - moduleWidth;
                         if (alphabeticalSort.isToggled() && difference < 0) {
-                            RenderUtils.drawRect(outlineLeft, outlineTop, xPos - difference + textPadding + outlineThickness, backgroundTop, color);
+                            RenderUtils.drawRect(outlineLeft, outlineTop, xPos - difference + horizontalTextPadding + outlineThickness, backgroundTop, color);
                         }
                         else if (alignRight.isToggled()) {
-                            RenderUtils.drawRect(xPos - difference - textPadding - outlineThickness, outlineTop, backgroundLeft, backgroundTop, color);
+                            RenderUtils.drawRect(xPos - difference - horizontalTextPadding - outlineThickness, outlineTop, backgroundLeft, backgroundTop, color);
                         }
                         else {
-                            RenderUtils.drawRect(backgroundRight, outlineTop, xPos + difference + moduleWidth + textPadding + outlineThickness, backgroundTop, color);
+                            RenderUtils.drawRect(backgroundRight, outlineTop, xPos + difference + moduleWidth + horizontalTextPadding + outlineThickness, backgroundTop, color);
                         }
                     }
 
@@ -609,22 +614,29 @@ public class HUD extends Module {
         return (float) fontSize.getInput();
     }
 
-    private static int getHudTextPadding() {
+    private static int getHudHorizontalTextPadding() {
         return getScaledHudPixels(2.0f);
+    }
+
+    private static int getHudTextTopPadding() {
+        return getScaledHudPixels(2.0f);
+    }
+
+    private static int getHudTextBottomPadding() {
+        return 0;
     }
 
     private static int getHudOutlineThickness() {
         return getScaledHudPixels(1.0f);
     }
 
-    private static int getHudRowHeight(int textTopOffset, int textBottomOffset, int textPadding) {
+    private static int getHudRowHeight(int textTopOffset, int textBottomOffset, int textTopPadding, int textBottomPadding) {
         int textBoxHeight = Math.max(1, textBottomOffset - textTopOffset);
-        return Math.max(1, textBoxHeight + textPadding * 2);
+        return Math.max(1, textBoxHeight + textTopPadding + textBottomPadding);
     }
 
-    private static float getHudTextY(float rowTop, int rowHeight, int textTopOffset, int textBottomOffset) {
-        int textBoxHeight = Math.max(1, textBottomOffset - textTopOffset);
-        return rowTop + (rowHeight - textBoxHeight) / 2.0f - textTopOffset;
+    private static float getHudTextY(float rowTop, int textTopOffset, int textTopPadding) {
+        return rowTop + textTopPadding - textTopOffset;
     }
 
     private static int getScaledHudPixels(float basePixels) {

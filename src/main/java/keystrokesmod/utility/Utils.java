@@ -27,7 +27,6 @@ import net.minecraft.enchantment.Enchantment;
 import net.minecraft.enchantment.EnchantmentHelper;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
-import net.minecraft.entity.ai.attributes.AttributeModifier;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.init.Items;
@@ -557,14 +556,14 @@ public class Utils implements IMinecraftInstance {
     }
 
     public static int getTool(Block block) {
-        float bestEfficiency = 1.0f;
+        double bestScore = 1.0D;
         int bestSlot = -1;
         for (int i = 0; i < InventoryPlayer.getHotbarSize(); ++i) {
             final ItemStack getStackInSlot = mc.thePlayer.inventory.getStackInSlot(i);
             if (getStackInSlot != null) {
-                float efficiency = getEfficiency(getStackInSlot, block);
-                if (efficiency > bestEfficiency) {
-                    bestEfficiency = efficiency;
+                double score = ItemSortScoring.getBlockBreakingScore(getStackInSlot, block);
+                if (score > bestScore) {
+                    bestScore = score;
                     bestSlot = i;
                 }
             }
@@ -1484,18 +1483,7 @@ public class Utils implements IMinecraftInstance {
     }
 
     public static double getDamageLevel(ItemStack itemStack) {
-        double baseDamage = 0.0;
-        if (itemStack != null) {
-            for (Map.Entry<String, AttributeModifier> entry : itemStack.getAttributeModifiers().entries()) {
-                if (entry.getKey().equals("generic.attackDamage")) {
-                    baseDamage = entry.getValue().getAmount();
-                    break;
-                }
-            }
-        }
-        int sharp_level = EnchantmentHelper.getEnchantmentLevel(Enchantment.sharpness.effectId, itemStack);
-        int fire_level = EnchantmentHelper.getEnchantmentLevel(Enchantment.fireAspect.effectId, itemStack);
-        return baseDamage + sharp_level * 1.25 + (fire_level * 4 - 1);
+        return ItemSortScoring.getMeleeDamage(itemStack);
     }
 
     public static float getDirection() {

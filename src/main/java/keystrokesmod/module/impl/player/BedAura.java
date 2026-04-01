@@ -26,7 +26,9 @@ import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.init.Blocks;
 import net.minecraft.util.*;
 import net.minecraftforge.client.event.MouseEvent;
+import net.minecraftforge.client.event.ClientChatReceivedEvent;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
+import net.minecraftforge.event.entity.EntityJoinWorldEvent;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import org.lwjgl.input.Mouse;
@@ -40,6 +42,7 @@ public class BedAura extends Module {
     private final SliderSetting rate;
     private final SliderSetting breakDelay;
     private final SliderSetting breakSpeed;
+    private final ButtonSetting whitelistOwnBed;
     private final GroupSetting swapGroup;
     private final ButtonSetting switchBackWhenDone;
     private final ButtonSetting overrideSwapBack;
@@ -48,6 +51,7 @@ public class BedAura extends Module {
 
     private static final int MS_PER_TICK = 50;
     private static final double BED_FIND_EXTRA_BLOCKS = 1.0;
+    private static final double OWN_BED_PROTECTION_RADIUS_SQ = 800.0;
     private final List<BlockPos[]> bedPairsCache = new ArrayList<>();
     private int scanCooldown;
 
@@ -59,6 +63,10 @@ public class BedAura extends Module {
     private int hotbarProgrammaticDepth;
     private boolean hasSwapped;
     private int previousSlot = -1;
+    private BlockPos spawnAnchor;
+    private boolean pendingSpawnAnchorCapture;
+    private boolean waitingForRespawn;
+    private long respawnMessageTime;
 
     public BedAura() {
         super("BedAura", category.player);
@@ -67,6 +75,7 @@ public class BedAura extends Module {
         this.registerSetting(range = new SliderSetting("Range", " blocks", 4.5, 2.0, 6.0, 0.1));
         this.registerSetting(fov = new SliderSetting("FOV", "", 180.0, 30.0, 360.0, 1.0));
         this.registerSetting(rate = new SliderSetting("Scan rate", "ms", 250.0, 50.0, 2000.0, 50.0));
+        this.registerSetting(whitelistOwnBed = new ButtonSetting("Whitelist own bed", true));
         this.registerSetting(swapGroup = new GroupSetting("Swap"));
         this.registerSetting(switchBackWhenDone = new ButtonSetting(swapGroup, "Switch back when done", true, "Swap to previous slot"));
         this.registerSetting(overrideSwapBack = new ButtonSetting(swapGroup, "Override swap back", true));
@@ -82,8 +91,49 @@ public class BedAura extends Module {
     @Override
     public void onDisable() {
         resetMining();
+        resetSpawnTracking();
         bedPairsCache.clear();
         scanCooldown = 0;
+    }
+
+    @Override
+    public void onUpdate() {
+        if (!Utils.nullCheck()) {
+            return;
+        }
+
+        if (pendingSpawnAnchorCapture && Utils.getBedwarsStatus() == 2) {
+            spawnAnchor = mc.thePlayer.getPosition();
+            pendingSpawnAnchorCapture = false;
+        }
+    }
+
+    @SubscribeEvent
+    public void onWorldJoin(EntityJoinWorldEvent e) {
+        if (e.entity == mc.thePlayer) {
+            resetSpawnTracking();
+        }
+    }
+
+    @SubscribeEvent
+    public void onChat(ClientChatReceivedEvent event) {
+        if (!Utils.nullCheck()) {
+            return;
+        }
+
+        String strippedMessage = Utils.stripColor(event.message.getUnformattedText());
+        if (strippedMessage.startsWith(" ") && strippedMessage.contains("Protect your bed and destroy the enemy beds.")) {
+            pendingSpawnAnchorCapture = true;
+            waitingForRespawn = false;
+        }
+        else if (strippedMessage.equals("You will respawn because you still have a bed!")) {
+            waitingForRespawn = true;
+            respawnMessageTime = System.currentTimeMillis();
+        }
+        else if (strippedMessage.equals("You have respawned!") && waitingForRespawn && Utils.timeBetween(System.currentTimeMillis(), respawnMessageTime) <= 12000) {
+            pendingSpawnAnchorCapture = true;
+            waitingForRespawn = false;
+        }
     }
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
@@ -314,6 +364,8 @@ public class BedAura extends Module {
                 }
             }
         }
+
+        removeOwnBedPair();
     }
 
     private BlockPos[] footHeadPair(BlockPos at) {
@@ -561,6 +613,46 @@ public class BedAura extends Module {
         return mc.thePlayer.capabilities.allowEdit
                 && !mc.thePlayer.capabilities.isCreativeMode
                 && !mc.thePlayer.isSpectator();
+    }
+
+    private void resetSpawnTracking() {
+        spawnAnchor = null;
+        pendingSpawnAnchorCapture = false;
+        waitingForRespawn = false;
+        respawnMessageTime = 0L;
+    }
+
+    private void removeOwnBedPair() {
+        if (!shouldWhitelistOwnBed() || bedPairsCache.isEmpty()) {
+            return;
+        }
+
+        BlockPos[] ownBedPair = null;
+        double closestDistance = Double.POSITIVE_INFINITY;
+        Vec3 spawnCenter = spawnAnchorCenter();
+
+        for (BlockPos[] pair : bedPairsCache) {
+            double distance = spawnCenter.squareDistanceTo(bedCenter(pair));
+            if (distance < closestDistance) {
+                closestDistance = distance;
+                ownBedPair = pair;
+            }
+        }
+
+        if (ownBedPair != null) {
+            bedPairsCache.remove(ownBedPair);
+        }
+    }
+
+    private boolean shouldWhitelistOwnBed() {
+        return whitelistOwnBed.isToggled()
+                && spawnAnchor != null
+                && Utils.getBedwarsStatus() == 2
+                && mc.thePlayer.getDistanceSq(spawnAnchor) <= OWN_BED_PROTECTION_RADIUS_SQ;
+    }
+
+    private Vec3 spawnAnchorCenter() {
+        return new Vec3(spawnAnchor.getX() + 0.5, spawnAnchor.getY() + 0.5, spawnAnchor.getZ() + 0.5);
     }
 
     private static final class Choice {

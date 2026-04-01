@@ -5,6 +5,7 @@ import net.minecraft.creativetab.CreativeTabs;
 import net.minecraft.init.Items;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemAxe;
+import net.minecraft.item.ItemBow;
 import net.minecraft.item.ItemHoe;
 import net.minecraft.item.ItemPickaxe;
 import net.minecraft.item.ItemShears;
@@ -111,6 +112,12 @@ public final class ItemSearchIndex {
             @Override
             boolean matches(ItemStack stack) {
                 return stack != null && stack.getItem() instanceof ItemSword;
+            }
+        },
+        BOW("@category:bow", "Bow", new ItemStack(Items.bow)) {
+            @Override
+            boolean matches(ItemStack stack) {
+                return stack != null && stack.getItem() instanceof ItemBow;
             }
         },
         TOOL("@category:tool", "Tool", new ItemStack(Items.diamond_pickaxe)) {
@@ -401,6 +408,38 @@ public final class ItemSearchIndex {
 
         String registryId = getRegistryId(stackStorageId);
         return registryId != null && storageId.equals(registryId + ":*");
+    }
+
+    public static double getMatchQuality(String storageId, ItemStack stack) {
+        if (!matches(storageId, stack)) {
+            return Double.NEGATIVE_INFINITY;
+        }
+
+        SyntheticItemCategory syntheticCategory = SyntheticItemCategory.fromStorageId(storageId);
+        if (syntheticCategory == null) {
+            return 0.0D;
+        }
+
+        switch (syntheticCategory) {
+            case SWORD:
+                return ItemSortScoring.getMeleeSelectionScore(stack);
+            case BOW:
+                return ItemSortScoring.getBowSelectionScore(stack);
+            case TOOL:
+                return ItemSortScoring.getToolSelectionScore(stack);
+            case AXE:
+                return ItemSortScoring.getAxeScore(stack);
+            case PICKAXE:
+                return ItemSortScoring.getPickaxeScore(stack);
+            case SHOVEL:
+                return ItemSortScoring.getShovelScore(stack);
+            case HOE:
+                return ItemSortScoring.getHoeScore(stack);
+            case SHEARS:
+                return ItemSortScoring.getShearsScore(stack);
+            default:
+                return 0.0D;
+        }
     }
 
     public static String getRegistryId(String storageId) {

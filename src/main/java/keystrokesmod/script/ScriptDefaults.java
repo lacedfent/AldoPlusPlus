@@ -1390,8 +1390,8 @@ public class ScriptDefaults {
                 WorldRenderer worldrenderer = tessellator.getWorldRenderer();
                 worldrenderer.begin(7, DefaultVertexFormats.POSITION_COLOR);
                 worldrenderer.pos(-1, -1.0, 0.0).color(0.0f, 0.0f, 0.0f, 0.25f).endVertex();
-                worldrenderer.pos(-1, 8.0, 0.0).color(0.0f, 0.0f, 0.0f, 0.25f).endVertex();
-                worldrenderer.pos(width + 1, 8.0, 0.0).color(0.0f, 0.0f, 0.0f, 0.25f).endVertex();
+                worldrenderer.pos(-1, 7.0, 0.0).color(0.0f, 0.0f, 0.0f, 0.25f).endVertex();
+                worldrenderer.pos(width + 1, 7.0, 0.0).color(0.0f, 0.0f, 0.0f, 0.25f).endVertex();
                 worldrenderer.pos(width + 1, -1.0, 0.0).color(0.0f, 0.0f, 0.0f, 0.25f).endVertex();
                 tessellator.draw();
                 GlStateManager.enableTexture2D();

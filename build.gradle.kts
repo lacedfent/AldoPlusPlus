@@ -120,6 +120,7 @@ tasks.shadowJar {
     destinationDirectory.set(layout.buildDirectory.dir("intermediates"))
     archiveClassifier.set("non-obfuscated-with-deps")
     configurations = listOf(shadowImpl)
+    from(sourceSets.main.get().output)
 
     exclude(
         "dummyThing",
@@ -153,3 +154,35 @@ tasks.shadowJar {
 }
 
 tasks.assemble.get().dependsOn(tasks.remapJar)
+
+tasks.register("buildMinecraft") {
+    group = "build"
+    description = "Builds the mod and installs the fresh jar into the local Minecraft mods folder."
+    dependsOn(remapJar)
+
+    doFirst {
+        logger.lifecycle("buildMinecraft: building Raven bS and installing it into your .minecraft mods folder...")
+    }
+
+    doLast {
+        val builtJar = remapJar.archiveFile.get().asFile
+        val modsDir = file("C:/Users/stikr/AppData/Roaming/.minecraft/mods")
+
+        if (!modsDir.exists()) {
+            modsDir.mkdirs()
+        }
+
+        modsDir.listFiles { file ->
+            file.isFile && file.name.startsWith("${modid}-") && file.name.endsWith(".jar")
+        }?.forEach { existingJar ->
+            if (!existingJar.delete()) {
+                throw GradleException("Failed to delete existing mod jar: ${existingJar.absolutePath}")
+            }
+        }
+
+        val installedJar = modsDir.resolve(builtJar.name)
+        builtJar.copyTo(installedJar, overwrite = true)
+        logger.lifecycle("buildMinecraft: installed ${installedJar.name} to ${modsDir.absolutePath}")
+        logger.lifecycle("buildMinecraft: done")
+    }
+}
