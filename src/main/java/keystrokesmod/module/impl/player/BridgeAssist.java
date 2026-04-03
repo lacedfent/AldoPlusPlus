@@ -67,6 +67,12 @@ public class BridgeAssist extends Module {
     }
 
     @Override
+    public String getInfo() {
+        double offset = edgeOffset.getInput();
+        return offset == Math.rint(offset) ? Integer.toString((int) offset) : Double.toString(Utils.round(offset, 2));
+    }
+
+    @Override
     public void onDisable() {
         sneakingFromModule = false;
         resetUnsneak();

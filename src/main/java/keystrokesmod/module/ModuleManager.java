@@ -3,6 +3,7 @@ package keystrokesmod.module;
 import keystrokesmod.module.impl.client.ChatCommands;
 import keystrokesmod.module.impl.client.CommandLine;
 import keystrokesmod.module.impl.client.Gui;
+import keystrokesmod.module.impl.client.Relationships;
 import keystrokesmod.module.impl.client.Settings;
 import keystrokesmod.module.impl.combat.*;
 import keystrokesmod.module.impl.fun.*;
@@ -82,12 +83,17 @@ public class ModuleManager {
     public static Weather weather;
     public static ChatCommands chatCommands;
     public static BlockIn blockIn;
+    public static Relationships relationships;
 
     public void register() {
         this.addModule(chatCommands = new ChatCommands());
         this.addModule(commandLine = new CommandLine());
         this.addModule(new Gui());
         this.addModule(new Settings());
+        this.addModule(relationships = new Relationships());
+        if (keystrokesmod.Raven.playerRelationsManager == null || keystrokesmod.Raven.playerRelationsManager.isActive()) {
+            relationships.enable();
+        }
 
         this.addModule(new AimAssist());
         this.addModule(antiKnockback = new AntiKnockback());
@@ -253,13 +259,5 @@ public class ModuleManager {
 
         final RavenFontRenderer hudFont = HUD.getHudFontRenderer();
         organizedModules.sort((o1, o2) -> hudFont.getStringWidth(HUD.getHudRenderText(o2)) - hudFont.getStringWidth(HUD.getHudRenderText(o1)));
-    }
-
-    public static boolean canExecuteChatCommand() {
-        return ModuleManager.chatCommands != null && ModuleManager.chatCommands.isEnabled();
-    }
-
-    public static boolean lowercaseChatCommands() {
-        return ModuleManager.chatCommands != null && ModuleManager.chatCommands.isEnabled() && ModuleManager.chatCommands.lowercase();
     }
 }

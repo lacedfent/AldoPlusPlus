@@ -264,6 +264,10 @@ public class CategoryComponent {
                         ItemSearchComponent isc = (ItemSearchComponent) comp;
                         if (isc.capturesCategoryScroll(mouseX, mouseY))
                             return;
+                    } else if (comp instanceof PlayerListComponent) {
+                        PlayerListComponent plc = (PlayerListComponent) comp;
+                        if (plc.capturesCategoryScroll(mouseX, mouseY))
+                            return;
                     }
                 }
             }

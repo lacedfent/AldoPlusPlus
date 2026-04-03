@@ -16,6 +16,7 @@ import net.minecraft.block.properties.IProperty;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.RenderGlobal;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.WorldRenderer;
 import net.minecraft.client.renderer.entity.RenderManager;
@@ -58,6 +59,8 @@ public class BedESP extends Module {
     private SliderSetting scanSpeed;
     private ButtonSetting firstBed;
     private ButtonSetting renderFullBlock;
+    private ButtonSetting showExposedOutline;
+    private ColorSetting exposedOutlineColor;
     private ButtonSetting showDefenseLayers;
     private ButtonSetting showDefenseTools;
     private ButtonSetting showDefenseCounts;
@@ -114,6 +117,8 @@ public class BedESP extends Module {
         this.registerSetting(scanSpeed = new SliderSetting("Scan speed", 8.0, 1.0, 32.0, 1.0));
         this.registerSetting(firstBed = new ButtonSetting("Only render first bed", false));
         this.registerSetting(renderFullBlock = new ButtonSetting("Render full block", false));
+        this.registerSetting(showExposedOutline = new ButtonSetting("Exposed outline", true));
+        this.registerSetting(exposedOutlineColor = new ColorSetting("Exposed outline color", 255, 220, 64, 255));
         this.registerSetting(showDefenseLayers = new ButtonSetting("Show defense layers", false));
         this.registerSetting(showDefenseTools = new ButtonSetting("Show break tools", false));
         this.registerSetting(showDefenseCounts = new ButtonSetting("Show defense counts", true));
@@ -128,6 +133,7 @@ public class BedESP extends Module {
         color.setVisible(true, this);
         color2.setVisible(mode == 1, this);
         gradientSpeed.setVisible(mode == 1, this);
+        exposedOutlineColor.setVisible(showExposedOutline.isToggled(), this);
         boolean defenseVisible = showDefenseLayers.isToggled();
         showDefenseTools.setVisible(defenseVisible, this);
         showDefenseCounts.setVisible(defenseVisible && !showDefenseTools.isToggled(), this);
@@ -400,6 +406,7 @@ public class BedESP extends Module {
     }
 
     private void renderBed(BlockPos[] blocks, float height) {
+        boolean exposed = showExposedOutline.isToggled() && isBedExposed(blocks);
         double x = blocks[0].getX() - mc.getRenderManager().viewerPosX;
         double y = blocks[0].getY() - mc.getRenderManager().viewerPosY;
         double z = blocks[0].getZ() - mc.getRenderManager().viewerPosZ;
@@ -428,11 +435,40 @@ public class BedESP extends Module {
             axisAlignedBB = new AxisAlignedBB(x, y, z, x + 1.0, y + height, z + 2.0);
         }
         RenderUtils.drawBoundingBox(axisAlignedBB, r, g, b, drawA);
+        if (exposed) {
+            int outlineColor = exposedOutlineColor.getColor();
+            float outlineA = (outlineColor >> 24 & 0xFF) / 255.0f;
+            float outlineR = (outlineColor >> 16 & 0xFF) / 255.0f;
+            float outlineG = (outlineColor >> 8 & 0xFF) / 255.0f;
+            float outlineB = (outlineColor & 0xFF) / 255.0f;
+            GL11.glLineWidth(3.0f);
+            GL11.glColor4f(outlineR, outlineG, outlineB, outlineA);
+            RenderGlobal.drawSelectionBoundingBox(axisAlignedBB);
+            GL11.glLineWidth(2.0f);
+        }
         GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
         GL11.glEnable(3553);
         GL11.glEnable(2929);
         GL11.glDepthMask(true);
         GL11.glDisable(3042);
+    }
+
+    private boolean isBedExposed(BlockPos[] pair) {
+        if (pair == null || pair.length < 2 || mc.theWorld == null) {
+            return false;
+        }
+
+        for (BlockPos bedPart : pair) {
+            for (EnumFacing side : EnumFacing.values()) {
+                BlockPos neighbor = bedPart.offset(side);
+                Block neighborBlock = mc.theWorld.getBlockState(neighbor).getBlock();
+                if (neighborBlock == Blocks.air) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private void renderDefenseOverlay(BlockPos[] blocks, float blockHeight) {

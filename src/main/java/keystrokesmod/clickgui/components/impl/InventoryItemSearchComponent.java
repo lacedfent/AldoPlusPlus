@@ -189,7 +189,7 @@ public class InventoryItemSearchComponent extends AbstractItemSearchComponent<In
     private void renderSelectedRow(InventorySelectedRowData row, float left, float right, float rowTop, int bgColor) {
         RenderUtils.drawRect(left, rowTop, right, rowTop + ROW_HEIGHT - 1f, bgColor);
         renderItemInRow(getPreviewStack(row), left + 2f, rowTop);
-        drawScaledText(row.displayName != null ? row.displayName : "", left + 13f, centeredScaledTextY(rowTop, ROW_HEIGHT - 1f), 0xFFCCCCCC);
+        drawListRowText(row.displayName != null ? row.displayName : "", left + 13f, rowTop, 0xFFCCCCCC);
 
         float closeX = right - CLOSE_SIZE - CLOSE_PAD;
         float slotRight = closeX - SLOT_BOX_GAP;

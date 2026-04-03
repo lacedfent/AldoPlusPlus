@@ -43,7 +43,7 @@ public class AutoClicker extends Module {
     private static Field hoveredSlotField;
 
     public AutoClicker() {
-        super("AutoClicker", category.combat, 0);
+        super("Auto Clicker", category.combat, 0);
         this.registerSetting(new DescriptionSetting("Best with delay remover."));
         this.registerSetting(targetCPS = new SliderSetting("Target CPS", 10.0, 1.0, 20.0, 0.5));
         this.registerSetting(simulateExhaust = new ButtonSetting("Simulate exhaust", true));
@@ -54,6 +54,12 @@ public class AutoClicker extends Module {
         this.registerSetting(inventory = new ButtonSetting("Inventory", false));
         this.registerSetting(inventoryStartDelay = new SliderSetting("Start delay", "ms", 100.0, 0.0, 250.0, 10.0));
         this.closetModule = true;
+    }
+
+    @Override
+    public String getInfo() {
+        double cps = targetCPS.getInput();
+        return cps == Math.rint(cps) ? Integer.toString((int) cps) : Double.toString(Utils.round(cps, 1));
     }
 
     @Override

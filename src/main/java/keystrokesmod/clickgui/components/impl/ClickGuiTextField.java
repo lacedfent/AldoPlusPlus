@@ -222,13 +222,14 @@ public class ClickGuiTextField {
     }
 
     private float centeredScaledTextY(float top, float height, RavenFontRenderer renderer) {
-        return top + (height - renderer.getFontHeight() * textScale) / 2.0f;
+        float textBoxHeight = Math.max(1.0f, (renderer.getTextBottomOffset() - renderer.getTextTopOffset()) * textScale);
+        return top + (height - textBoxHeight) / 2.0f - renderer.getTextTopOffset() * textScale;
     }
 
     private void drawScaledText(String text, float x, float y, int color, RavenFontRenderer renderer) {
         GL11.glPushMatrix();
         GL11.glScaled(textScale, textScale, textScale);
-        renderer.drawString(text, x / textScale, y / textScale, color, true);
+        renderer.drawString(text, x / textScale, y / textScale, color, false);
         GL11.glPopMatrix();
     }
 

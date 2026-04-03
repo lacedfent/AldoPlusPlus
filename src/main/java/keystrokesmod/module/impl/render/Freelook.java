@@ -34,7 +34,7 @@ public class Freelook extends Module {
     private float lastFov;
 
     public Freelook() {
-        super("Freelook", category.render);
+        super("Free Look", category.render);
         this.registerSetting(freelookKey = new KeySetting("Key", 56));
         this.registerSetting(hold = new ButtonSetting("Hold", true));
         this.registerSetting(invertPitch = new ButtonSetting("Invert pitch", false));

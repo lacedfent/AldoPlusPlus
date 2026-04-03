@@ -50,7 +50,7 @@ public class AutoTool extends Module {
     private int hoverStartTick = -1;
 
     public AutoTool() {
-        super("AutoTool", category.player);
+        super("Auto Tool", category.player);
 
         this.registerSetting(timingGroup = new GroupSetting("Timing"));
         this.registerSetting(activationTime = new SliderSetting(timingGroup, "Activation time", "ms", 0.0, 0.0, 1000.0, 25.0));

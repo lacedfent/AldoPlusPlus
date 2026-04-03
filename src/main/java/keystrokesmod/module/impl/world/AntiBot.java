@@ -25,7 +25,7 @@ public class AntiBot extends Module {
     private ButtonSetting printWorldJoin;
 
     public AntiBot() {
-        super("AntiBot", Module.category.world, 0);
+        super("Anti Bot", Module.category.world, 0);
         this.registerSetting(delay = new SliderSetting("Delay", " second", true, -1, 0.5, 15.0, 0.5));
         this.registerSetting(pitSpawn = new SliderSetting("Pit spawn", true, -1, 70, 120, 1));
         this.registerSetting(tablist = new ButtonSetting("Tab list", false));

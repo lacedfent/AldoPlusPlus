@@ -73,7 +73,9 @@ public class Nametags extends Module {
         private String displayName;
         private int stringHalfWidth;
         private int teamColor;
-        private int nameColor;
+        private int relationshipColor;
+        private int playerNameStart;
+        private int playerNameEnd;
         private double distanceSq;
         private float baseScale;
         private float yOffset;
@@ -84,7 +86,8 @@ public class Nametags extends Module {
         private ItemStack helmet;
         private int totalItems;
 
-        private void set(EntityPlayer player, String displayName, int stringHalfWidth, int teamColor, int nameColor,
+        private void set(EntityPlayer player, String displayName, int stringHalfWidth, int teamColor, int relationshipColor,
+                         int playerNameStart, int playerNameEnd,
                          double distanceSq, float baseScale, float yOffset,
                          ItemStack heldItem, ItemStack boots, ItemStack leggings, ItemStack chestplate, ItemStack helmet,
                          int totalItems) {
@@ -92,7 +95,9 @@ public class Nametags extends Module {
             this.displayName = displayName;
             this.stringHalfWidth = stringHalfWidth;
             this.teamColor = teamColor;
-            this.nameColor = nameColor;
+            this.relationshipColor = relationshipColor;
+            this.playerNameStart = playerNameStart;
+            this.playerNameEnd = playerNameEnd;
             this.distanceSq = distanceSq;
             this.baseScale = baseScale;
             this.yOffset = yOffset;
@@ -199,6 +204,8 @@ public class Nametags extends Module {
 
             String displayName = buildDisplayName(player, renderDistance, distance);
             int stringHalfWidth = fontRenderer.getStringWidth(displayName) / 2;
+            int relationshipColor = resolveRelationshipColor(player);
+            int[] playerNameRange = findVisiblePlayerNameRange(displayName, player.getName());
 
             ItemStack heldItem = null;
             ItemStack boots = null;
@@ -229,7 +236,9 @@ public class Nametags extends Module {
                     displayName,
                     stringHalfWidth,
                     Utils.getColorFromEntity(player),
-                    resolveNameColor(player),
+                    relationshipColor,
+                    playerNameRange[0],
+                    playerNameRange[1],
                     distanceSq,
                     baseScale,
                     (player.isSneaking() ? (player.height - 0.3F) : player.height) + 0.3F,
@@ -311,14 +320,14 @@ public class Nametags extends Module {
         return name;
     }
 
-    private int resolveNameColor(EntityPlayer entity) {
+    private int resolveRelationshipColor(EntityPlayer entity) {
         if (Utils.isFriended(entity)) {
             return friendColor.getColor();
         }
         if (Utils.isEnemy(entity)) {
             return enemyColor.getColor();
         }
-        return 0xFFFFFFFF;
+        return -1;
     }
 
     private float computeBaseScaleValue() {
@@ -363,12 +372,12 @@ public class Nametags extends Module {
         GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
         GlStateManager.translate(0.0F, -10.0F, 0.0F);
 
-        if (showRect.isToggled() && bgOpacity.getInput() > 0.01) {
-            renderBackground(state.stringHalfWidth, 0.0f, state.teamColor, textRenderer);
+        if ((showRect.isToggled() && bgOpacity.getInput() > 0.01) || bgBorder.isToggled() || state.relationshipColor != -1) {
+            renderBackground(state.stringHalfWidth, 0.0f, state.teamColor, state.relationshipColor, textRenderer);
             applyNametagTextState();
         }
 
-        textRenderer.drawString(state.displayName, -state.stringHalfWidth, 0.0f, state.nameColor, textShadow.isToggled());
+        drawDisplayName(state, textRenderer);
         applyNametagTextState();
 
         if (state.totalItems > 0) {
@@ -418,7 +427,23 @@ public class Nametags extends Module {
         GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
     }
 
-    private void renderBackground(int stringWidth, float textY, int teamColor, RavenFontRenderer fontRenderer) {
+    private void drawDisplayName(NametagRenderState state, RavenFontRenderer textRenderer) {
+        if (state.relationshipColor == -1 || state.playerNameStart < 0 || state.playerNameEnd <= state.playerNameStart) {
+            textRenderer.drawString(state.displayName, -state.stringHalfWidth, 0.0f, 0xFFFFFFFF, textShadow.isToggled());
+            return;
+        }
+
+        final int[] visibleIndex = {0};
+        textRenderer.drawGlyphString(state.displayName, -state.stringHalfWidth, 0.0f, (character, xOffset, width, formattingColor) -> {
+            int glyphIndex = visibleIndex[0]++;
+            if (glyphIndex >= state.playerNameStart && glyphIndex < state.playerNameEnd) {
+                return state.relationshipColor;
+            }
+            return formattingColor != null ? formattingColor : 0xFFFFFFFF;
+        }, textShadow.isToggled());
+    }
+
+    private void renderBackground(int stringWidth, float textY, int teamColor, int relationshipColor, RavenFontRenderer fontRenderer) {
         GlStateManager.disableTexture2D();
         Tessellator tessellator = Tessellator.getInstance();
         WorldRenderer worldRenderer = tessellator.getWorldRenderer();
@@ -427,22 +452,26 @@ public class Nametags extends Module {
         float innerRight = stringWidth + 3.0f;
         float innerTop = textY + fontRenderer.getTextTopOffset() - 3.0f;
         float innerBottom = textY + fontRenderer.getTextBottomOffset() + 2.0f;
+        boolean renderBaseFill = showRect.isToggled() && alpha > 0.01F;
 
-        worldRenderer.begin(7, DefaultVertexFormats.POSITION_COLOR);
-        worldRenderer.pos(innerLeft, innerTop, 0).color(0.0F, 0.0F, 0.0F, alpha).endVertex();
-        worldRenderer.pos(innerLeft, innerBottom, 0).color(0.0F, 0.0F, 0.0F, alpha).endVertex();
-        worldRenderer.pos(innerRight, innerBottom, 0).color(0.0F, 0.0F, 0.0F, alpha).endVertex();
-        worldRenderer.pos(innerRight, innerTop, 0).color(0.0F, 0.0F, 0.0F, alpha).endVertex();
-        tessellator.draw();
+        if (renderBaseFill) {
+            worldRenderer.begin(7, DefaultVertexFormats.POSITION_COLOR);
+            worldRenderer.pos(innerLeft, innerTop, 0).color(0.0F, 0.0F, 0.0F, alpha).endVertex();
+            worldRenderer.pos(innerLeft, innerBottom, 0).color(0.0F, 0.0F, 0.0F, alpha).endVertex();
+            worldRenderer.pos(innerRight, innerBottom, 0).color(0.0F, 0.0F, 0.0F, alpha).endVertex();
+            worldRenderer.pos(innerRight, innerTop, 0).color(0.0F, 0.0F, 0.0F, alpha).endVertex();
+            tessellator.draw();
+        }
 
-        if (bgBorder.isToggled()) {
+        int borderColor = relationshipColor != -1 ? relationshipColor : teamColor;
+        if (bgBorder.isToggled() || relationshipColor != -1) {
             float red;
             float green;
             float blue;
-            if (teamColor != -1) {
-                red = ((teamColor >> 16) & 255) / 255.0F;
-                green = ((teamColor >> 8) & 255) / 255.0F;
-                blue = (teamColor & 255) / 255.0F;
+            if (borderColor != -1) {
+                red = ((borderColor >> 16) & 255) / 255.0F;
+                green = ((borderColor >> 8) & 255) / 255.0F;
+                blue = (borderColor & 255) / 255.0F;
             }
             else {
                 red = 0.6F;
@@ -450,36 +479,60 @@ public class Nametags extends Module {
                 blue = 0.6F;
             }
 
+            float borderThickness = 1.0F;
+            float borderAlpha = relationshipColor != -1 ? alpha : 1.0F;
+            float left = innerLeft - borderThickness;
+            float right = innerRight + borderThickness;
+            float top = innerTop - borderThickness;
+            float bottom = innerBottom + borderThickness;
             float borderZ = -0.001F;
-            float left = innerLeft - 1.0f;
-            float right = innerRight + 1.0f;
-            float top = innerTop - 1.0f;
-            float bottom = innerBottom + 1.0f;
 
             worldRenderer.begin(7, DefaultVertexFormats.POSITION_COLOR);
-            worldRenderer.pos(left, innerTop, borderZ).color(red, green, blue, 1.0F).endVertex();
-            worldRenderer.pos(left, top, borderZ).color(red, green, blue, 1.0F).endVertex();
-            worldRenderer.pos(right, top, borderZ).color(red, green, blue, 1.0F).endVertex();
-            worldRenderer.pos(right, innerTop, borderZ).color(red, green, blue, 1.0F).endVertex();
+            worldRenderer.pos(left, top, borderZ).color(red, green, blue, borderAlpha).endVertex();
+            worldRenderer.pos(left, innerTop, borderZ).color(red, green, blue, borderAlpha).endVertex();
+            worldRenderer.pos(right, innerTop, borderZ).color(red, green, blue, borderAlpha).endVertex();
+            worldRenderer.pos(right, top, borderZ).color(red, green, blue, borderAlpha).endVertex();
 
-            worldRenderer.pos(left, bottom, borderZ).color(red, green, blue, 1.0F).endVertex();
-            worldRenderer.pos(left, innerBottom, borderZ).color(red, green, blue, 1.0F).endVertex();
-            worldRenderer.pos(right, innerBottom, borderZ).color(red, green, blue, 1.0F).endVertex();
-            worldRenderer.pos(right, bottom, borderZ).color(red, green, blue, 1.0F).endVertex();
+            worldRenderer.pos(left, innerBottom, borderZ).color(red, green, blue, borderAlpha).endVertex();
+            worldRenderer.pos(left, bottom, borderZ).color(red, green, blue, borderAlpha).endVertex();
+            worldRenderer.pos(right, bottom, borderZ).color(red, green, blue, borderAlpha).endVertex();
+            worldRenderer.pos(right, innerBottom, borderZ).color(red, green, blue, borderAlpha).endVertex();
 
-            worldRenderer.pos(innerLeft, bottom, borderZ).color(red, green, blue, 1.0F).endVertex();
-            worldRenderer.pos(left, bottom, borderZ).color(red, green, blue, 1.0F).endVertex();
-            worldRenderer.pos(left, top, borderZ).color(red, green, blue, 1.0F).endVertex();
-            worldRenderer.pos(innerLeft, top, borderZ).color(red, green, blue, 1.0F).endVertex();
+            worldRenderer.pos(left, innerTop, borderZ).color(red, green, blue, borderAlpha).endVertex();
+            worldRenderer.pos(left, innerBottom, borderZ).color(red, green, blue, borderAlpha).endVertex();
+            worldRenderer.pos(innerLeft, innerBottom, borderZ).color(red, green, blue, borderAlpha).endVertex();
+            worldRenderer.pos(innerLeft, innerTop, borderZ).color(red, green, blue, borderAlpha).endVertex();
 
-            worldRenderer.pos(innerRight, top, borderZ).color(red, green, blue, 1.0F).endVertex();
-            worldRenderer.pos(right, top, borderZ).color(red, green, blue, 1.0F).endVertex();
-            worldRenderer.pos(right, bottom, borderZ).color(red, green, blue, 1.0F).endVertex();
-            worldRenderer.pos(innerRight, bottom, borderZ).color(red, green, blue, 1.0F).endVertex();
+            worldRenderer.pos(innerRight, innerTop, borderZ).color(red, green, blue, borderAlpha).endVertex();
+            worldRenderer.pos(innerRight, innerBottom, borderZ).color(red, green, blue, borderAlpha).endVertex();
+            worldRenderer.pos(right, innerBottom, borderZ).color(red, green, blue, borderAlpha).endVertex();
+            worldRenderer.pos(right, innerTop, borderZ).color(red, green, blue, borderAlpha).endVertex();
             tessellator.draw();
         }
 
         GlStateManager.enableTexture2D();
+    }
+
+    private int[] findVisiblePlayerNameRange(String formattedText, String playerName) {
+        String strippedText = stripFormattingCodes(formattedText);
+        int nameStart = strippedText.indexOf(playerName);
+        if (nameStart < 0) {
+            return new int[] {-1, -1};
+        }
+        return new int[] {nameStart, nameStart + playerName.length()};
+    }
+
+    private String stripFormattingCodes(String text) {
+        StringBuilder builder = new StringBuilder(text.length());
+        for (int i = 0; i < text.length(); i++) {
+            char character = text.charAt(i);
+            if (character == '\u00a7' && i + 1 < text.length()) {
+                i++;
+                continue;
+            }
+            builder.append(character);
+        }
+        return builder.toString();
     }
 
     private String getSelectedFontName() {

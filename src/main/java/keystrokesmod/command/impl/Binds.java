@@ -1,9 +1,10 @@
 package keystrokesmod.command.impl;
 
 import keystrokesmod.Raven;
+import keystrokesmod.command.Command;
+import keystrokesmod.command.CommandInput;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.ModuleManager;
-import keystrokesmod.command.Command;
 import keystrokesmod.utility.profile.Profile;
 import org.lwjgl.input.Keyboard;
 
@@ -18,40 +19,37 @@ public class Binds extends Command {
     }
 
     @Override
-    public void onExecute(String[] args) {
-        if (args.length <= 1) {
+    public void execute(CommandInput input) {
+        if (input.argumentCount() == 0) {
             Map<String, List<String>> binds = getBindsModulesMap(0);
             int size = getTotalModules(binds);
-            chatWithPrefix("&b" + size + " &7module" + (size == 1 ? "" : "s") + " have keybinds.");
+            replyWithHeader("&b" + size + " &7module" + (size == 1 ? "" : "s") + " have keybinds.");
             for (Map.Entry<String, List<String>> entry : binds.entrySet()) {
-                String key = entry.getKey();
-                List<String> moduleNames = entry.getValue();
-                for (String moduleName : moduleNames) {
-                    chatWithPrefix(" &b" + key + " &7" + moduleName);
+                for (String moduleName : entry.getValue()) {
+                    replyWithHeader(" &b" + entry.getKey() + " &7" + moduleName);
                 }
             }
+            return;
         }
-        else if (args.length == 2) {
-            int keycode = Keyboard.getKeyIndex(args[1].toUpperCase());
-            if (keycode == 0) {
-                chatWithPrefix("&7Invalid key.");
-                return;
-            }
 
-            Map<String, List<String>> binds = getBindsModulesMap(keycode);
-            int size = getTotalModules(binds);
-            chatWithPrefix("&b" + size + " &7module" + (size == 1 ? "" : "s") + " has keybind &b" + args[1].toUpperCase() + "&7.");
-
-            for (Map.Entry<String, List<String>> entry : binds.entrySet()) {
-                String key = entry.getKey();
-                List<String> moduleNames = entry.getValue();
-                for (String moduleName : moduleNames) {
-                    chatWithPrefix(" &b" + key + " &7" + moduleName);
-                }
-            }
-        }
-        else {
+        if (input.argumentCount() != 1) {
             syntaxError();
+            return;
+        }
+
+        int keycode = Keyboard.getKeyIndex(input.getArgument(0).toUpperCase());
+        if (keycode == Keyboard.KEY_NONE) {
+            replyWithHeader("&7Invalid key.");
+            return;
+        }
+
+        Map<String, List<String>> binds = getBindsModulesMap(keycode);
+        int size = getTotalModules(binds);
+        replyWithHeader("&b" + size + " &7module" + (size == 1 ? "" : "s") + " has keybind &b" + input.getArgument(0).toUpperCase() + "&7.");
+        for (Map.Entry<String, List<String>> entry : binds.entrySet()) {
+            for (String moduleName : entry.getValue()) {
+                replyWithHeader(" &b" + entry.getKey() + " &7" + moduleName);
+            }
         }
     }
 
@@ -61,8 +59,7 @@ public class Binds extends Command {
             addModuleIfMatches(binds, module, keycode);
         }
         for (Profile profile : Raven.profileManager.profiles) {
-            Module module = profile.getModule();
-            addModuleIfMatches(binds, module, keycode);
+            addModuleIfMatches(binds, profile.getModule(), keycode);
         }
         for (Module scriptModule : Raven.scriptManager.scripts.values()) {
             addModuleIfMatches(binds, scriptModule, keycode);
@@ -77,7 +74,8 @@ public class Binds extends Command {
         if (keycode != 0 && module.getKeycode() != keycode) {
             return;
         }
-        String keyName = (module.getKeycode() >= 1000) ? "M" + (module.getKeycode() - 1000) : Keyboard.getKeyName(module.getKeycode());
+
+        String keyName = module.getKeycode() >= 1000 ? "M" + (module.getKeycode() - 1000) : Keyboard.getKeyName(module.getKeycode());
         List<String> moduleNames = bindsMap.get(keyName);
         if (moduleNames == null) {
             moduleNames = new ArrayList<>();

@@ -22,6 +22,7 @@ import keystrokesmod.utility.BlockHighlightSharedHandler;
 import keystrokesmod.utility.Utils;
 import keystrokesmod.utility.ModuleUtils;
 import keystrokesmod.utility.PacketsHandler;
+import keystrokesmod.utility.PlayerRelationsManager;
 import keystrokesmod.utility.ReflectionUtils;
 import keystrokesmod.utility.profile.Profile;
 import keystrokesmod.utility.profile.ProfileManager;
@@ -59,6 +60,7 @@ public class Raven {
     public static ProfileManager profileManager;
     public static ScriptManager scriptManager;
     public static CommandManager commandManager;
+    public static PlayerRelationsManager playerRelationsManager;
     public static Profile currentProfile;
     public static PacketsHandler packetsHandler;
     public static UnifiedLagHandler lagHandler;
@@ -87,6 +89,8 @@ public class Raven {
         MinecraftForge.EVENT_BUS.register(lagHandler = new UnifiedLagHandler());
 
         ReflectionUtils.setupFields();
+        playerRelationsManager = new PlayerRelationsManager();
+        playerRelationsManager.load();
         moduleManager.register();
         MinecraftForge.EVENT_BUS.register(new BlockHighlightSharedHandler());
         scriptManager = new ScriptManager();
@@ -96,7 +100,6 @@ public class Raven {
         ScriptDefaults.reloadModules();
         scriptManager.loadScripts();
         profileManager.loadProfiles();
-        profileManager.loadInitialProfile();
         ReflectionUtils.setKeyBindings();
 
         commandManager = new CommandManager();
@@ -126,6 +129,10 @@ public class Raven {
                     }
                     else if (mc.currentScreen instanceof ClickGui) {
                         module.guiUpdate();
+                        module.syncKeyBindState();
+                    }
+                    else {
+                        module.syncKeyBindState();
                     }
 
                     if (module.isEnabled()) {
@@ -137,12 +144,17 @@ public class Raven {
                         module.onKeyBind();
                     }
                 }
-                else if (mc.currentScreen instanceof ClickGui) {
+                else {
+                    for (Module module : Raven.scriptManager.scripts.values()) {
+                        module.syncKeyBindState();
+                    }
+                    if (mc.currentScreen instanceof ClickGui) {
                     if (applyKillAuraRangeConstraints()) {
                         clickGui.onSliderChange();
                     }
                     if (mc.thePlayer.getHealth() <= 0.0f) {
                         mc.displayGuiScreen(null);
+                    }
                     }
                 }
             }
@@ -157,6 +169,11 @@ public class Raven {
             if (mc.currentScreen == null && Utils.nullCheck()) {
                 for (Profile profile : Raven.profileManager.profiles) {
                     profile.getModule().onKeyBind();
+                }
+            }
+            else if (Utils.nullCheck()) {
+                for (Profile profile : Raven.profileManager.profiles) {
+                    profile.getModule().syncKeyBindState();
                 }
             }
         }
@@ -227,6 +244,17 @@ public class Raven {
         } else if (mc.currentScreen instanceof ClickGui) {
             for (Module module : getModuleManager().getModules()) {
                 module.guiUpdate();
+                module.syncKeyBindState();
+            }
+            for (Module module : scriptManager.scripts.values()) {
+                module.syncKeyBindState();
+            }
+        } else {
+            for (Module module : getModuleManager().getModules()) {
+                module.syncKeyBindState();
+            }
+            for (Module module : scriptManager.scripts.values()) {
+                module.syncKeyBindState();
             }
         }
 

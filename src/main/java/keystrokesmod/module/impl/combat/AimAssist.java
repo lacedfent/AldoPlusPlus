@@ -45,7 +45,7 @@ public class AimAssist extends Module {
     private String[] SORT_MODES = new String[]{"Health", "Angle", "Hurt time", "Distance"};
 
     public AimAssist() {
-        super("AimAssist", category.combat);
+        super("Aim Assist", category.combat);
         this.registerSetting(mode = new SliderSetting("Mode", 0, AIM_MODES));
         this.registerSetting(speed = new SliderSetting("Speed", 10, 1, 30, 1));
         this.registerSetting(multipointHorizontal = new SliderSetting("Multipoint horizontal", "%", 0, 0, 100, 1));
@@ -62,6 +62,11 @@ public class AimAssist extends Module {
         this.registerSetting(keepMoveDirection = new ButtonSetting("Keep move direction", true));
         this.registerSetting(hoverDelay = new SliderSetting("Hover delay", " ms", 100, 0, 500, 10));
         this.registerSetting(weaponOnly = new ButtonSetting("Weapon only", false));
+    }
+
+    @Override
+    public String getInfo() {
+        return AIM_MODES[(int) mode.getInput()];
     }
 
     @Override

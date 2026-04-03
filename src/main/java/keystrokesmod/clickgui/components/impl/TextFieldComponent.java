@@ -66,6 +66,7 @@ public class TextFieldComponent extends AbstractTextInputComponent {
             textSetting.submit();
             valueWhenFocused = null;
             getTextField().setText(textSetting.getText());
+            setTextFieldFocused(false);
             return;
         }
 

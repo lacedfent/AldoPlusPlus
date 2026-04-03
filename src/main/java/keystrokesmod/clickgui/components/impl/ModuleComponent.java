@@ -121,6 +121,12 @@ public class ModuleComponent extends Component {
                     this.settings.add(isc);
                     y += 12;
                 }
+                else if (v instanceof PlayerListSetting) {
+                    PlayerListSetting pls = (PlayerListSetting) v;
+                    PlayerListComponent plc = new PlayerListComponent(pls, this, y);
+                    this.settings.add(plc);
+                    y += plc.getHeightF();
+                }
                 else if (v instanceof keystrokesmod.module.setting.impl.BlockListSetting) {
                     keystrokesmod.module.setting.impl.BlockListSetting bls = (keystrokesmod.module.setting.impl.BlockListSetting) v;
                     BlockSearchComponent bsc = new BlockSearchComponent(bls, this, y);
@@ -521,7 +527,7 @@ public class ModuleComponent extends Component {
             float progress = cc.getAnimationProgress();
             return 12f + (cc.getExpandedHeight() - 12f) * progress;
         }
-        if (component instanceof AbstractSearchListComponent || component instanceof TextFieldComponent) {
+        if (component instanceof AbstractSearchListComponent || component instanceof TextFieldComponent || component instanceof PlayerListComponent) {
             return component.getHeightF();
         }
         return 12f;

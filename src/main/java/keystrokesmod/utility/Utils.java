@@ -8,6 +8,7 @@ import keystrokesmod.mixin.impl.accessor.IAccessorGuiIngame;
 import keystrokesmod.mixin.impl.accessor.IAccessorItemFood;
 import keystrokesmod.mixin.impl.accessor.IAccessorMinecraft;
 import keystrokesmod.mixin.impl.accessor.IAccessorPlayerControllerMP;
+import keystrokesmod.Raven;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.ModuleManager;
 import keystrokesmod.module.impl.client.Settings;
@@ -62,6 +63,13 @@ public class Utils implements IMinecraftInstance {
     public static final Logger log = LogManager.getLogger();
 
     public static boolean addEnemy(String name) {
+        if (Raven.playerRelationsManager != null) {
+            if (Raven.playerRelationsManager.addEnemy(name)) {
+                sendMessage("&7Added enemy&7: &b" + name);
+                return true;
+            }
+            return false;
+        }
         if (enemies.add(name.toLowerCase())) {
             sendMessage("&7Added enemy&7: &b" + name);
             return true;
@@ -70,8 +78,15 @@ public class Utils implements IMinecraftInstance {
     }
 
     public static boolean removeEnemy(String name) {
+        if (Raven.playerRelationsManager != null) {
+            if (Raven.playerRelationsManager.removeEnemy(name)) {
+                sendMessage("&7Removed enemy&7: &b" + name);
+                return true;
+            }
+            return false;
+        }
         if (enemies.remove(name.toLowerCase())) {
-            sendMessage("&Removed enemy&7: &b" + name);
+            sendMessage("&7Removed enemy&7: &b" + name);
             return true;
         }
         return false;
@@ -382,6 +397,13 @@ public class Utils implements IMinecraftInstance {
     }
 
     public static boolean removeFriend(String name) {
+        if (Raven.playerRelationsManager != null) {
+            if (Raven.playerRelationsManager.removeFriend(name)) {
+                sendMessage("&7Removed &afriend&7: &b" + name);
+                return true;
+            }
+            return false;
+        }
         if (friends.remove(name.toLowerCase())) {
             sendMessage("&7Removed &afriend&7: &b" + name);
             return true;
@@ -404,6 +426,13 @@ public class Utils implements IMinecraftInstance {
     }
 
     public static boolean addFriend(String name) {
+        if (Raven.playerRelationsManager != null) {
+            if (Raven.playerRelationsManager.addFriend(name)) {
+                sendMessage("&7Added &afriend&7: &b" + name);
+                return true;
+            }
+            return false;
+        }
         if (friends.add(name.toLowerCase())) {
             sendMessage("&7Added &afriend&7: &b" + name);
             if (enemies.contains(name.toLowerCase())) {
@@ -592,11 +621,17 @@ public class Utils implements IMinecraftInstance {
     }
 
     public static boolean isEnemy(EntityPlayer entityPlayer) {
-        return !enemies.isEmpty() && enemies.contains(entityPlayer.getName().toLowerCase());
+        return entityPlayer != null && isEnemy(entityPlayer.getName());
     }
 
     public static boolean isEnemy(String name) {
-        return !enemies.isEmpty() && enemies.contains(name.toLowerCase());
+        if (ModuleManager.relationships != null && !ModuleManager.relationships.isEnabled()) {
+            return false;
+        }
+        if (Raven.playerRelationsManager != null) {
+            return Raven.playerRelationsManager.isEnemy(name);
+        }
+        return name != null && !enemies.isEmpty() && enemies.contains(name.toLowerCase());
     }
 
     public static String getColorForHealth(double percent, double totalHealth) {
@@ -671,11 +706,17 @@ public class Utils implements IMinecraftInstance {
     }
 
     public static boolean isFriended(EntityPlayer entityPlayer) {
-        return !friends.isEmpty() && friends.contains(entityPlayer.getName().toLowerCase());
+        return entityPlayer != null && isFriended(entityPlayer.getName());
     }
 
     public static boolean isFriended(String name) {
-        return !friends.isEmpty() && friends.contains(name.toLowerCase());
+        if (ModuleManager.relationships != null && !ModuleManager.relationships.isEnabled()) {
+            return false;
+        }
+        if (Raven.playerRelationsManager != null) {
+            return Raven.playerRelationsManager.isFriend(name);
+        }
+        return name != null && !friends.isEmpty() && friends.contains(name.toLowerCase());
     }
 
     public static double getRandomValue(SliderSetting a, SliderSetting b, Random r) {

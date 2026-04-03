@@ -1,35 +1,48 @@
 package keystrokesmod.command.impl;
 
-import keystrokesmod.utility.Utils;
+import keystrokesmod.Raven;
 import keystrokesmod.command.Command;
+import keystrokesmod.command.CommandInput;
+import keystrokesmod.utility.PlayerRelationsManager;
+import keystrokesmod.utility.Utils;
+
+import java.util.List;
 
 public class Friend extends Command {
     public Friend() {
-        super("friend", new String[] { "friend", "f" });
+        super("friend", "friend", "f");
     }
 
     @Override
-    public void onExecute(String[] args) {
-        if (args.length == 2) {
-            if (args[1].equals("clear")) {
-                chatWithPrefix("&b" + Utils.friends.size() + " &7friend" + (Utils.friends.size() == 1 ? "" : "s") + " cleared.");
-                Utils.friends.clear();
-                return;
+    public void execute(CommandInput input) {
+        if (input.argumentCount() == 0) {
+            List<PlayerRelationsManager.PlayerEntry> entries = Raven.playerRelationsManager.getEntries(PlayerRelationsManager.RelationType.FRIEND);
+            replyWithHeader("&b" + entries.size() + " &7friend" + (entries.size() == 1 ? "" : "s") + ".");
+            for (PlayerRelationsManager.PlayerEntry entry : entries) {
+                replyWithHeader(" &b" + entry.getDisplayName());
             }
-
-            boolean added = Utils.addFriend(args[1]);
-            if (!added) {
-                Utils.removeFriend(args[1]);
-            }
+            return;
         }
-        else if (args.length == 1) {
-            chatWithPrefix("&b" + Utils.friends.size() + " &7friend" + (Utils.friends.size() == 1 ? "" : "s") + ".");
-            for (String name : Utils.friends) {
-                chatWithPrefix(" &b" + name);
-            }
+
+        if (input.argumentCount() != 1) {
+            syntaxError();
+            return;
+        }
+
+        String name = input.getArgument(0);
+        if ("clear".equalsIgnoreCase(name)) {
+            int cleared = Raven.playerRelationsManager.getCount(PlayerRelationsManager.RelationType.FRIEND);
+            Raven.playerRelationsManager.clearFriends();
+            replyWithHeader("&b" + cleared + " &7friend" + (cleared == 1 ? "" : "s") + " cleared.");
+            return;
+        }
+
+        if (Utils.addFriend(name)) {
+            replyWithHeader("&7Added &afriend&7: &b" + name);
         }
         else {
-            syntaxError();
+            Utils.removeFriend(name);
+            replyWithHeader("&7Removed &afriend&7: &b" + name);
         }
     }
 }

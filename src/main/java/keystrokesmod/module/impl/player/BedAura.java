@@ -8,6 +8,8 @@ import keystrokesmod.event.SlotUpdateEvent;
 import keystrokesmod.mixin.impl.accessor.IAccessorEntityRenderer;
 import keystrokesmod.mixin.impl.accessor.IAccessorPlayerControllerMP;
 import keystrokesmod.module.Module;
+import keystrokesmod.module.ModuleManager;
+import keystrokesmod.module.impl.combat.KillAura;
 import keystrokesmod.module.impl.render.BlockOverlay;
 import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.ColorSetting;
@@ -43,6 +45,7 @@ public class BedAura extends Module {
     private final SliderSetting breakDelay;
     private final SliderSetting breakSpeed;
     private final ButtonSetting whitelistOwnBed;
+    private final ButtonSetting prioritizeKillAura;
     private final GroupSetting swapGroup;
     private final ButtonSetting switchBackWhenDone;
     private final ButtonSetting overrideSwapBack;
@@ -69,13 +72,14 @@ public class BedAura extends Module {
     private long respawnMessageTime;
 
     public BedAura() {
-        super("BedAura", category.player);
+        super("Bed Aura", category.player);
         this.registerSetting(breakSpeed = new SliderSetting("Break speed", "x", 1.0, 1.0, 2.0, 0.02));
         this.registerSetting(breakDelay = new SliderSetting("Break delay", "ms", 250.0, 0.0, 250.0, 50.0));
         this.registerSetting(range = new SliderSetting("Range", " blocks", 4.5, 2.0, 6.0, 0.1));
         this.registerSetting(fov = new SliderSetting("FOV", "", 180.0, 30.0, 360.0, 1.0));
         this.registerSetting(rate = new SliderSetting("Scan rate", "ms", 250.0, 50.0, 2000.0, 50.0));
         this.registerSetting(whitelistOwnBed = new ButtonSetting("Whitelist own bed", true));
+        this.registerSetting(prioritizeKillAura = new ButtonSetting("Prioritize KillAura", false));
         this.registerSetting(swapGroup = new GroupSetting("Swap"));
         this.registerSetting(switchBackWhenDone = new ButtonSetting(swapGroup, "Switch back when done", true, "Swap to previous slot"));
         this.registerSetting(overrideSwapBack = new ButtonSetting(swapGroup, "Override swap back", true));
@@ -183,11 +187,11 @@ public class BedAura extends Module {
     }
 
     private boolean shouldSuppressManualMouse() {
-        return miningActive && isEnabled() && Utils.nullCheck() && mc.currentScreen == null && canMineBlocks();
+        return miningActive && isEnabled() && Utils.nullCheck() && mc.currentScreen == null && canMineBlocks() && !shouldYieldToKillAura();
     }
 
     public void applyMiningKeyState() {
-        if (!canMineBlocks()) {
+        if (!canMineBlocks() || shouldYieldToKillAura()) {
             if (miningActive) {
                 resetMining();
             }
@@ -208,7 +212,7 @@ public class BedAura extends Module {
     }
 
     public boolean isActivelyMining() {
-        return miningActive && isEnabled() && Utils.nullCheck() && mc.currentScreen == null && canMineBlocks();
+        return miningActive && isEnabled() && Utils.nullCheck() && mc.currentScreen == null && canMineBlocks() && !shouldYieldToKillAura();
     }
 
     public boolean shouldOverrideFastMine() {
@@ -237,7 +241,7 @@ public class BedAura extends Module {
     }
 
     public boolean shouldOverrideMouseOver() {
-        return isEnabled() && miningActive && canMineBlocks() && targetPos != null && targetHitVec != null && targetSide != null && Utils.nullCheck();
+        return isEnabled() && miningActive && canMineBlocks() && targetPos != null && targetHitVec != null && targetSide != null && Utils.nullCheck() && !shouldYieldToKillAura();
     }
 
     public void modifyMouseOverFromGetMouseOver(float partialTicks) {
@@ -261,6 +265,10 @@ public class BedAura extends Module {
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public void onClientRotation(ClientRotationEvent e) {
         if (!isEnabled() || !Utils.nullCheck() || mc.currentScreen != null || !canMineBlocks()) {
+            resetMining();
+            return;
+        }
+        if (shouldYieldToKillAura()) {
             resetMining();
             return;
         }
@@ -613,6 +621,15 @@ public class BedAura extends Module {
         return mc.thePlayer.capabilities.allowEdit
                 && !mc.thePlayer.capabilities.isCreativeMode
                 && !mc.thePlayer.isSpectator();
+    }
+
+    private boolean shouldYieldToKillAura() {
+        if (!prioritizeKillAura.isToggled()) {
+            return false;
+        }
+        return ModuleManager.killAura != null
+                && ModuleManager.killAura.isEnabled()
+                && KillAura.target != null;
     }
 
     private void resetSpawnTracking() {

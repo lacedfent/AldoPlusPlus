@@ -13,14 +13,34 @@ public class AutoWho extends Module {
     private ButtonSetting artifical;
     private ButtonSetting hideMessage;
     private ButtonSetting removeBots;
+    private int lastTrackedGameStatus = Integer.MIN_VALUE;
 
     public AutoWho() {
-        super("AutoWho", category.minigames);
+        super("Auto Who", category.minigames);
         this.registerSetting(new DescriptionSetting("Automatically execute /who."));
         this.registerSetting(new DescriptionSetting(Utils.formatColor("Use '&enick [nick]&r' when nicked.")));
         this.registerSetting(artifical = new ButtonSetting("Artificial", false));
         this.registerSetting(hideMessage = new ButtonSetting("Hide message", false));
         this.registerSetting(removeBots = new ButtonSetting("Remove bots", true));
+    }
+
+    @Override
+    public void onDisable() {
+        lastTrackedGameStatus = Integer.MIN_VALUE;
+    }
+
+    @Override
+    public void onUpdate() {
+        if (!Utils.nullCheck()) {
+            lastTrackedGameStatus = Integer.MIN_VALUE;
+            return;
+        }
+
+        int trackedGameStatus = getTrackedGameStatus();
+        if (trackedGameStatus == 2 && lastTrackedGameStatus != 2) {
+            this.artificial();
+        }
+        lastTrackedGameStatus = trackedGameStatus;
     }
 
     @SubscribeEvent
@@ -32,13 +52,24 @@ public class AutoWho extends Module {
         if (r.isEmpty()) {
             return;
         }
-        if (r.replace("!", "").trim().startsWith(Utils.getServerName()) && ((r.contains("(") && r.contains(")")) || r.contains("/"))) {
-            this.artificial();
-        }
-        else if (hideMessage.isToggled() && r.startsWith("ONLINE: ")) {
+        if (hideMessage.isToggled() && r.startsWith("ONLINE: ")) {
             e.setCanceled(true);
             Utils.log.info("[CHAT] " + r);
         }
+    }
+
+    private int getTrackedGameStatus() {
+        int bedwarsStatus = Utils.getBedwarsStatus();
+        if (bedwarsStatus != -1) {
+            return bedwarsStatus;
+        }
+
+        int skywarsStatus = Utils.getSkyWarsStatus();
+        if (skywarsStatus != -1) {
+            return skywarsStatus;
+        }
+
+        return 0;
     }
 
     private void artificial() {

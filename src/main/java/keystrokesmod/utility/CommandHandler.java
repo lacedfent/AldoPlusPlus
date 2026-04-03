@@ -11,6 +11,7 @@ import keystrokesmod.module.impl.movement.Fly;
 import keystrokesmod.module.impl.movement.Speed;
 import keystrokesmod.module.impl.other.FakeChat;
 import keystrokesmod.module.impl.other.NameHider;
+import keystrokesmod.utility.PlayerRelationsManager;
 import keystrokesmod.utility.profile.Profile;
 import net.minecraft.client.gui.FontRenderer;
 import org.lwjgl.opengl.GL11;
@@ -83,13 +84,13 @@ public class CommandHandler implements IMinecraftInstance {
         print("\"" + DuelsStats.nick + "\"", 0);
     }
 
-    private static void handleCnameCommand(String[] args) {
-        if (!isArgsValid(args, 2)) {
+    private static void handleNameHiderCommand(String[] args) {
+        if (args == null || args.length < 2) {
             print(INVALID_SYNTAX, 1);
             return;
         }
 
-        NameHider.fakeName = args[1];
+        NameHider.setFakeName(String.join(" ", Arrays.copyOfRange(args, 1, args.length)));
         print("&aName has been set to:", 1);
         print("\"" + NameHider.fakeName + "\"", 0);
     }
@@ -253,7 +254,7 @@ public class CommandHandler implements IMinecraftInstance {
         }
 
         if (args[1].equals("clear")) {
-            Utils.friends.clear();
+            Raven.playerRelationsManager.clearFriends();
             print("&aFriends cleared.", 1);
             return;
         }
@@ -275,7 +276,7 @@ public class CommandHandler implements IMinecraftInstance {
         }
 
         if (args[1].equals("clear")) {
-            Utils.enemies.clear();
+            Raven.playerRelationsManager.clearEnemies();
             print("&aEnemies cleared.", 1);
             return;
         }
@@ -381,8 +382,8 @@ public class CommandHandler implements IMinecraftInstance {
             case "nick":
                 handleNickCommand(args);
                 break;
-            case "cname":
-                handleCnameCommand(args);
+            case "namehider":
+                handleNameHiderCommand(args);
                 break;
             case "fakechat":
                 handleFakeChatCommand(contents);
@@ -439,7 +440,7 @@ public class CommandHandler implements IMinecraftInstance {
                 print("3 profiles load [profile]", 0);
                 print("4 profiles remove [profile]", 0);
                 print("&eModule-specific:", 0);
-                print("1 cname [name]", 0);
+        print("1 namehider [name]", 0);
                 print("2 " + FakeChat.command + " [msg]", 0);
                 print("3 setspeed [fly/bhop/speed] [value]", 0);
                 print("4 setvelocity [h/v] [value]", 0);

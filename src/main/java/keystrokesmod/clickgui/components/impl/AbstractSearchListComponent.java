@@ -31,6 +31,8 @@ public abstract class AbstractSearchListComponent extends AbstractTextInputCompo
     protected static final int CLOSE_SIZE = 6;
     protected static final float CLOSE_PAD = 3f;
     protected static final float SELECTED_LIST_GAP = 4f;
+    protected static final float LIST_ROW_TEXT_SCALE = 0.56f;
+    protected static final float LIST_ROW_TEXT_Y_OFFSET = LIST_ROW_TEXT_SCALE;
 
     protected final ScrollOffsetAnimation dropdownScrollAnim = new ScrollOffsetAnimation(200);
     protected final ScrollOffsetAnimation selectedScrollAnim = new ScrollOffsetAnimation(200);
@@ -116,6 +118,11 @@ public abstract class AbstractSearchListComponent extends AbstractTextInputCompo
             if (!handleSearchEscape()) {
                 unfocusSearch();
             }
+            return;
+        }
+
+        if ((keyCode == Keyboard.KEY_RETURN || keyCode == Keyboard.KEY_NUMPADENTER) && isSearchFocused()) {
+            unfocusSearch();
             return;
         }
 
@@ -293,16 +300,20 @@ public abstract class AbstractSearchListComponent extends AbstractTextInputCompo
             GL11.glPopMatrix();
             restoreGuiRenderState(depthEnabled, blendEnabled, depthMask);
         }
-        drawScaledText(groupName != null ? groupName : "Back", left + 13f, centeredScaledTextY(rowTop, ROW_HEIGHT - 1f), 0xFFCCCCCC);
+        drawListRowText(groupName != null ? groupName : "Back", left + 13f, rowTop, 0xFFCCCCCC);
     }
 
     protected final void renderStandardRow(String label, ItemStack stack, float left, float right, float rowTop, int bgColor, boolean showClose) {
         RenderUtils.drawRect(left, rowTop, right, rowTop + ROW_HEIGHT - 1f, bgColor);
         renderItemInRow(stack, left + 2f, rowTop);
-        drawScaledText(label != null ? label : "", left + 13f, centeredScaledTextY(rowTop, ROW_HEIGHT - 1f), 0xFFCCCCCC);
+        drawListRowText(label != null ? label : "", left + 13f, rowTop, 0xFFCCCCCC);
         if (showClose) {
             renderCloseIcon(right, rowTop);
         }
+    }
+
+    protected final void drawListRowText(String text, float x, float rowTop, int color) {
+        drawScaledText(text, x, centeredScaledTextY(rowTop, ROW_HEIGHT - 1f, LIST_ROW_TEXT_SCALE) + LIST_ROW_TEXT_Y_OFFSET, color, LIST_ROW_TEXT_SCALE);
     }
 
     protected final void renderCloseIcon(float right, float rowTop) {

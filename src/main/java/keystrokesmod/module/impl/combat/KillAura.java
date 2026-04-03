@@ -77,7 +77,7 @@ public class KillAura extends Module {
     private double targetDistance = Double.MAX_VALUE;
 
     public KillAura() {
-        super("KillAura", category.combat);
+        super("Kill Aura", category.combat);
         this.registerSetting(targetCPS = new SliderSetting("Target CPS", 10.0, 1.0, 20.0, 0.5));
         this.registerSetting(fov = new SliderSetting("FOV", "°", 360.0, 30.0, 360.0, 4.0));
         this.registerSetting(attackRange = new SliderSetting("Range (attack)", 3.0, 3.0, 6.0, 0.05));

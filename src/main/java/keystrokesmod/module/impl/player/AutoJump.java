@@ -8,7 +8,7 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
 public class AutoJump extends Module {
     public AutoJump() {
-        super("AutoJump", category.player);
+        super("Auto Jump", category.player);
     }
 
     @SubscribeEvent

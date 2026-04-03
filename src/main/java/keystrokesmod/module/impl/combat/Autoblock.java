@@ -54,7 +54,7 @@ public class Autoblock extends Module {
     private int tickCounter;
 
     public Autoblock() {
-        super("Autoblock", category.combat);
+        super("Auto Block", category.combat);
 
         this.registerSetting(range = new SliderSetting("Range", 4.0, 2.0, 6.0, 0.1));
         this.registerSetting(maxHurtTimeMs = new SliderSetting("Maximum Hurt Time", "ms", 200, 50, 500, 50));

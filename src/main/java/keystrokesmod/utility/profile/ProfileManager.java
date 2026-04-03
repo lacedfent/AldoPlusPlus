@@ -8,6 +8,7 @@ import keystrokesmod.event.PostProfileLoadEvent;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.ModuleManager;
 import keystrokesmod.module.impl.client.Gui;
+import keystrokesmod.module.impl.client.Relationships;
 import keystrokesmod.module.impl.client.Settings;
 import keystrokesmod.module.impl.render.HUD;
 import keystrokesmod.module.impl.render.TargetHUD;
@@ -17,6 +18,7 @@ import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.ColorSetting;
 import keystrokesmod.module.setting.impl.KeySetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
+import keystrokesmod.module.setting.impl.TextSetting;
 import keystrokesmod.script.Manager;
 import keystrokesmod.utility.IMinecraftInstance;
 import keystrokesmod.utility.Utils;
@@ -65,10 +67,10 @@ public class ProfileManager implements IMinecraftInstance {
         jsonObject.addProperty("keybind", profile.getModule().getKeycode());
         JsonArray jsonArray = new JsonArray();
         for (Module module : Raven.moduleManager.getModules()) {
-            if (module.ignoreOnSave) {
+            if (module.ignoreOnSave && !shouldSaveModuleStateOnly(module)) {
                 continue;
             }
-            JsonObject moduleInformation = getJsonObject(module);
+            JsonObject moduleInformation = module.ignoreOnSave ? getModuleStateObject(module) : getJsonObject(module);
             jsonArray.add(moduleInformation);
         }
         if (Raven.scriptManager != null && Raven.scriptManager.scripts != null) {
@@ -98,14 +100,10 @@ public class ProfileManager implements IMinecraftInstance {
             return null;
         }
 
-        boolean shouldActivateProfile = Raven.currentProfile == null && profiles.isEmpty();
         Profile profile = new Profile(profileName, bind);
         saveProfile(profile);
         profiles.add(profile);
         refreshProfileModules();
-        if (shouldActivateProfile) {
-            loadProfile(profile.getName());
-        }
         return profile;
     }
 
@@ -140,6 +138,9 @@ public class ProfileManager implements IMinecraftInstance {
             else if (setting instanceof KeySetting) {
                 moduleInformation.addProperty(setting.getProfileKey(), ((KeySetting) setting).getKey());
             }
+            else if (setting instanceof TextSetting) {
+                moduleInformation.addProperty(setting.getProfileKey(), ((TextSetting) setting).getText());
+            }
             else if (setting instanceof ColorSetting) {
                 ColorSetting cs = (ColorSetting) setting;
                 moduleInformation.addProperty(setting.getProfileKey(),
@@ -150,6 +151,21 @@ public class ProfileManager implements IMinecraftInstance {
             }
         }
         return moduleInformation;
+    }
+
+    private static JsonObject getModuleStateObject(Module module) {
+        JsonObject moduleInformation = new JsonObject();
+        moduleInformation.addProperty("name", module.getName());
+        if (module.canBeEnabled) {
+            moduleInformation.addProperty("enabled", module.isEnabled());
+            moduleInformation.addProperty("hidden", module.isHidden());
+            moduleInformation.addProperty("keybind", module.getKeycode());
+        }
+        return moduleInformation;
+    }
+
+    private static boolean shouldSaveModuleStateOnly(Module module) {
+        return module instanceof Relationships;
     }
 
     public void loadProfile(String name) {
@@ -192,6 +208,7 @@ public class ProfileManager implements IMinecraftInstance {
                     failedMessage("load", profileName);
                     return;
                 }
+                boolean loadedRelationshipsState = false;
                 Map<String, SavedCategoryState> savedGuiCategoryState = new HashMap<>();
                 for (JsonElement moduleJson : modules) {
                     JsonObject moduleInformation = moduleJson.getAsJsonObject();
@@ -212,6 +229,10 @@ public class ProfileManager implements IMinecraftInstance {
 
                     if (module == null) {
                         continue;
+                    }
+
+                    if (module instanceof Relationships) {
+                        loadedRelationshipsState = true;
                     }
 
                     if (module.canBeEnabled()) {
@@ -271,6 +292,14 @@ public class ProfileManager implements IMinecraftInstance {
 
                     for (Setting setting : module.getSettings()) {
                         setting.loadProfile(moduleInformation);
+                    }
+                }
+                if (!loadedRelationshipsState && ModuleManager.relationships != null && Raven.playerRelationsManager != null) {
+                    if (Raven.playerRelationsManager.isActive()) {
+                        ModuleManager.relationships.enable();
+                    }
+                    else {
+                        ModuleManager.relationships.disable();
                     }
                 }
                 Raven.currentProfile = getProfile(profileName);
@@ -408,10 +437,7 @@ public class ProfileManager implements IMinecraftInstance {
     }
 
     public void loadInitialProfile() {
-        Profile profile = getDefaultOrFirstProfile();
-        if (profile != null) {
-            loadProfile(profile.getName());
-        }
+        Raven.currentProfile = null;
     }
 
     public void failedMessage(String reason, String name) {

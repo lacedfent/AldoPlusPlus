@@ -1,7 +1,8 @@
 package keystrokesmod.command.impl;
 
-import keystrokesmod.helper.PingHelper;
 import keystrokesmod.command.Command;
+import keystrokesmod.command.CommandInput;
+import keystrokesmod.helper.PingHelper;
 
 public class Ping extends Command {
     public Ping() {
@@ -9,7 +10,7 @@ public class Ping extends Command {
     }
 
     @Override
-    public void onExecute(String[] args) {
+    public void execute(CommandInput input) {
         PingHelper.checkPing(true);
     }
 }

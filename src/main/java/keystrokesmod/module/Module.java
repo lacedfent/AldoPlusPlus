@@ -91,6 +91,24 @@ public class Module {
         }
     }
 
+    public void syncKeyBindState() {
+        if (this.keycode == 0) {
+            return;
+        }
+
+        try {
+            this.isToggled = this.keycode >= 1000
+                    ? ((this.keycode == 1069 || this.keycode == 1070) ? MouseHelper.isScrollDown(this.keycode) : Mouse.isButtonDown(this.keycode - 1000))
+                    : Keyboard.isKeyDown(this.keycode);
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+            Utils.sendMessage("&cFailed to check keybinding. Setting to none");
+            this.keycode = 0;
+            this.isToggled = false;
+        }
+    }
+
     public boolean canBeEnabled() {
         if (this.script != null && script.error) {
             return false;
@@ -112,7 +130,7 @@ public class Module {
         }
         this.setEnabled(true);
         ModuleManager.organizedModules.add(this);
-        if (ModuleManager.hud.isEnabled()) {
+        if (ModuleManager.hud != null && ModuleManager.hud.isEnabled()) {
             ModuleManager.sort();
         }
 

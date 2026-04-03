@@ -1,6 +1,7 @@
 package keystrokesmod.helper;
 
 import keystrokesmod.Raven;
+import keystrokesmod.module.ModuleManager;
 import keystrokesmod.module.impl.client.Settings;
 import keystrokesmod.module.impl.world.AntiBot;
 import keystrokesmod.utility.Utils;
@@ -71,7 +72,8 @@ public class MouseHelper {
         } else if (e.button == 1) {
             aR();
         }
-        else if (e.button == 2 && Settings.middleClickFriends.isToggled()) {
+        else if (e.button == 2 && ModuleManager.relationships != null && ModuleManager.relationships.isEnabled()
+            && ModuleManager.relationships.middleClickFriends.isToggled()) {
             EntityLivingBase g = Utils.raytrace(200);
             if (g != null && !AntiBot.isBot(g) && !Utils.addFriend(g.getName())) {
                 Utils.removeFriend(g.getName());

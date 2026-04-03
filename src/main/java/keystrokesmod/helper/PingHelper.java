@@ -8,7 +8,6 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 public class PingHelper {
     private static boolean sendChat = false;
     private static long sendTime = 0L;
-    // For chat commands
     private static boolean sendChatCC = false;
     private static long sendTimeCC = 0L;
 
@@ -26,29 +25,30 @@ public class PingHelper {
 
     public static void checkPing(boolean isChat) {
         if (isChat) {
-            Utils.sendMessage("&7[&fping&7] &7Checking...");
+            Utils.sendMessage("&7Checking ping...");
         }
         else {
             CommandHandler.print("§3Checking...", 1);
         }
+
         if (sendChat) {
             if (isChat) {
-                Utils.sendMessage("&7[&fping&7] &7Please wait.");
+                Utils.sendMessage("&7Please wait before checking again.");
             }
             else {
                 CommandHandler.print("§cPlease wait.", 0);
             }
+            return;
+        }
+
+        Utils.mc.thePlayer.sendChatMessage("/...");
+        if (isChat) {
+            sendChatCC = true;
+            sendTimeCC = System.currentTimeMillis();
         }
         else {
-            Utils.mc.thePlayer.sendChatMessage("/...");
-            if (isChat) {
-                sendChatCC = true;
-                sendTimeCC = System.currentTimeMillis();
-            }
-            else {
-                sendChat = true;
-                sendTime = System.currentTimeMillis();
-            }
+            sendChat = true;
+            sendTime = System.currentTimeMillis();
         }
     }
 
@@ -57,8 +57,9 @@ public class PingHelper {
         if (ping < 0) {
             ping = 0;
         }
+
         if (isChat) {
-            Utils.sendMessage("&7[&fping&7] &7Your ping: &b" + ping + "&7ms.");
+            Utils.sendMessage("&7Your ping: &b" + ping + "&7ms.");
         }
         else {
             CommandHandler.print("Your ping: " + ping + "ms", 0);
@@ -77,3 +78,4 @@ public class PingHelper {
         }
     }
 }
+

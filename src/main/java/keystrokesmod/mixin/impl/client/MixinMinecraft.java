@@ -78,6 +78,19 @@ public class MixinMinecraft {
         method = "runTick",
         at = @At(
             value = "INVOKE",
+            target = "Lnet/minecraft/profiler/Profiler;startSection(Ljava/lang/String;)V",
+            ordinal = 0,
+            shift = At.Shift.BEFORE
+        )
+    )
+    public void onRunTickAfterRightClickDelay(CallbackInfo ci) {
+        MinecraftForge.EVENT_BUS.post(new RightClickDelayTickEvent());
+    }
+
+    @Inject(
+        method = "runTick",
+        at = @At(
+            value = "INVOKE",
             target = "Lnet/minecraft/client/Minecraft;sendClickBlockToController(Z)V",
             shift = At.Shift.AFTER
         )

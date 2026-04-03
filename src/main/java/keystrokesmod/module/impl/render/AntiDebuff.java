@@ -10,7 +10,7 @@ public class AntiDebuff extends Module {
     public ButtonSetting removeSideEffects;
 
     public AntiDebuff() {
-        super("AntiDebuff", category.render);
+        super("Anti Debuff", category.render);
         this.registerSetting(removeBlindness = new ButtonSetting("Remove blindness", true));
         this.registerSetting(removeNausea = new ButtonSetting("Remove nausea", true));
         this.registerSetting(removeSideEffects = new ButtonSetting("Remove side effects", false));

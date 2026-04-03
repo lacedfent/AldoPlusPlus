@@ -20,7 +20,6 @@ public class Settings extends Module {
     public static SliderSetting customCapes;
     public static ButtonSetting addBracketsToDistance;
     public static ButtonSetting hideFirstPersonESP;
-    public static ButtonSetting middleClickFriends;
     public static ButtonSetting setChatAsInventory;
     public static ButtonSetting showHealthAsHearts;
     public static ButtonSetting showHeartSymbol;
@@ -51,7 +50,6 @@ public class Settings extends Module {
         this.registerSetting(customCapes = new SliderSetting("Custom cape", 0, capes));
         this.registerSetting(addBracketsToDistance = new ButtonSetting("Add brackets to distance", false));
         this.registerSetting(hideFirstPersonESP = new ButtonSetting("Hide first person self ESP", true));
-        this.registerSetting(middleClickFriends = new ButtonSetting("Middle click friends", false));
         this.registerSetting(setChatAsInventory = new ButtonSetting("Set chat as inventory", false));
         this.registerSetting(showHealthAsHearts = new ButtonSetting("Show health as hearts", false));
         this.registerSetting(showHeartSymbol = new ButtonSetting("Show heart symbol", false));

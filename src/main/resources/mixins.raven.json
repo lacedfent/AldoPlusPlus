@@ -22,6 +22,7 @@
     "world.MixinWorldInfo",
     "world.MixinWorld",
     "render.MixinGuiChat",
+    "render.MixinGuiPlayerTabOverlay",
     "render.MixinGuiContainer",
     "render.MixinGuiScreen",
     "network.MixinNetHandlerPlayClient",

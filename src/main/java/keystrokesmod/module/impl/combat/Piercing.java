@@ -36,6 +36,11 @@ public class Piercing extends Module {
         this.registerSetting(insideHitboxOnly = new ButtonSetting("Inside hitbox only", false));
     }
 
+    @Override
+    public String getInfo() {
+        return sortModes[(int) sortMode.getInput()];
+    }
+
     public boolean shouldOverrideMouseOver() {
         if (!this.isEnabled()) {
             return false;

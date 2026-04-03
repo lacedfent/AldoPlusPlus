@@ -7,6 +7,7 @@ import keystrokesmod.clickgui.components.impl.BindComponent;
 import keystrokesmod.clickgui.components.impl.CategoryComponent;
 import keystrokesmod.clickgui.components.impl.TextFieldComponent;
 import keystrokesmod.clickgui.components.impl.ModuleComponent;
+import keystrokesmod.clickgui.components.impl.PlayerListComponent;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.impl.client.CommandLine;
 import keystrokesmod.module.impl.client.Gui;
@@ -226,6 +227,12 @@ public class ClickGui extends GuiScreen {
                             TextFieldComponent tc = (TextFieldComponent) comp;
                             if (tc.isTextInputFocused() && !tc.containsClick(mouseX, mouseY)) {
                                 tc.unfocusTextInput();
+                            }
+                        }
+                        else if (comp instanceof PlayerListComponent) {
+                            PlayerListComponent plc = (PlayerListComponent) comp;
+                            if (plc.isTextInputFocused() && !plc.containsClick(mouseX, mouseY)) {
+                                plc.unfocusTextInput();
                             }
                         }
                     }

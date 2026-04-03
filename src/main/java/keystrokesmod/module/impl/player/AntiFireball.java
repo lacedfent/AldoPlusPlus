@@ -42,7 +42,7 @@ public class AntiFireball extends Module {
     private final Random rand = new Random();
 
     public AntiFireball() {
-        super("AntiFireball", category.player);
+        super("Anti Fireball", category.player);
         this.registerSetting(fov = new SliderSetting("FOV", 360.0, 30.0, 360.0, 4.0));
         this.registerSetting(range = new SliderSetting("Range", 8.0, 3.0, 15.0, 0.5));
         this.registerSetting(targetCPS = new SliderSetting("Target CPS", 12.0, 1.0, 20.0, 0.5));

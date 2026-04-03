@@ -134,15 +134,24 @@ public abstract class AbstractTextInputComponent extends Component implements Fo
     public abstract String getGroupName();
 
     protected static float centeredScaledTextY(float top, float height) {
+        return centeredScaledTextY(top, height, TEXT_SCALE);
+    }
+
+    protected static float centeredScaledTextY(float top, float height, float scale) {
         RavenFontRenderer renderer = keystrokesmod.module.impl.client.Gui.getClickGuiSettingFontRenderer();
-        return top + (height - renderer.getFontHeight() * TEXT_SCALE) / 2f;
+        float textBoxHeight = Math.max(1f, (renderer.getTextBottomOffset() - renderer.getTextTopOffset()) * scale);
+        return top + (height - textBoxHeight) / 2f - renderer.getTextTopOffset() * scale;
     }
 
     protected static void drawScaledText(String text, float x, float y, int color) {
+        drawScaledText(text, x, y, color, TEXT_SCALE);
+    }
+
+    protected static void drawScaledText(String text, float x, float y, int color, float scale) {
         RavenFontRenderer renderer = keystrokesmod.module.impl.client.Gui.getClickGuiSettingFontRenderer();
         GL11.glPushMatrix();
-        GL11.glScaled(TEXT_SCALE, TEXT_SCALE, TEXT_SCALE);
-        renderer.drawString(text, x / TEXT_SCALE, y / TEXT_SCALE, color, true);
+        GL11.glScaled(scale, scale, scale);
+        renderer.drawString(text, x / scale, y / scale, color, false);
         GL11.glPopMatrix();
     }
 }
