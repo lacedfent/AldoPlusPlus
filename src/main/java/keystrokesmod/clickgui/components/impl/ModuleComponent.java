@@ -21,6 +21,7 @@ import org.lwjgl.opengl.GL11;
 import java.awt.*;
 import java.util.HashMap;
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.nio.IntBuffer;
 import java.util.Map;
 
@@ -50,6 +51,8 @@ public class ModuleComponent extends Component {
     private static final int ENABLED_COLOR = new Color(24, 154, 255).getRGB();
     private static final int DISABLED_COLOR = new Color(192, 192, 192).getRGB();
     private final boolean categoryManager;
+    private final Map<Component, GroupComponent> owningGroups = new IdentityHashMap<Component, GroupComponent>();
+    private final Map<String, GroupComponent> groupsByName = new HashMap<String, GroupComponent>();
 
     public ModuleComponent(Module mod, CategoryComponent p, float yPos) {
         this.mod = mod;
@@ -109,6 +112,12 @@ public class ModuleComponent extends Component {
                     this.settings.add(cc);
                     y += 12;
                 }
+                else if (v instanceof PotionListSetting) {
+                    PotionListSetting pls = (PotionListSetting) v;
+                    PotionSearchComponent psc = new PotionSearchComponent(pls, this, y);
+                    this.settings.add(psc);
+                    y += 12;
+                }
                 else if (v instanceof InventoryItemListSetting) {
                     InventoryItemListSetting iils = (InventoryItemListSetting) v;
                     InventoryItemSearchComponent iisc = new InventoryItemSearchComponent(iils, this, y);
@@ -144,6 +153,7 @@ public class ModuleComponent extends Component {
         if (!categoryManager) {
             this.settings.add(new BindComponent(this, y));
         }
+        rebuildGroupOwnershipCache();
     }
 
     public void reloadSettings() {
@@ -486,16 +496,7 @@ public class ModuleComponent extends Component {
     }
 
     private GroupComponent getOwningGroup(Component component) {
-        String groupName = getGroupName(component);
-        if (groupName.isEmpty()) {
-            return null;
-        }
-        for (Component c : this.settings) {
-            if (c instanceof GroupComponent && ((GroupComponent) c).setting.getName().equals(groupName)) {
-                return (GroupComponent) c;
-            }
-        }
-        return null;
+        return owningGroups.get(component);
     }
 
     private String getGroupName(Component component) {
@@ -515,6 +516,28 @@ public class ModuleComponent extends Component {
             return ((AbstractTextInputComponent) component).getGroupName();
         }
         return "";
+    }
+
+    private void rebuildGroupOwnershipCache() {
+        owningGroups.clear();
+        groupsByName.clear();
+
+        for (Component component : this.settings) {
+            if (component instanceof GroupComponent) {
+                GroupComponent groupComponent = (GroupComponent) component;
+                groupsByName.put(groupComponent.setting.getName(), groupComponent);
+            }
+        }
+
+        for (Component component : this.settings) {
+            String groupName = getGroupName(component);
+            if (!groupName.isEmpty()) {
+                GroupComponent groupComponent = groupsByName.get(groupName);
+                if (groupComponent != null) {
+                    owningGroups.put(component, groupComponent);
+                }
+            }
+        }
     }
 
     /** Base height for a component in pixels (float). */

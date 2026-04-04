@@ -1,6 +1,7 @@
 package keystrokesmod.module.impl.player;
 
 import keystrokesmod.event.RightClickDelayTickEvent;
+import keystrokesmod.event.SendPacketEvent;
 import keystrokesmod.mixin.impl.accessor.IAccessorMinecraft;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.setting.impl.BlockListSetting;
@@ -12,9 +13,9 @@ import net.minecraft.block.state.IBlockState;
 import keystrokesmod.utility.Utils;
 import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
+import net.minecraft.network.play.client.C08PacketPlayerBlockPlacement;
 import net.minecraft.util.BlockPos;
 import net.minecraft.util.MovingObjectPosition;
-import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
 public class FastPlace extends Module {
@@ -29,7 +30,7 @@ public class FastPlace extends Module {
 
     public FastPlace() {
         super("Fast Place", Module.category.player, 0);
-        this.registerSetting(tickDelay = new SliderSetting("Tick delay", 1.0, 1.0, 3.0, 1.0));
+        this.registerSetting(tickDelay = new SliderSetting("Tick delay", 1.0, 0.0, 3.0, 1.0));
         this.registerSetting(activationTime = new SliderSetting("Activation time", "ms", 0.0, 0.0, 100.0, 5.0));
         this.registerSetting(blocksOnly = new ButtonSetting("Blocks only", true));
         this.registerSetting(pitchCheck = new ButtonSetting("Pitch check", false));
@@ -80,23 +81,29 @@ public class FastPlace extends Module {
             if (delay == 4) {
                 return;
             }
-            if (((IAccessorMinecraft) mc).getRightClickDelayTimer() == 4) {
+            if (((IAccessorMinecraft) mc).getRightClickDelayTimer() > delay) {
                 ((IAccessorMinecraft) mc).setRightClickDelayTimer(delay);
             }
         }
     }
 
     @SubscribeEvent
-    public void onPlayerInteract(PlayerInteractEvent e) {
-        if (!Utils.nullCheck() || e.action != PlayerInteractEvent.Action.RIGHT_CLICK_BLOCK || e.world == null || !e.world.isRemote) {
-            return;
-        }
-        if (!canFastPlace(System.currentTimeMillis(), true)) {
+    public void onSendPacket(SendPacketEvent e) {
+        if (!Utils.nullCheck() || !(e.getPacket() instanceof C08PacketPlayerBlockPlacement)) {
             return;
         }
 
-        ItemStack heldItem = mc.thePlayer.getHeldItem();
-        if (heldItem == null || !(heldItem.getItem() instanceof ItemBlock)) {
+        C08PacketPlayerBlockPlacement packet = (C08PacketPlayerBlockPlacement) e.getPacket();
+        if (packet.getPlacedBlockDirection() != 255) {
+            return;
+        }
+
+        ItemStack packetStack = packet.getStack();
+        if (packetStack == null || !(packetStack.getItem() instanceof ItemBlock)) {
+            return;
+        }
+
+        if (!canFastPlace(System.currentTimeMillis(), true)) {
             return;
         }
 

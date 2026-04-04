@@ -9,6 +9,8 @@ import org.lwjgl.opengl.GL20;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL20.*;
@@ -17,6 +19,7 @@ public class ShaderUtils {
 
     private Minecraft mc = Minecraft.getMinecraft();
     public final int programID;
+    private final Map<String, Integer> uniformLocations = new HashMap<String, Integer>();
     private final String kawaseUpGlow = "#version 120\n" +
                                         "\n" +
                                         "uniform sampler2D inTexture, textureToCheck;\n" +
@@ -457,7 +460,7 @@ public class ShaderUtils {
     }
 
     public void setUniformf(String name, float... args) {
-        int loc = glGetUniformLocation(programID, name);
+        int loc = getUniformLocation(name);
         if (loc == -1) {
             return;
         }
@@ -478,12 +481,23 @@ public class ShaderUtils {
     }
 
     public void setUniformi(String name, int... args) {
-        int loc = glGetUniformLocation(programID, name);
+        int loc = getUniformLocation(name);
         if (loc == -1) {
             return;
         }
         if (args.length > 1) glUniform2i(loc, args[0], args[1]);
         else glUniform1i(loc, args[0]);
+    }
+
+    private int getUniformLocation(String name) {
+        Integer cachedLocation = uniformLocations.get(name);
+        if (cachedLocation != null) {
+            return cachedLocation;
+        }
+
+        int location = glGetUniformLocation(programID, name);
+        uniformLocations.put(name, location);
+        return location;
     }
 
     private int createShader(InputStream inputStream, int shaderType) {

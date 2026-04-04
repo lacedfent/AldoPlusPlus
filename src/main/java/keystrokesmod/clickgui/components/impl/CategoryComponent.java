@@ -3,7 +3,6 @@ package keystrokesmod.clickgui.components.impl;
 import keystrokesmod.Raven;
 import keystrokesmod.clickgui.animation.ScrollOffsetAnimation;
 import keystrokesmod.clickgui.components.Component;
-import keystrokesmod.clickgui.components.impl.BlockSearchComponent;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.impl.client.Gui;
 import keystrokesmod.utility.RenderUtils;
@@ -25,6 +24,7 @@ import org.lwjgl.opengl.GL11;
 import java.awt.*;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +33,7 @@ import java.util.stream.Collectors;
 
 public class CategoryComponent {
     private static long interactionSequence;
+    private static final Map<Module.category, CategoryIconStacks> CATEGORY_ICON_STACKS = buildCategoryIconStacks();
 
     public List<ModuleComponent> modules = new CopyOnWriteArrayList<>();
     public Module.category category;
@@ -66,6 +67,28 @@ public class CategoryComponent {
     private final ScrollOffsetAnimation scrollAnim = new ScrollOffsetAnimation(200);
 
     public long lastInteractedTime = 0L;
+
+    private static final class CategoryLayoutMetrics {
+        private final float visibleHeight;
+        private final float minScrollY;
+        private final float contentBottom;
+
+        private CategoryLayoutMetrics(float visibleHeight, float minScrollY, float contentBottom) {
+            this.visibleHeight = visibleHeight;
+            this.minScrollY = minScrollY;
+            this.contentBottom = contentBottom;
+        }
+    }
+
+    private static final class CategoryIconStacks {
+        private final ItemStack normalStack;
+        private final ItemStack activeStack;
+
+        private CategoryIconStacks(ItemStack normalStack, ItemStack activeStack) {
+            this.normalStack = normalStack;
+            this.activeStack = activeStack;
+        }
+    }
 
     public CategoryComponent(Module.category category) {
         this.category = category;
@@ -155,32 +178,16 @@ public class CategoryComponent {
     }
 
     private void syncAfterModuleReload() {
-        if (this.opened || this.smoothTimer != null) {
-            updateHeight();
-        }
-
-        float minScrollY = computeMinScrollY();
+        CategoryLayoutMetrics layoutMetrics = computeLayoutMetrics(this.opened || this.smoothTimer != null);
+        float minScrollY = layoutMetrics.minScrollY;
         float maxScrollY = this.y;
         float clampedScroll = Math.max(minScrollY, Math.min(maxScrollY, scrollAnim.getTarget()));
         this.moduleY = clampedScroll;
         scrollAnim.reset(clampedScroll);
 
         if (this.opened && !this.modules.isEmpty()) {
-            float maxModulesHeight = (this.screenHeight * 0.9f) - this.titleHeight - 4;
-            float accumulated = 0f;
-            for (ModuleComponent component : this.modules) {
-                float componentHeight = component.getHeightF();
-                if (accumulated + componentHeight > maxModulesHeight) {
-                    float remaining = maxModulesHeight - accumulated;
-                    if (remaining > 0f) {
-                        accumulated += remaining;
-                    }
-                    break;
-                }
-                accumulated += componentHeight;
-            }
-            this.big = Math.max(0f, accumulated);
-            this.lastHeight = Math.min(this.y + this.titleHeight + this.big + 4, this.y + this.screenHeight * 0.9f);
+            this.big = layoutMetrics.visibleHeight;
+            this.lastHeight = layoutMetrics.contentBottom;
             return;
         }
 
@@ -252,22 +259,17 @@ public class CategoryComponent {
                     if (!mod.isOpened || !mod.isVisible(comp)) {
                         continue;
                     }
-                    if (comp instanceof BlockSearchComponent) {
-                        BlockSearchComponent bsc = (BlockSearchComponent) comp;
-                        if (bsc.capturesCategoryScroll(mouseX, mouseY))
+                    if (comp instanceof AbstractSearchListComponent) {
+                        AbstractSearchListComponent searchListComponent = (AbstractSearchListComponent) comp;
+                        if (searchListComponent.capturesCategoryScroll(mouseX, mouseY)) {
                             return;
-                    } else if (comp instanceof InventoryItemSearchComponent) {
-                        InventoryItemSearchComponent iisc = (InventoryItemSearchComponent) comp;
-                        if (iisc.capturesCategoryScroll(mouseX, mouseY))
-                            return;
-                    } else if (comp instanceof ItemSearchComponent) {
-                        ItemSearchComponent isc = (ItemSearchComponent) comp;
-                        if (isc.capturesCategoryScroll(mouseX, mouseY))
-                            return;
-                    } else if (comp instanceof PlayerListComponent) {
+                        }
+                    }
+                    else if (comp instanceof PlayerListComponent) {
                         PlayerListComponent plc = (PlayerListComponent) comp;
-                        if (plc.capturesCategoryScroll(mouseX, mouseY))
+                        if (plc.capturesCategoryScroll(mouseX, mouseY)) {
                             return;
+                        }
                     }
                 }
             }
@@ -292,17 +294,7 @@ public class CategoryComponent {
     }
 
     private float computeMinScrollY() {
-        if (this.modules.isEmpty() || (!this.opened && smoothTimer == null)) {
-            return this.y;
-        }
-        float total = getTotalScrollExtentHeightF();
-        float maxModulesHeight = (this.screenHeight * 0.9f) - this.titleHeight - 4;
-        float viewport = Math.min(maxModulesHeight, total);
-        float overflow = total - viewport;
-        if (overflow > 0f) {
-            return this.y - overflow;
-        }
-        return this.y;
+        return computeLayoutMetrics(false).minScrollY;
     }
 
     public void render(FontRenderer renderer) {
@@ -320,41 +312,19 @@ public class CategoryComponent {
             c.updateAnimationState();
         }
 
-        if (!this.modules.isEmpty() && (this.opened || smoothTimer != null)) {
-            float maxModulesHeight = (this.screenHeight * 0.9f) - this.titleHeight - 4;
-            float accumulated = 0f;
-            for (ModuleComponent c : this.modules) {
-                float moduleHeight = c.getHeightF();
-                if (accumulated + moduleHeight > maxModulesHeight) {
-                    float remaining = maxModulesHeight - accumulated;
-                    if (remaining > 0f) {
-                        accumulated += remaining;
-                    }
-                    break;
-                }
-                accumulated += moduleHeight;
-            }
-            big = accumulated;
-        }
-        else if (!this.opened && smoothTimer == null) {
-            big = 0f;
-        }
-
+        CategoryLayoutMetrics layoutMetrics = computeLayoutMetrics(this.opened || smoothTimer != null);
+        big = (!this.opened && smoothTimer == null) ? 0f : layoutMetrics.visibleHeight;
         float maxScrollY = this.y;
-        float minScrollY = computeMinScrollY();
+        float minScrollY = layoutMetrics.minScrollY;
 
         scrollAnim.clampTarget(minScrollY, maxScrollY);
 
         moduleY = scrollAnim.getValue();
         moduleY = Math.max(minScrollY, Math.min(maxScrollY, moduleY));
 
-        if (smoothTimer != null || this.opened) {
-            this.updateHeight();
-        }
-
         float middlePos = this.x + this.width / 2 - titleRenderer.getStringWidth(this.category.name()) / 2.0f;
 
-        float contentBottom = getCurrentCategoryBottomFromContent();
+        float contentBottom = layoutMetrics.contentBottom;
 
         float extra;
         if (smoothTimer != null) {
@@ -471,50 +441,9 @@ public class CategoryComponent {
         double scale = 0.55;
         GlStateManager.pushMatrix();
         GlStateManager.scale(scale, scale, scale);
-        ItemStack itemStack = null;
-        switch (category) {
-            case combat:
-                itemStack = new ItemStack(Items.diamond_sword);
-                break;
-            case movement:
-                itemStack = new ItemStack(Items.diamond_boots);
-                break;
-            case player:
-                itemStack = new ItemStack(Items.golden_apple);
-                break;
-            case world:
-                itemStack = new ItemStack(Items.filled_map);
-                break;
-            case render:
-                itemStack = new ItemStack(Items.ender_eye);
-                break;
-            case minigames:
-                itemStack = new ItemStack(Items.gold_ingot);
-                break;
-            case fun:
-                itemStack = new ItemStack(Items.slime_ball);
-                break;
-            case other:
-                itemStack = new ItemStack(Items.clock);
-                break;
-            case client:
-                itemStack = new ItemStack(Items.compass);
-                break;
-            case profiles:
-                itemStack = new ItemStack(Items.book);
-                break;
-            case scripts:
-                itemStack = new ItemStack(Items.redstone);
-                break;
-        }
+        CategoryIconStacks iconStacks = CATEGORY_ICON_STACKS.get(category);
+        ItemStack itemStack = iconStacks == null ? null : (enchant ? iconStacks.activeStack : iconStacks.normalStack);
         if (itemStack != null) {
-            if (enchant) {
-                if (category != Module.category.player) {
-                    itemStack.addEnchantment(Enchantment.unbreaking, 2);
-                } else {
-                    itemStack.setItemDamage(1);
-                }
-            }
             RenderHelper.enableGUIStandardItemLighting();
             GlStateManager.disableBlend();
             GlStateManager.translate((float) (x / scale), (float) (y / scale), 0);
@@ -582,20 +511,11 @@ public class CategoryComponent {
         smoothTimer = null;
         textTimer = null;
         if (opened && !this.modules.isEmpty()) {
-            updateHeight();
-            float maxModulesHeight = (this.screenHeight * 0.9f) - this.titleHeight - 4;
-            float accumulated = 0f;
-            for (Component c : this.modules) {
-                float h = c.getHeightF();
-                if (accumulated + h > maxModulesHeight) {
-                    float remaining = maxModulesHeight - accumulated;
-                    if (remaining > 0f) accumulated += remaining;
-                    break;
-                }
-                accumulated += h;
-            }
-            this.lastHeight = Math.min(this.y + this.titleHeight + accumulated + 4, this.y + this.screenHeight * 0.9f);
+            CategoryLayoutMetrics layoutMetrics = computeLayoutMetrics(true);
+            this.big = layoutMetrics.visibleHeight;
+            this.lastHeight = layoutMetrics.contentBottom;
         } else {
+            this.big = 0f;
             this.lastHeight = this.y + this.titleHeight + 4;
         }
         this.moduleY = this.y;
@@ -621,5 +541,101 @@ public class CategoryComponent {
         textTimer = null;
         moduleY = scrollAnim.getTarget();
         scrollAnim.reset(moduleY);
+    }
+
+    private CategoryLayoutMetrics computeLayoutMetrics(boolean updateModuleOffsets) {
+        if (this.modules.isEmpty() || (!this.opened && this.smoothTimer == null)) {
+            return new CategoryLayoutMetrics(0f, this.y, this.y + this.titleHeight + 4);
+        }
+
+        float maxModulesHeight = (this.screenHeight * 0.9f) - this.titleHeight - 4;
+        float visibleHeight = 0f;
+        float totalScrollExtent = 0f;
+        float moduleOffset = this.titleHeight + 3;
+
+        for (ModuleComponent component : this.modules) {
+            if (updateModuleOffsets) {
+                component.updateHeight(moduleOffset);
+            }
+
+            float componentHeight = component.getHeightF();
+            moduleOffset += componentHeight;
+            totalScrollExtent += component.getScrollExtentHeightF();
+
+            if (visibleHeight < maxModulesHeight) {
+                visibleHeight += Math.min(componentHeight, maxModulesHeight - visibleHeight);
+            }
+        }
+
+        float viewport = Math.min(maxModulesHeight, totalScrollExtent);
+        float overflow = Math.max(0f, totalScrollExtent - viewport);
+        float minScrollY = overflow > 0f ? this.y - overflow : this.y;
+        float maxBottom = this.y + (this.screenHeight * 0.9f);
+        float contentBottom = Math.min(this.y + this.titleHeight + visibleHeight + 4, maxBottom);
+        return new CategoryLayoutMetrics(Math.max(0f, visibleHeight), minScrollY, contentBottom);
+    }
+
+    private static Map<Module.category, CategoryIconStacks> buildCategoryIconStacks() {
+        EnumMap<Module.category, CategoryIconStacks> iconStacks = new EnumMap<Module.category, CategoryIconStacks>(Module.category.class);
+        for (Module.category category : Module.category.values()) {
+            ItemStack normalStack = createCategoryIconStack(category, false);
+            ItemStack activeStack = createCategoryIconStack(category, true);
+            if (normalStack != null && activeStack != null) {
+                iconStacks.put(category, new CategoryIconStacks(normalStack, activeStack));
+            }
+        }
+        return iconStacks;
+    }
+
+    private static ItemStack createCategoryIconStack(Module.category category, boolean active) {
+        ItemStack itemStack;
+        switch (category) {
+            case combat:
+                itemStack = new ItemStack(Items.diamond_sword);
+                break;
+            case movement:
+                itemStack = new ItemStack(Items.diamond_boots);
+                break;
+            case player:
+                itemStack = new ItemStack(Items.golden_apple);
+                break;
+            case world:
+                itemStack = new ItemStack(Items.filled_map);
+                break;
+            case render:
+                itemStack = new ItemStack(Items.ender_eye);
+                break;
+            case minigames:
+                itemStack = new ItemStack(Items.gold_ingot);
+                break;
+            case fun:
+                itemStack = new ItemStack(Items.slime_ball);
+                break;
+            case other:
+                itemStack = new ItemStack(Items.clock);
+                break;
+            case client:
+                itemStack = new ItemStack(Items.compass);
+                break;
+            case profiles:
+                itemStack = new ItemStack(Items.book);
+                break;
+            case scripts:
+                itemStack = new ItemStack(Items.redstone);
+                break;
+            default:
+                return null;
+        }
+
+        if (!active) {
+            return itemStack;
+        }
+
+        if (category != Module.category.player) {
+            itemStack.addEnchantment(Enchantment.unbreaking, 2);
+        } else {
+            itemStack.setItemDamage(1);
+        }
+        return itemStack;
     }
 }

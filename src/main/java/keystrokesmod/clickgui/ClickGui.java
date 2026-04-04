@@ -5,9 +5,7 @@ import keystrokesmod.clickgui.components.Component;
 import keystrokesmod.clickgui.components.FocusableTextComponent;
 import keystrokesmod.clickgui.components.impl.BindComponent;
 import keystrokesmod.clickgui.components.impl.CategoryComponent;
-import keystrokesmod.clickgui.components.impl.TextFieldComponent;
 import keystrokesmod.clickgui.components.impl.ModuleComponent;
-import keystrokesmod.clickgui.components.impl.PlayerListComponent;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.impl.client.CommandLine;
 import keystrokesmod.module.impl.client.Gui;
@@ -217,29 +215,6 @@ public class ClickGui extends GuiScreen {
     }
 
     public void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException {
-        // Unfocus profile/script name text fields when clicking outside them (reverts to saved name)
-        if (mouseButton == 0 || mouseButton == 1) {
-            for (CategoryComponent category : categories) {
-                if (!category.isOpened()) continue;
-                for (ModuleComponent mod : category.getModules()) {
-                    for (Component comp : mod.settings) {
-                        if (comp instanceof TextFieldComponent) {
-                            TextFieldComponent tc = (TextFieldComponent) comp;
-                            if (tc.isTextInputFocused() && !tc.containsClick(mouseX, mouseY)) {
-                                tc.unfocusTextInput();
-                            }
-                        }
-                        else if (comp instanceof PlayerListComponent) {
-                            PlayerListComponent plc = (PlayerListComponent) comp;
-                            if (plc.isTextInputFocused() && !plc.containsClick(mouseX, mouseY)) {
-                                plc.unfocusTextInput();
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
         List<CategoryComponent> inputOrder = new ArrayList<>(categories);
         inputOrder.sort((a, b) -> Long.compare(b.lastInteractedTime, a.lastInteractedTime));
         CategoryComponent topmostCategory = null;
@@ -281,6 +256,11 @@ public class ClickGui extends GuiScreen {
         if (CommandLine.opened) {
             this.commandLineInput.mouseClicked(mouseX, mouseY, mouseButton);
             super.mouseClicked(mouseX, mouseY, mouseButton);
+        }
+
+        if (mouseButton == 0 || mouseButton == 1) {
+            FocusableTextComponent focusedComponent = findFocusedTextComponentAt(mouseX, mouseY);
+            enforceSingleFocusedTextInput(focusedComponent);
         }
     }
 
@@ -342,14 +322,28 @@ public class ClickGui extends GuiScreen {
 
     @Override
     public void keyTyped(char t, int k) {
+        FocusableTextComponent activeTextInput = getActiveFocusedTextInput();
         if (k == Keyboard.KEY_ESCAPE) {
-            if (unfocusFocusedTextInput()) {
+            if (activeTextInput != null) {
+                activeTextInput.unfocusTextInput();
                 return;
             }
             if (!binding()) {
                 this.mc.displayGuiScreen(null);
                 return;
             }
+        }
+
+        if (activeTextInput != null) {
+            for (CategoryComponent category : categories) {
+                if (!category.isOpened() || category.getModules().isEmpty()) {
+                    continue;
+                }
+                for (Component module : category.getModules()) {
+                    module.keyTyped(t, k);
+                }
+            }
+            return;
         }
 
         for (CategoryComponent category : categories) {
@@ -429,6 +423,67 @@ public class ClickGui extends GuiScreen {
             }
         }
         return false;
+    }
+
+    private FocusableTextComponent getActiveFocusedTextInput() {
+        FocusableTextComponent activeComponent = null;
+        for (CategoryComponent category : categories) {
+            for (ModuleComponent module : category.getModules()) {
+                for (Component component : module.settings) {
+                    if (component instanceof FocusableTextComponent) {
+                        FocusableTextComponent textComponent = (FocusableTextComponent) component;
+                        if (textComponent.isTextInputFocused()) {
+                            if (activeComponent == null) {
+                                activeComponent = textComponent;
+                            }
+                            else {
+                                textComponent.unfocusTextInput();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return activeComponent;
+    }
+
+    private FocusableTextComponent findFocusedTextComponentAt(int mouseX, int mouseY) {
+        List<CategoryComponent> inputOrder = new ArrayList<>(categories);
+        inputOrder.sort((a, b) -> Long.compare(b.lastInteractedTime, a.lastInteractedTime));
+
+        for (CategoryComponent category : inputOrder) {
+            if (!category.isOpened() || !category.overRect(mouseX, mouseY)) {
+                continue;
+            }
+
+            for (ModuleComponent module : category.getModules()) {
+                for (Component component : module.settings) {
+                    if (component instanceof FocusableTextComponent) {
+                        FocusableTextComponent textComponent = (FocusableTextComponent) component;
+                        if (textComponent.isTextInputFocused() && textComponent.containsClick(mouseX, mouseY)) {
+                            return textComponent;
+                        }
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private void enforceSingleFocusedTextInput(FocusableTextComponent focusedComponentToKeep) {
+        for (CategoryComponent category : categories) {
+            for (ModuleComponent module : category.getModules()) {
+                for (Component component : module.settings) {
+                    if (component instanceof FocusableTextComponent) {
+                        FocusableTextComponent textComponent = (FocusableTextComponent) component;
+                        if (textComponent != focusedComponentToKeep && textComponent.isTextInputFocused()) {
+                            textComponent.unfocusTextInput();
+                        }
+                    }
+                }
+            }
+        }
     }
 
     public void onSliderChange() {

@@ -112,6 +112,20 @@ public abstract class MixinRendererLivingEntity<T extends EntityLivingBase> exte
         }
     }
 
+    @Inject(method = "doRender(Lnet/minecraft/entity/EntityLivingBase;DDDFF)V", at = @At("HEAD"))
+    private void mobEsp$chamsPre(T entity, double x, double y, double z, float entityYaw, float partialTicks, CallbackInfo ci) {
+        if (!(entity instanceof EntityPlayer)) {
+            MobESP.onRenderMobPre(entity);
+        }
+    }
+
+    @Inject(method = "doRender(Lnet/minecraft/entity/EntityLivingBase;DDDFF)V", at = @At("RETURN"))
+    private void mobEsp$chamsPost(T entity, double x, double y, double z, float entityYaw, float partialTicks, CallbackInfo ci) {
+        if (!(entity instanceof EntityPlayer)) {
+            MobESP.onRenderMobPost();
+        }
+    }
+
     @Unique
     private EntityLivingBase nameHider$renderNameEntity;
 

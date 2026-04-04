@@ -118,6 +118,11 @@ public abstract class AbstractTextInputComponent extends Component implements Fo
     }
 
     @Override
+    public boolean containsClick(int mouseX, int mouseY) {
+        return isTextFieldClicked(mouseX, mouseY, layout(true));
+    }
+
+    @Override
     public void unfocusTextInput() {
         setTextFieldFocused(false);
     }

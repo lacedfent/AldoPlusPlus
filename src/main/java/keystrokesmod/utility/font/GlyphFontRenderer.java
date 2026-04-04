@@ -40,6 +40,7 @@ public final class GlyphFontRenderer implements RavenFontRenderer {
     private final float rawTextBottom;
     private final float fontHeight;
     private final float lineHeight;
+    private boolean destroyed;
 
     public GlyphFontRenderer(Font sourceFont, boolean antiAlias) {
         float renderScale = resolveRenderScale();
@@ -61,7 +62,7 @@ public final class GlyphFontRenderer implements RavenFontRenderer {
 
     @Override
     public int drawString(String text, float x, float y, int color, boolean shadow) {
-        if (text == null || text.isEmpty()) {
+        if (destroyed || text == null || text.isEmpty()) {
             return 0;
         }
 
@@ -75,7 +76,7 @@ public final class GlyphFontRenderer implements RavenFontRenderer {
 
     @Override
     public int drawGlyphString(String text, float x, float y, GlyphColorProvider colorProvider, boolean shadow) {
-        if (text == null || text.isEmpty()) {
+        if (destroyed || text == null || text.isEmpty()) {
             return 0;
         }
 
@@ -133,6 +134,20 @@ public final class GlyphFontRenderer implements RavenFontRenderer {
     @Override
     public int getTextBottomOffset() {
         return Math.round(fontHeight);
+    }
+
+    @Override
+    public void destroy() {
+        if (destroyed) {
+            return;
+        }
+
+        destroyed = true;
+        deleteGlyphTextures(defaultGlyphs);
+        for (GlyphData glyph : extendedGlyphs.values()) {
+            deleteGlyphTexture(glyph);
+        }
+        extendedGlyphs.clear();
     }
 
     private int drawInternal(String text, float x, float y, int color, boolean shadowPass) {
@@ -301,6 +316,10 @@ public final class GlyphFontRenderer implements RavenFontRenderer {
     }
 
     private GlyphData createGlyph(char character) {
+        if (destroyed) {
+            return new GlyphData(0, 0.0f, 0.0f, 0.0f, 0.0f, 0, 0);
+        }
+
         if (Character.isISOControl(character) && character != '\n') {
             return new GlyphData(0, 0.0f, 0.0f, 0.0f, 0.0f, 0, 0);
         }
@@ -447,6 +466,18 @@ public final class GlyphFontRenderer implements RavenFontRenderer {
         graphics.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
         graphics.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
         graphics.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
+    }
+
+    private static void deleteGlyphTextures(GlyphData[] glyphs) {
+        for (int i = 0; i < glyphs.length; i++) {
+            deleteGlyphTexture(glyphs[i]);
+        }
+    }
+
+    private static void deleteGlyphTexture(GlyphData glyph) {
+        if (glyph != null && glyph.textureId != 0) {
+            GL11.glDeleteTextures(glyph.textureId);
+        }
     }
 
     private static int getMinecraftColor(int colorIndex, int alpha, boolean shadow) {

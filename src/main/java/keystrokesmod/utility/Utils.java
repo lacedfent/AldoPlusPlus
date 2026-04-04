@@ -64,11 +64,8 @@ public class Utils implements IMinecraftInstance {
 
     public static boolean addEnemy(String name) {
         if (Raven.playerRelationsManager != null) {
-            if (Raven.playerRelationsManager.addEnemy(name)) {
-                sendMessage("&7Added enemy&7: &b" + name);
-                return true;
-            }
-            return false;
+            // Chat feedback is owned by callers (e.g. .enemy command) — avoid double messages with sendMessage + replyWithHeader
+            return Raven.playerRelationsManager.addEnemy(name);
         }
         if (enemies.add(name.toLowerCase())) {
             sendMessage("&7Added enemy&7: &b" + name);
@@ -79,11 +76,7 @@ public class Utils implements IMinecraftInstance {
 
     public static boolean removeEnemy(String name) {
         if (Raven.playerRelationsManager != null) {
-            if (Raven.playerRelationsManager.removeEnemy(name)) {
-                sendMessage("&7Removed enemy&7: &b" + name);
-                return true;
-            }
-            return false;
+            return Raven.playerRelationsManager.removeEnemy(name);
         }
         if (enemies.remove(name.toLowerCase())) {
             sendMessage("&7Removed enemy&7: &b" + name);
@@ -398,11 +391,7 @@ public class Utils implements IMinecraftInstance {
 
     public static boolean removeFriend(String name) {
         if (Raven.playerRelationsManager != null) {
-            if (Raven.playerRelationsManager.removeFriend(name)) {
-                sendMessage("&7Removed &afriend&7: &b" + name);
-                return true;
-            }
-            return false;
+            return Raven.playerRelationsManager.removeFriend(name);
         }
         if (friends.remove(name.toLowerCase())) {
             sendMessage("&7Removed &afriend&7: &b" + name);
@@ -427,11 +416,7 @@ public class Utils implements IMinecraftInstance {
 
     public static boolean addFriend(String name) {
         if (Raven.playerRelationsManager != null) {
-            if (Raven.playerRelationsManager.addFriend(name)) {
-                sendMessage("&7Added &afriend&7: &b" + name);
-                return true;
-            }
-            return false;
+            return Raven.playerRelationsManager.addFriend(name);
         }
         if (friends.add(name.toLowerCase())) {
             sendMessage("&7Added &afriend&7: &b" + name);

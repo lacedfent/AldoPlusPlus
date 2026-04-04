@@ -28,6 +28,7 @@ public class PlayerListComponent extends AbstractTextInputComponent {
     private static final float HEAD_SIZE = 8f;
     private static final float LIST_ROW_TEXT_SCALE = 0.56f;
     private static final float LIST_ROW_TEXT_Y_OFFSET = LIST_ROW_TEXT_SCALE;
+    private static final float LIST_ROW_VISUAL_HEIGHT = ROW_HEIGHT - 1f;
     private static ResourceLocation processedClose;
 
     private final PlayerListSetting setting;
@@ -196,8 +197,8 @@ public class PlayerListComponent extends AbstractTextInputComponent {
 
     private void renderEntryRow(PlayerRelationsManager.PlayerEntry entry, NetworkPlayerInfo playerInfo, float left, float right, float rowTop, int bgColor) {
         RenderUtils.drawRect(left, rowTop, right, rowTop + ROW_HEIGHT - 1f, bgColor);
-        renderPlayerHead(entry, playerInfo, left + 2f, rowTop + 2f);
-        drawScaledTextNoShadow(entry.getDisplayName(), left + 13f, centeredScaledTextY(rowTop, ROW_HEIGHT - 1f, LIST_ROW_TEXT_SCALE) + LIST_ROW_TEXT_Y_OFFSET, 0xFFCCCCCC);
+        renderPlayerHead(entry, playerInfo, left + 2f, rowTop + (LIST_ROW_VISUAL_HEIGHT - HEAD_SIZE) / 2f);
+        drawScaledTextNoShadow(entry.getDisplayName(), left + 13f, centeredScaledTextY(rowTop, LIST_ROW_VISUAL_HEIGHT, LIST_ROW_TEXT_SCALE) + LIST_ROW_TEXT_Y_OFFSET, 0xFFCCCCCC);
         renderCloseIcon(right, rowTop);
     }
 
@@ -290,7 +291,7 @@ public class PlayerListComponent extends AbstractTextInputComponent {
 
         Color closeColor = new Color(Theme.getGradient(Theme.hiddenBind[0], Theme.hiddenBind[1], 0), true);
         float closeX = right - CLOSE_SIZE - CLOSE_PAD;
-        float closeY = rowTop + (ROW_HEIGHT - CLOSE_SIZE) / 2f;
+        float closeY = rowTop + (LIST_ROW_VISUAL_HEIGHT - CLOSE_SIZE) / 2f;
         boolean depthEnabled = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
         boolean blendEnabled = GL11.glIsEnabled(GL11.GL_BLEND);
         boolean depthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
@@ -306,7 +307,7 @@ public class PlayerListComponent extends AbstractTextInputComponent {
 
     private boolean isOverClose(float mouseX, float mouseY, float rowTop, float right) {
         float closeX = right - CLOSE_SIZE - CLOSE_PAD;
-        float closeY = rowTop + (ROW_HEIGHT - CLOSE_SIZE) / 2f;
+        float closeY = rowTop + (LIST_ROW_VISUAL_HEIGHT - CLOSE_SIZE) / 2f;
         return mouseX >= closeX && mouseX <= closeX + CLOSE_SIZE && mouseY >= closeY && mouseY <= closeY + CLOSE_SIZE;
     }
 

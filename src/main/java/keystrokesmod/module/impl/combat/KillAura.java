@@ -1,6 +1,5 @@
 package keystrokesmod.module.impl.combat;
 
-import keystrokesmod.Raven;
 import keystrokesmod.event.ClientRotationEvent;
 import keystrokesmod.event.PrePlayerInteractEvent;
 import keystrokesmod.helper.RotationHelper;
@@ -52,6 +51,7 @@ public class KillAura extends Module {
     private ButtonSetting disableInInventory;
     private ButtonSetting disableWhileMining;
     private ButtonSetting aimThroughBlocks;
+    private ButtonSetting aimThroughEntities;
     private ButtonSetting ignoreTeammates;
     private ButtonSetting prioritizeEnemies;
     private ButtonSetting notUsingItem;
@@ -90,7 +90,8 @@ public class KillAura extends Module {
         this.registerSetting(targets = new SliderSetting("Targets", 3.0, 1.0, 10.0, 1.0));
         this.registerSetting(targetInvis = new ButtonSetting("Target invis", true));
         this.registerSetting(attackMobs = new ButtonSetting("Attack mobs", false));
-        this.registerSetting(aimThroughBlocks = new ButtonSetting("Aim through blocks", true));
+        this.registerSetting(aimThroughBlocks = new ButtonSetting("Hit through walls", false));
+        this.registerSetting(aimThroughEntities = new ButtonSetting("Hit through entities", false));
         this.registerSetting(disableInInventory = new ButtonSetting("Disable in inventory", true));
         this.registerSetting(disableWhileMining = new ButtonSetting("Disable while mining", false));
         this.registerSetting(ignoreTeammates = new ButtonSetting("Ignore teammates", true));
@@ -139,8 +140,8 @@ public class KillAura extends Module {
             double aimRangeVal = aimRange.getInput();
             if (targetDistance <= aimRangeVal) {
                 int speedVal = (int) speed.getInput();
-                boolean useBackup = !aimThroughBlocks.isToggled();
-                float[] rot = RotationHelper.get().getRotationsToTarget(target, e, speedVal, 100, 100, 0f, useBackup, aimRangeVal);
+                boolean useBackup = !aimThroughBlocks.isToggled() || !aimThroughEntities.isToggled();
+                float[] rot = RotationHelper.get().getRotationsToTarget(target, e, speedVal, 100, 100, 0f, useBackup, aimRangeVal, aimThroughBlocks.isToggled(), aimThroughEntities.isToggled());
                 if (rot != null) {
                     e.yaw = rot[0];
                     e.pitch = rot[1];
@@ -155,8 +156,8 @@ public class KillAura extends Module {
             double aimRangeVal = aimRange.getInput();
             if (targetDistance <= aimRangeVal) {
                 int speedVal = (int) speed.getInput();
-                boolean useBackup = !aimThroughBlocks.isToggled();
-                float[] rot = RotationHelper.get().getRotationsToTarget(target, speedVal, 100, 100, 0f, useBackup, aimRangeVal);
+                boolean useBackup = !aimThroughBlocks.isToggled() || !aimThroughEntities.isToggled();
+                float[] rot = RotationHelper.get().getRotationsToTarget(target, speedVal, 100, 100, 0f, useBackup, aimRangeVal, aimThroughBlocks.isToggled(), aimThroughEntities.isToggled());
                 if (rot != null) {
                     mc.thePlayer.rotationYaw = rot[0];
                     mc.thePlayer.rotationPitch = rot[1];
@@ -337,12 +338,10 @@ public class KillAura extends Module {
             return null;
         }
 
-        if (!aimThroughBlocks.isToggled()) {
-            double multipointH = 100;
-            double multipointV = 100;
-            if (!RotationUtils.hasValidAimPoint(entity, multipointH, multipointV, maxRange)) {
-                return null;
-            }
+        double multipointH = 100;
+        double multipointV = 100;
+        if (!RotationUtils.hasValidAimPoint(entity, multipointH, multipointV, maxRange, aimThroughBlocks.isToggled(), aimThroughEntities.isToggled())) {
+            return null;
         }
 
         boolean isEnemyPlayer = entity instanceof EntityPlayer && Utils.isEnemy((EntityPlayer) entity);
@@ -487,9 +486,7 @@ public class KillAura extends Module {
                 && attackingEntity != null
                 && target == attackingEntity
                 && basicCondition()
-                && settingCondition()
-                && targetDistance <= swingRange.getInput()
-                && (!notUsingItem.isToggled() || !mc.thePlayer.isUsingItem());
+                && targetDistance <= swingRange.getInput();
     }
 
     public void modifyMouseOverFromGetMouseOver(float partialTicks) {
@@ -521,6 +518,9 @@ public class KillAura extends Module {
             if (blockHit != null && blockHit.typeOfHit == MovingObjectPosition.MovingObjectType.BLOCK) {
                 return;
             }
+        }
+        if (!aimThroughEntities.isToggled() && RotationUtils.isPathBlockedByEntity(eyes, hitVec, attackingEntity)) {
+            return;
         }
 
         mc.objectMouseOver = new MovingObjectPosition(attackingEntity, hitVec);

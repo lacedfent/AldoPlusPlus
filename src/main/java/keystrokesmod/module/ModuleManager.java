@@ -28,6 +28,7 @@ public class ModuleManager {
     public static List<Module> modules = new ArrayList<>();
     public static List<Module> organizedModules = Collections.synchronizedList(new ArrayList<>());
     private static final Map<String, Module> modulesByName = new HashMap<>();
+    private static final Map<String, Module> modulesByNormalizedName = new HashMap<>();
     private static final Map<Class<?>, Module> modulesByClass = new HashMap<>();
 
     public static NameHider nameHider;
@@ -56,6 +57,7 @@ public class ModuleManager {
     public static Blink blink;
     public static Chams chams;
     public static HUD hud;
+    public static PotionHUD potionHUD;
     public static Timer timer;
     public static Fly fly;
     public static WTap wTap;
@@ -79,6 +81,7 @@ public class ModuleManager {
     public static BHop bHop;
     public static NoHurtCam noHurtCam;
     public static AutoTool autoTool;
+    public static AutoSwap autoSwap;
     public static Sprint sprint;
     public static Weather weather;
     public static ChatCommands chatCommands;
@@ -161,6 +164,7 @@ public class ModuleManager {
         this.addModule(new AntiAFK());
         this.addModule(antiFireball = new AntiFireball());
         this.addModule(new AutoJump());
+        this.addModule(autoSwap = new AutoSwap());
         this.addModule(new BridgeAssist());
         this.addModule(autoTool = new AutoTool());
         this.addModule(bedAura = new BedAura());
@@ -203,6 +207,7 @@ public class ModuleManager {
         this.addModule(noCameraClip = new NoCameraClip());
         this.addModule(noHurtCam = new NoHurtCam());
         this.addModule(playerESP = new PlayerESP());
+        this.addModule(potionHUD = new PotionHUD());
         this.addModule(new Radar());
         this.addModule(new Saturation());
         this.addModule(targetHUD = new TargetHUD());
@@ -224,6 +229,7 @@ public class ModuleManager {
     public void addModule(Module module) {
         modules.add(module);
         modulesByName.put(module.getName(), module);
+        modulesByNormalizedName.put(normalizeModuleName(module.getName()), module);
         modulesByClass.put(module.getClass(), module);
     }
 
@@ -244,7 +250,11 @@ public class ModuleManager {
     }
 
     public static Module getModule(String moduleName) {
-        return modulesByName.get(moduleName);
+        Module module = modulesByName.get(moduleName);
+        if (module != null) {
+            return module;
+        }
+        return modulesByNormalizedName.get(normalizeModuleName(moduleName));
     }
 
     public static Module getModule(Class<?> clazz) {
@@ -259,5 +269,20 @@ public class ModuleManager {
 
         final RavenFontRenderer hudFont = HUD.getHudFontRenderer();
         organizedModules.sort((o1, o2) -> hudFont.getStringWidth(HUD.getHudRenderText(o2)) - hudFont.getStringWidth(HUD.getHudRenderText(o1)));
+    }
+
+    private static String normalizeModuleName(String moduleName) {
+        if (moduleName == null) {
+            return "";
+        }
+
+        StringBuilder normalized = new StringBuilder(moduleName.length());
+        for (int i = 0; i < moduleName.length(); i++) {
+            char character = moduleName.charAt(i);
+            if (Character.isLetterOrDigit(character)) {
+                normalized.append(Character.toLowerCase(character));
+            }
+        }
+        return normalized.toString();
     }
 }

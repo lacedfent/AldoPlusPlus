@@ -37,4 +37,7 @@ public interface RavenFontRenderer {
     default int getTextBottomOffset() {
         return getFontHeight();
     }
+
+    default void destroy() {
+    }
 }

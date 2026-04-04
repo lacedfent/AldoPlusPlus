@@ -19,6 +19,7 @@ public class SliderSetting extends Setting {
     private String suffix = "";
     public boolean canBeDisabled;
     public GroupSetting groupSetting;
+    private String[] legacyProfileKeys;
 
     public SliderSetting(GroupSetting groupSetting, String settingName, double defaultValue, double min, double max, double intervals) {
         super(settingName);
@@ -29,6 +30,7 @@ public class SliderSetting extends Setting {
         this.max = max;
         this.intervals = intervals;
         this.isString = false;
+        this.legacyProfileKeys = new String[0];
     }
 
     public SliderSetting(String settingName, double defaultValue, double min, double max, double intervals) {
@@ -71,10 +73,16 @@ public class SliderSetting extends Setting {
         this.max = options.length - 1;
         this.intervals = 1;
         this.isString = true;
+        this.legacyProfileKeys = new String[0];
     }
 
     public SliderSetting(String settingName, int defaultValue, String[] options) {
         this((GroupSetting) null, settingName, defaultValue, options);
+    }
+
+    public SliderSetting(String settingName, int defaultValue, String[] options, String... legacyProfileKeys) {
+        this((GroupSetting) null, settingName, defaultValue, options);
+        this.legacyProfileKeys = legacyProfileKeys != null ? legacyProfileKeys : new String[0];
     }
 
     public SliderSetting(String settingName, String suffix, int defaultValue, String[] options) {
@@ -161,8 +169,22 @@ public class SliderSetting extends Setting {
     public void loadProfile(JsonObject data) {
         String profileKey = getProfileKey();
         String legacyKey = getName();
-        String key = data.has(profileKey) ? profileKey : legacyKey;
-        if (data.has(key) && data.get(key).isJsonPrimitive()) {
+        String key = null;
+        if (data.has(profileKey)) {
+            key = profileKey;
+        }
+        else if (data.has(legacyKey)) {
+            key = legacyKey;
+        }
+        else {
+            for (String legacyProfileKey : legacyProfileKeys) {
+                if (data.has(legacyProfileKey)) {
+                    key = legacyProfileKey;
+                    break;
+                }
+            }
+        }
+        if (key != null && data.has(key) && data.get(key).isJsonPrimitive()) {
             double newValue = defaultValue;
             try {
                 newValue = data.getAsJsonPrimitive(key).getAsDouble();

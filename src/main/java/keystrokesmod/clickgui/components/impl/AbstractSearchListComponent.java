@@ -33,6 +33,7 @@ public abstract class AbstractSearchListComponent extends AbstractTextInputCompo
     protected static final float SELECTED_LIST_GAP = 4f;
     protected static final float LIST_ROW_TEXT_SCALE = 0.56f;
     protected static final float LIST_ROW_TEXT_Y_OFFSET = LIST_ROW_TEXT_SCALE;
+    protected static final float LIST_ROW_VISUAL_HEIGHT = ROW_HEIGHT - 1f;
 
     protected final ScrollOffsetAnimation dropdownScrollAnim = new ScrollOffsetAnimation(200);
     protected final ScrollOffsetAnimation selectedScrollAnim = new ScrollOffsetAnimation(200);
@@ -195,6 +196,14 @@ public abstract class AbstractSearchListComponent extends AbstractTextInputCompo
         unfocusSearch();
     }
 
+    @Override
+    public boolean containsClick(int mouseX, int mouseY) {
+        Layout layout = layout(true);
+        return isTextFieldClicked(mouseX, mouseY, layout)
+            || isMouseOverDropdown(mouseX, mouseY)
+            || isMouseOverSelectedList(mouseX, mouseY);
+    }
+
     public boolean capturesCategoryScroll(float mouseX, float mouseY) {
         if (!moduleComponent.isOpened || !moduleComponent.isVisible(this)) {
             return false;
@@ -287,7 +296,7 @@ public abstract class AbstractSearchListComponent extends AbstractTextInputCompo
         ensureProcessedArrowTexture();
         if (processedArrow != null) {
             float iconX = left + 2f;
-            float iconY = rowTop + (ROW_HEIGHT - CLOSE_SIZE) / 2f;
+            float iconY = rowTop + (LIST_ROW_VISUAL_HEIGHT - CLOSE_SIZE) / 2f;
             boolean depthEnabled = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
             boolean blendEnabled = GL11.glIsEnabled(GL11.GL_BLEND);
             boolean depthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
@@ -313,7 +322,7 @@ public abstract class AbstractSearchListComponent extends AbstractTextInputCompo
     }
 
     protected final void drawListRowText(String text, float x, float rowTop, int color) {
-        drawScaledText(text, x, centeredScaledTextY(rowTop, ROW_HEIGHT - 1f, LIST_ROW_TEXT_SCALE) + LIST_ROW_TEXT_Y_OFFSET, color, LIST_ROW_TEXT_SCALE);
+        drawScaledText(text, x, centeredScaledTextY(rowTop, LIST_ROW_VISUAL_HEIGHT, LIST_ROW_TEXT_SCALE) + LIST_ROW_TEXT_Y_OFFSET, color, LIST_ROW_TEXT_SCALE);
     }
 
     protected final void renderCloseIcon(float right, float rowTop) {
@@ -324,7 +333,7 @@ public abstract class AbstractSearchListComponent extends AbstractTextInputCompo
 
         Color closeColor = new Color(Theme.getGradient(Theme.hiddenBind[0], Theme.hiddenBind[1], 0), true);
         float closeX = right - CLOSE_SIZE - CLOSE_PAD;
-        float closeY = rowTop + (ROW_HEIGHT - CLOSE_SIZE) / 2f;
+        float closeY = rowTop + (LIST_ROW_VISUAL_HEIGHT - CLOSE_SIZE) / 2f;
         boolean depthEnabled = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
         boolean blendEnabled = GL11.glIsEnabled(GL11.GL_BLEND);
         boolean depthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
@@ -352,7 +361,7 @@ public abstract class AbstractSearchListComponent extends AbstractTextInputCompo
         RenderItem renderItem = Minecraft.getMinecraft().getRenderItem();
         double scale = 0.55;
         float itemHeight = (float) (16 * scale);
-        float pad = (ROW_HEIGHT - itemHeight) / 2f;
+        float pad = (LIST_ROW_VISUAL_HEIGHT - itemHeight) / 2f;
         float itemY = rowTop + pad;
         float px = (float) (x / scale);
         float py = (float) (itemY / scale);

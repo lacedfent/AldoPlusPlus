@@ -39,11 +39,13 @@ import java.util.function.Predicate;
 public class MobESP extends Module {
 
     public static boolean renderingOutlinePass = false;
+    private static final ThreadLocal<Boolean> MOB_CHAMS_ACTIVE = ThreadLocal.withInitial(() -> false);
 
     public GroupSetting espTypes;
     public ButtonSetting twoD;
     public ButtonSetting box;
     public ButtonSetting outline;
+    public ButtonSetting chams;
     public ButtonSetting ring;
     public ButtonSetting shaded;
     public ButtonSetting healthBar;
@@ -86,6 +88,7 @@ public class MobESP extends Module {
         this.registerSetting(twoD = new ButtonSetting(espTypes, "2D", false));
         this.registerSetting(box = new ButtonSetting(espTypes, "Box", false));
         this.registerSetting(outline = new ButtonSetting(espTypes, "Outline", false));
+        this.registerSetting(chams = new ButtonSetting(espTypes, "Chams", false));
         this.registerSetting(ring = new ButtonSetting(espTypes, "Ring", false));
         this.registerSetting(shaded = new ButtonSetting(espTypes, "Shaded", false));
         this.registerSetting(healthBar = new ButtonSetting(espTypes, "Health bar", false));
@@ -176,6 +179,47 @@ public class MobESP extends Module {
             rgb = 0xFFFF0000;
         }
         return rgb;
+    }
+
+    public static void onRenderMobPre(EntityLivingBase entity) {
+        MobESP mod = getMobEspModule();
+        if (mod == null || !mod.shouldApplyChamsTo(entity)) {
+            return;
+        }
+        GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
+        GL11.glPolygonOffset(1.0f, -1_100_000.0f);
+        MOB_CHAMS_ACTIVE.set(true);
+    }
+
+    public static void onRenderMobPost() {
+        if (!Boolean.TRUE.equals(MOB_CHAMS_ACTIVE.get())) {
+            return;
+        }
+        MOB_CHAMS_ACTIVE.set(false);
+        GL11.glPolygonOffset(1.0f, 1_100_000.0f);
+        GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
+    }
+
+    private static MobESP getMobEspModule() {
+        Module module = ModuleManager.getModule(MobESP.class);
+        return module instanceof MobESP && module.isEnabled() ? (MobESP) module : null;
+    }
+
+    private boolean shouldApplyChamsTo(EntityLivingBase entity) {
+        if (!chams.isToggled() || !Utils.nullCheck() || entity == null || entity == mc.thePlayer) {
+            return false;
+        }
+        if (entity.deathTime != 0) {
+            return false;
+        }
+        if (!showInvis.isToggled() && entity.isInvisible()) {
+            return false;
+        }
+        double maxDistSq = maxDistance.getInput() * maxDistance.getInput();
+        if (!RenderUtils.isWithinDistanceSqToRenderView(entity, maxDistSq)) {
+            return false;
+        }
+        return resolveEntry(entity) != null;
     }
 
     @SubscribeEvent(priority = EventPriority.HIGH)

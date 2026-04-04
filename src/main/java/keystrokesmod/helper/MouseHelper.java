@@ -75,8 +75,13 @@ public class MouseHelper {
         else if (e.button == 2 && ModuleManager.relationships != null && ModuleManager.relationships.isEnabled()
             && ModuleManager.relationships.middleClickFriends.isToggled()) {
             EntityLivingBase g = Utils.raytrace(200);
-            if (g != null && !AntiBot.isBot(g) && !Utils.addFriend(g.getName())) {
-                Utils.removeFriend(g.getName());
+            if (g != null && !AntiBot.isBot(g)) {
+                String n = g.getName();
+                if (Utils.addFriend(n)) {
+                    Utils.sendMessage("&7Added &afriend&7: &b" + n);
+                } else if (Utils.removeFriend(n)) {
+                    Utils.sendMessage("&7Removed &afriend&7: &b" + n);
+                }
             }
         }
     }

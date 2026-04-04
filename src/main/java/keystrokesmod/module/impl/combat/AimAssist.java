@@ -34,6 +34,7 @@ public class AimAssist extends Module {
     private ButtonSetting clickAim;
     private ButtonSetting ignoreTeammates;
     private ButtonSetting ignoreBehindWalls;
+    private ButtonSetting ignoreBehindEntities;
     private ButtonSetting stopWhenBreaking;
     private ButtonSetting keepMoveDirection;
     private SliderSetting hoverDelay;
@@ -55,6 +56,7 @@ public class AimAssist extends Module {
         this.registerSetting(range = new SliderSetting("Range", 4.5D, 0.0D, 5.0D, 0.1D));
         this.registerSetting(sortMode = new SliderSetting("Sort", 1, SORT_MODES));
         this.registerSetting(ignoreBehindWalls = new ButtonSetting("Ignore behind walls", false));
+        this.registerSetting(ignoreBehindEntities = new ButtonSetting("Ignore behind entities", false));
         this.registerSetting(aimInvis = new ButtonSetting("Aim invis", false));
         this.registerSetting(clickAim = new ButtonSetting("Require mouse", true));
         this.registerSetting(ignoreTeammates = new ButtonSetting("Ignore teammates", true));
@@ -98,7 +100,8 @@ public class AimAssist extends Module {
         double multipointH = multipointHorizontal.getInput();
         double multipointV = multipointVertical.getInput();
         float randomizationPercent = (float) randomization.getInput();
-        float[] rot = RotationHelper.get().getRotationsToTarget(en, e, speedVal, multipointH, multipointV, randomizationPercent, ignoreBehindWalls.isToggled(), range.getInput());
+        boolean useBackup = ignoreBehindWalls.isToggled() || ignoreBehindEntities.isToggled();
+        float[] rot = RotationHelper.get().getRotationsToTarget(en, e, speedVal, multipointH, multipointV, randomizationPercent, useBackup, range.getInput(), !ignoreBehindWalls.isToggled(), !ignoreBehindEntities.isToggled());
         if (rot == null) return;
         RotationHelper.get().forceMovementFix = true;
         RotationHelper.get().setServerRelativeMovementInputs(!keepMoveDirection.isToggled());
@@ -121,7 +124,8 @@ public class AimAssist extends Module {
         double multipointH = multipointHorizontal.getInput();
         double multipointV = multipointVertical.getInput();
         float randomizationPercent = (float) randomization.getInput();
-        float[] rot = RotationHelper.get().getRotationsToTarget(en, speedVal, multipointH, multipointV, randomizationPercent, ignoreBehindWalls.isToggled(), range.getInput());
+        boolean useBackup = ignoreBehindWalls.isToggled() || ignoreBehindEntities.isToggled();
+        float[] rot = RotationHelper.get().getRotationsToTarget(en, speedVal, multipointH, multipointV, randomizationPercent, useBackup, range.getInput(), !ignoreBehindWalls.isToggled(), !ignoreBehindEntities.isToggled());
         if (rot == null) return;
         mc.thePlayer.rotationYaw = rot[0];
         mc.thePlayer.rotationPitch = rot[1];
@@ -197,12 +201,14 @@ public class AimAssist extends Module {
         }
         candidates.sort(primary.thenComparingDouble(p -> mc.thePlayer.getDistanceSqToEntity(p)));
 
-        if (ignoreBehindWalls.isToggled()) {
+        if (ignoreBehindWalls.isToggled() || ignoreBehindEntities.isToggled()) {
             double multipointH = multipointHorizontal.getInput();
             double multipointV = multipointVertical.getInput();
             double rangeVal = range.getInput();
+            boolean allowThroughBlocks = !ignoreBehindWalls.isToggled();
+            boolean allowThroughEntities = !ignoreBehindEntities.isToggled();
             for (EntityPlayer candidate : candidates) {
-                if (RotationUtils.hasValidAimPoint(candidate, multipointH, multipointV, rangeVal)) {
+                if (RotationUtils.hasValidAimPoint(candidate, multipointH, multipointV, rangeVal, allowThroughBlocks, allowThroughEntities)) {
                     return candidate;
                 }
             }

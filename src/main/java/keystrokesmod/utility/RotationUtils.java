@@ -258,35 +258,11 @@ public class RotationUtils implements IMinecraftInstance {
     }
 
     public static float[] getRotations(final Entity entity, double horizontalMultipoint, double verticalMultipoint, final float baseYaw, final float basePitch) {
-        if (entity == null || mc.thePlayer == null) {
+        Vec3 aimPoint = getAimPoint(entity, horizontalMultipoint, verticalMultipoint);
+        if (aimPoint == null) {
             return null;
         }
-        float borderSize = entity.getCollisionBorderSize();
-        AxisAlignedBB bb = entity.getEntityBoundingBox().expand(borderSize, borderSize, borderSize);
-        double centerX = (bb.minX + bb.maxX) / 2.0;
-        double centerZ = (bb.minZ + bb.maxZ) / 2.0;
-        Vec3 eye = mc.thePlayer.getPositionEyes(1.0f);
-
-        double targetX, targetY, targetZ;
-        if (bb.isVecInside(eye)) {
-            targetX = centerX;
-            targetY = eye.yCoord;
-            targetZ = centerZ;
-        } else {
-            double centerY = entity instanceof EntityLivingBase
-                    ? entity.posY + ((EntityLivingBase) entity).getEyeHeight()
-                    : (bb.minY + bb.maxY) / 2.0;
-            Vec3 cl = closestPointOnAabb(bb, eye);
-            double closestX = cl.xCoord;
-            double closestY = cl.yCoord;
-            double closestZ = cl.zCoord;
-            double tH = Math.max(0.0, Math.min(1.0, horizontalMultipoint / 100.0));
-            double tV = Math.max(0.0, Math.min(1.0, verticalMultipoint / 100.0));
-            targetX = centerX + (closestX - centerX) * tH;
-            targetY = centerY + (closestY - centerY) * tV;
-            targetZ = centerZ + (closestZ - centerZ) * tH;
-        }
-        return getRotationsToPoint(targetX, targetY, targetZ, baseYaw, basePitch);
+        return getRotationsToPoint(aimPoint.xCoord, aimPoint.yCoord, aimPoint.zCoord, baseYaw, basePitch);
     }
 
     /**
@@ -306,6 +282,9 @@ public class RotationUtils implements IMinecraftInstance {
         }
         double centerZ = (bb.minZ + bb.maxZ) / 2.0;
         Vec3 eye = mc.thePlayer.getPositionEyes(1.0f);
+        if (bb.isVecInside(eye)) {
+            return new Vec3(centerX, eye.yCoord, centerZ);
+        }
         Vec3 cl = closestPointOnAabb(bb, eye);
         double tH = Math.max(0.0, Math.min(1.0, horizontalMultipoint / 100.0));
         double tV = Math.max(0.0, Math.min(1.0, verticalMultipoint / 100.0));
@@ -320,6 +299,89 @@ public class RotationUtils implements IMinecraftInstance {
         double y = Math.max(box.minY, Math.min(box.maxY, point.yCoord));
         double z = Math.max(box.minZ, Math.min(box.maxZ, point.zCoord));
         return new Vec3(x, y, z);
+    }
+
+    private static final double BACKUP_FACE_INSET = 0.05;
+    private static final int BACKUP_TARGET_TOTAL = 30;
+
+    public static List<Vec3> buildBackupPoints(Entity entity, Vec3 eye) {
+        if (entity == null || mc.thePlayer == null) return new ArrayList<>();
+        float borderSize = entity.getCollisionBorderSize();
+        AxisAlignedBB bb = entity.getEntityBoundingBox().expand(borderSize, borderSize, borderSize);
+
+        double sizeX = bb.maxX - bb.minX;
+        double sizeY = bb.maxY - bb.minY;
+        double sizeZ = bb.maxZ - bb.minZ;
+
+        boolean xPos = eye.xCoord > bb.maxX;
+        boolean xNeg = eye.xCoord < bb.minX;
+        boolean yPos = eye.yCoord > bb.maxY;
+        boolean yNeg = eye.yCoord < bb.minY;
+        boolean zPos = eye.zCoord > bb.maxZ;
+        boolean zNeg = eye.zCoord < bb.minZ;
+
+        int visibleFaceCount = (xPos || xNeg ? 1 : 0) + (yPos || yNeg ? 1 : 0) + (zPos || zNeg ? 1 : 0);
+        if (visibleFaceCount == 0) return new ArrayList<>();
+
+        int pointsPerFace = BACKUP_TARGET_TOTAL / visibleFaceCount;
+        List<Vec3> points = new ArrayList<>(BACKUP_TARGET_TOTAL + 6);
+
+        if (xPos || xNeg) {
+            double fixedX = xPos ? bb.maxX - BACKUP_FACE_INSET : bb.minX + BACKUP_FACE_INSET;
+            addFaceGrid(points, 0, fixedX,
+                    bb.minY + BACKUP_FACE_INSET, bb.maxY - BACKUP_FACE_INSET,
+                    bb.minZ + BACKUP_FACE_INSET, bb.maxZ - BACKUP_FACE_INSET,
+                    pointsPerFace, sizeY, sizeZ);
+        }
+
+        if (yPos || yNeg) {
+            double fixedY = yPos ? bb.maxY - BACKUP_FACE_INSET : bb.minY + BACKUP_FACE_INSET;
+            addFaceGrid(points, 1, fixedY,
+                    bb.minX + BACKUP_FACE_INSET, bb.maxX - BACKUP_FACE_INSET,
+                    bb.minZ + BACKUP_FACE_INSET, bb.maxZ - BACKUP_FACE_INSET,
+                    pointsPerFace, sizeX, sizeZ);
+        }
+
+        if (zPos || zNeg) {
+            double fixedZ = zPos ? bb.maxZ - BACKUP_FACE_INSET : bb.minZ + BACKUP_FACE_INSET;
+            addFaceGrid(points, 2, fixedZ,
+                    bb.minX + BACKUP_FACE_INSET, bb.maxX - BACKUP_FACE_INSET,
+                    bb.minY + BACKUP_FACE_INSET, bb.maxY - BACKUP_FACE_INSET,
+                    pointsPerFace, sizeX, sizeY);
+        }
+
+        return points;
+    }
+
+    private static void addFaceGrid(List<Vec3> out, int fixedAxis, double fixedVal,
+                                     double uMin, double uMax, double vMin, double vMax,
+                                     int targetPoints, double dimU, double dimV) {
+        if (dimU < 1e-4 || dimV < 1e-4) {
+            double uMid = (uMin + uMax) / 2.0;
+            double vMid = (vMin + vMax) / 2.0;
+            switch (fixedAxis) {
+                case 0: out.add(new Vec3(fixedVal, uMid, vMid)); break;
+                case 1: out.add(new Vec3(uMid, fixedVal, vMid)); break;
+                case 2: out.add(new Vec3(uMid, vMid, fixedVal)); break;
+            }
+            return;
+        }
+
+        double ratio = dimU / dimV;
+        int gridU = Math.max(2, (int) Math.round(Math.sqrt(targetPoints * ratio)));
+        int gridV = Math.max(2, (int) Math.round(Math.sqrt(targetPoints / ratio)));
+
+        for (int i = 0; i < gridU; i++) {
+            double u = uMin + (uMax - uMin) * i / (gridU - 1);
+            for (int j = 0; j < gridV; j++) {
+                double v = vMin + (vMax - vMin) * j / (gridV - 1);
+                switch (fixedAxis) {
+                    case 0: out.add(new Vec3(fixedVal, u, v)); break;
+                    case 1: out.add(new Vec3(u, fixedVal, v)); break;
+                    case 2: out.add(new Vec3(u, v, fixedVal)); break;
+                }
+            }
+        }
     }
 
     /**
@@ -345,32 +407,11 @@ public class RotationUtils implements IMinecraftInstance {
         return dSq == Double.MAX_VALUE ? Double.MAX_VALUE : Math.sqrt(dSq);
     }
 
-    /**
-     * Builds 10 backup points in a vertical line up the center of the hitbox, evenly spread (0%, 10%, ..., 90%).
-     */
-    public static List<Vec3> buildBackupPoints(Entity entity) {
-        if (entity == null || mc.thePlayer == null) return new ArrayList<>();
-        float borderSize = entity.getCollisionBorderSize();
-        AxisAlignedBB bb = entity.getEntityBoundingBox().expand(borderSize, borderSize, borderSize);
-        double centerX = (bb.minX + bb.maxX) / 2.0;
-        double centerZ = (bb.minZ + bb.maxZ) / 2.0;
-        double minY = bb.minY;
-        double height = bb.maxY - bb.minY;
-
-        List<Vec3> points = new ArrayList<>();
-        for (int i = 0; i < 10; i++) {
-            double t = i * 0.1;
-            double y = minY + height * t;
-            points.add(new Vec3(centerX, y, centerZ));
-        }
-        return points;
+    public static boolean canAimAtPoint(Vec3 eye, Vec3 point, Entity target, double range) {
+        return canAimAtPoint(eye, point, target, range, false, true);
     }
 
-    /**
-     * Checks if a ray from eye toward point hits the target entity's hitbox AND no block is closer.
-     * Returns true only if the entity hit is in front of any block hit (no aiming through walls).
-     */
-    public static boolean canAimAtPoint(Vec3 eye, Vec3 point, Entity target, double range) {
+    public static boolean canAimAtPoint(Vec3 eye, Vec3 point, Entity target, double range, boolean allowThroughBlocks, boolean allowThroughEntities) {
         if (target == null) return false;
         double dx = point.xCoord - eye.xCoord;
         double dy = point.yCoord - eye.yCoord;
@@ -386,17 +427,52 @@ public class RotationUtils implements IMinecraftInstance {
         if (entityHit == null) return false;
 
         double entityDistSq = eye.squareDistanceTo(entityHit.hitVec);
-        MovingObjectPosition blockHit = mc.theWorld.rayTraceBlocks(eye, end, false, false, false);
-        if (blockHit != null && blockHit.typeOfHit == MovingObjectPosition.MovingObjectType.BLOCK) {
-            double blockDistSq = eye.squareDistanceTo(blockHit.hitVec);
-            if (blockDistSq < entityDistSq) return false;
+        if (!allowThroughBlocks) {
+            MovingObjectPosition blockHit = mc.theWorld.rayTraceBlocks(eye, end, false, false, false);
+            if (blockHit != null && blockHit.typeOfHit == MovingObjectPosition.MovingObjectType.BLOCK) {
+                double blockDistSq = eye.squareDistanceTo(blockHit.hitVec);
+                if (blockDistSq < entityDistSq) return false;
+            }
+        }
+        if (!allowThroughEntities && hasEntityBlockingPath(eye, end, target, entityDistSq)) {
+            return false;
         }
         return true;
     }
 
-    /**
-     * Returns true if player eye is inside the entity's expanded AABB.
-     */
+    private static boolean hasEntityBlockingPath(Vec3 eye, Vec3 end, Entity target, double targetDistSq) {
+        if (mc.thePlayer == null || mc.theWorld == null) return false;
+        Vec3 delta = end.subtract(eye);
+        AxisAlignedBB searchBox = mc.thePlayer.getEntityBoundingBox()
+                .addCoord(delta.xCoord, delta.yCoord, delta.zCoord)
+                .expand(1.0, 1.0, 1.0);
+        List<Entity> entities = mc.theWorld.getEntitiesInAABBexcluding(mc.thePlayer, searchBox, Predicates.and(EntitySelectors.NOT_SPECTATING, Entity::canBeCollidedWith));
+        for (Entity entity : entities) {
+            if (entity == null || entity == target || entity.isDead) {
+                continue;
+            }
+            float border = entity.getCollisionBorderSize();
+            AxisAlignedBB bb = entity.getEntityBoundingBox().expand(border, border, border);
+            MovingObjectPosition hit = bb.calculateIntercept(eye, end);
+            if (bb.isVecInside(eye)) {
+                return true;
+            }
+            if (hit != null) {
+                double entityDistSq = eye.squareDistanceTo(hit.hitVec);
+                if (entityDistSq < targetDistSq - 1.0E-7) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public static boolean isPathBlockedByEntity(Vec3 eye, Vec3 hitVec, Entity target) {
+        if (eye == null || hitVec == null || target == null) return false;
+        double targetDistSq = eye.squareDistanceTo(hitVec);
+        return hasEntityBlockingPath(eye, hitVec, target, targetDistSq);
+    }
+
     public static boolean isEyeInsideEntityAABB(Entity entity) {
         if (entity == null || mc.thePlayer == null) return false;
         Vec3 eye = mc.thePlayer.getPositionEyes(1.0f);
@@ -405,18 +481,39 @@ public class RotationUtils implements IMinecraftInstance {
         return bb.isVecInside(eye);
     }
 
-    /**
-     * Returns true if main point or any backup point passes canAimAtPoint (entity hit before block),
-     * or if main aim point is at eye (inside hitbox - can see entity, no rotation needed).
-     */
+    private static boolean mainRayHitsTargetAABB(Vec3 eye, Vec3 point, Entity target, double range) {
+        double dx = point.xCoord - eye.xCoord;
+        double dy = point.yCoord - eye.yCoord;
+        double dz = point.zCoord - eye.zCoord;
+        double len = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        if (len < 1e-6) return false;
+        double scale = range / len;
+        Vec3 end = new Vec3(eye.xCoord + dx * scale, eye.yCoord + dy * scale, eye.zCoord + dz * scale);
+        float borderSize = target.getCollisionBorderSize();
+        AxisAlignedBB aabb = target.getEntityBoundingBox().expand(borderSize, borderSize, borderSize);
+        return aabb.calculateIntercept(eye, end) != null;
+    }
+
     public static boolean hasValidAimPoint(Entity entity, double hMult, double vMult, double range) {
+        return hasValidAimPoint(entity, hMult, vMult, range, false, true);
+    }
+
+    public static boolean hasValidAimPoint(Entity entity, double hMult, double vMult, double range, boolean allowThroughBlocks, boolean allowThroughEntities) {
         if (entity == null || mc.thePlayer == null) return false;
         Vec3 mainPoint = getAimPoint(entity, hMult, vMult);
         if (mainPoint == null) return false;
         Vec3 eye = mc.thePlayer.getPositionEyes(1.0f);
-        if (eye.squareDistanceTo(mainPoint) < 1e-6) return true; // inside hitbox - can see entity, will hit without rotating
-        if (canAimAtPoint(eye, mainPoint, entity, range)) return true;
-        List<Vec3> backups = buildBackupPoints(entity);
+        if (eye.squareDistanceTo(mainPoint) < 1e-6) return true;
+
+        if (!mainRayHitsTargetAABB(eye, mainPoint, entity, range)) {
+            return false;
+        }
+
+        if (canAimAtPoint(eye, mainPoint, entity, range, allowThroughBlocks, allowThroughEntities)) {
+            return true;
+        }
+
+        List<Vec3> backups = buildBackupPoints(entity, eye);
         Collections.sort(backups, Comparator.comparingDouble(p -> {
             double dx = p.xCoord - eye.xCoord;
             double dy = p.yCoord - eye.yCoord;
@@ -424,17 +521,18 @@ public class RotationUtils implements IMinecraftInstance {
             return dx * dx + dy * dy + dz * dz;
         }));
         for (Vec3 p : backups) {
-            if (canAimAtPoint(eye, p, entity, range)) return true;
+            if (canAimAtPoint(eye, p, entity, range, allowThroughBlocks, allowThroughEntities)) {
+                return true;
+            }
         }
         return false;
     }
 
-    /**
-     * Returns rotations to the first valid point among main + backups.
-     * Raycasts toward each point; use point only if ray hits entity hitbox and no block is closer.
-     * Returns null when main aim point is at eye (inside hitbox - closest point = eye, no aim needed).
-     */
     public static float[] getRotationsWithBackup(Entity entity, double horizontalMultipoint, double verticalMultipoint, float baseYaw, float basePitch, double range) {
+        return getRotationsWithBackup(entity, horizontalMultipoint, verticalMultipoint, baseYaw, basePitch, range, false, true);
+    }
+
+    public static float[] getRotationsWithBackup(Entity entity, double horizontalMultipoint, double verticalMultipoint, float baseYaw, float basePitch, double range, boolean allowThroughBlocks, boolean allowThroughEntities) {
         if (entity == null || mc.thePlayer == null) return null;
         Vec3 eye = mc.thePlayer.getPositionEyes(1.0f);
         float borderSize = entity.getCollisionBorderSize();
@@ -446,13 +544,17 @@ public class RotationUtils implements IMinecraftInstance {
         }
         Vec3 mainPoint = getAimPoint(entity, horizontalMultipoint, verticalMultipoint);
         if (mainPoint == null) return null;
-        if (eye.squareDistanceTo(mainPoint) < 1e-6) return null; // main point at eye, should not happen after inside check
+        if (eye.squareDistanceTo(mainPoint) < 1e-6) return null;
 
-        if (canAimAtPoint(eye, mainPoint, entity, range)) {
+        if (!mainRayHitsTargetAABB(eye, mainPoint, entity, range)) {
             return getRotationsToPoint(mainPoint.xCoord, mainPoint.yCoord, mainPoint.zCoord, baseYaw, basePitch);
         }
 
-        List<Vec3> backups = buildBackupPoints(entity);
+        if (canAimAtPoint(eye, mainPoint, entity, range, allowThroughBlocks, allowThroughEntities)) {
+            return getRotationsToPoint(mainPoint.xCoord, mainPoint.yCoord, mainPoint.zCoord, baseYaw, basePitch);
+        }
+
+        List<Vec3> backups = buildBackupPoints(entity, eye);
         Collections.sort(backups, Comparator.comparingDouble(p -> {
             double dx = p.xCoord - eye.xCoord;
             double dy = p.yCoord - eye.yCoord;
@@ -461,7 +563,7 @@ public class RotationUtils implements IMinecraftInstance {
         }));
 
         for (Vec3 p : backups) {
-            if (canAimAtPoint(eye, p, entity, range)) {
+            if (canAimAtPoint(eye, p, entity, range, allowThroughBlocks, allowThroughEntities)) {
                 return getRotationsToPoint(p.xCoord, p.yCoord, p.zCoord, baseYaw, basePitch);
             }
         }

@@ -50,8 +50,12 @@ public class HUD extends Module {
     private static ButtonSetting alignRight;
     private static ButtonSetting lowercase;
     public static ButtonSetting showInfo;
-    public static float posX = 5.0f;
-    public static float posY = 70.0f;
+    private static final float DEFAULT_POS_X = 5.0f;
+    private static final float DEFAULT_POS_Y = 70.0f;
+    public static float posX = DEFAULT_POS_X;
+    public static float posY = DEFAULT_POS_Y;
+    private static float relativePosX = Float.NaN;
+    private static float relativePosY = Float.NaN;
 
     private static final String[] OUTLINE_MODES = new String[] { "None", "Full", "Side" };
     private static final String[] HUD_FONT_OPTIONS = FontManager.getHudFontOptions();
@@ -152,6 +156,8 @@ public class HUD extends Module {
         if (mc.currentScreen != null || mc.gameSettings.showDebugInfo) {
             return;
         }
+
+        syncPositionToResolution();
 
         for (Module module : ModuleManager.organizedModules) {
             module.getInfoUpdate();
@@ -339,12 +345,19 @@ public class HUD extends Module {
         public void initGui() {
             super.initGui();
             this.buttonList.add(this.resetPosition = new GuiButtonExt(1, this.width - 90, this.height - 25, 85, 20, "Reset position"));
+            HUD.syncPositionToResolution(new ScaledResolution(this.mc));
             this.actualX = HUD.posX;
             this.actualY = HUD.posY;
         }
 
         @Override
         public void drawScreen(int mouseX, int mouseY, float partialTicks) {
+            ScaledResolution resolution = new ScaledResolution(this.mc);
+            if (!this.dragging) {
+                HUD.syncPositionToResolution(resolution);
+                this.actualX = HUD.posX;
+                this.actualY = HUD.posY;
+            }
             drawRect(0, 0, this.width, this.height, -1308622848);
             float previewX = this.actualX;
             float previewY = this.actualY;
@@ -366,10 +379,8 @@ public class HUD extends Module {
                 this.clickMinX = clickPos[2];
             }
 
-            HUD.posX = previewX;
-            HUD.posY = previewY;
+            HUD.setAbsolutePosition(previewX, previewY, resolution);
 
-            ScaledResolution resolution = new ScaledResolution(this.mc);
             int textX = resolution.getScaledWidth() / 2 - 84;
             int textY = resolution.getScaledHeight() / 2 - 20;
             RenderUtils.drawColoredString("Edit the HUD position by dragging.", '-', textX, textY, 2L, 0L, true, this.mc.fontRendererObj);
@@ -550,8 +561,9 @@ public class HUD extends Module {
         @Override
         public void actionPerformed(GuiButton button) {
             if (button == this.resetPosition) {
-                this.actualX = HUD.posX = 5.0f;
-                this.actualY = HUD.posY = 70.0f;
+                HUD.resetPosition(new ScaledResolution(this.mc));
+                this.actualX = HUD.posX;
+                this.actualY = HUD.posY;
             }
         }
 
@@ -612,6 +624,61 @@ public class HUD extends Module {
             return 1.0f;
         }
         return (float) fontSize.getInput();
+    }
+
+    public static float getRelativePosX() {
+        syncPositionToResolution();
+        return relativePosX;
+    }
+
+    public static float getRelativePosY() {
+        syncPositionToResolution();
+        return relativePosY;
+    }
+
+    public static void setRelativePosition(float normalizedX, float normalizedY) {
+        relativePosX = normalizedX;
+        relativePosY = normalizedY;
+        syncPositionToResolution();
+    }
+
+    public static void setAbsolutePosition(float absoluteX, float absoluteY) {
+        setAbsolutePosition(absoluteX, absoluteY, new ScaledResolution(mc));
+    }
+
+    public static void resetPosition() {
+        resetPosition(new ScaledResolution(mc));
+    }
+
+    private static void syncPositionToResolution() {
+        syncPositionToResolution(new ScaledResolution(mc));
+    }
+
+    private static void syncPositionToResolution(ScaledResolution resolution) {
+        int scaledWidth = Math.max(1, resolution.getScaledWidth());
+        int scaledHeight = Math.max(1, resolution.getScaledHeight());
+
+        if (Float.isNaN(relativePosX) || Float.isNaN(relativePosY)) {
+            relativePosX = posX / scaledWidth;
+            relativePosY = posY / scaledHeight;
+        }
+
+        posX = relativePosX * scaledWidth;
+        posY = relativePosY * scaledHeight;
+    }
+
+    private static void setAbsolutePosition(float absoluteX, float absoluteY, ScaledResolution resolution) {
+        posX = absoluteX;
+        posY = absoluteY;
+
+        int scaledWidth = Math.max(1, resolution.getScaledWidth());
+        int scaledHeight = Math.max(1, resolution.getScaledHeight());
+        relativePosX = absoluteX / scaledWidth;
+        relativePosY = absoluteY / scaledHeight;
+    }
+
+    private static void resetPosition(ScaledResolution resolution) {
+        setAbsolutePosition(DEFAULT_POS_X, DEFAULT_POS_Y, resolution);
     }
 
     private static int getHudHorizontalTextPadding() {

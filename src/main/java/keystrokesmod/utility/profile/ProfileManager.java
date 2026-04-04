@@ -11,6 +11,7 @@ import keystrokesmod.module.impl.client.Gui;
 import keystrokesmod.module.impl.client.Relationships;
 import keystrokesmod.module.impl.client.Settings;
 import keystrokesmod.module.impl.render.HUD;
+import keystrokesmod.module.impl.render.PotionHUD;
 import keystrokesmod.module.impl.render.TargetHUD;
 import keystrokesmod.module.setting.Setting;
 import keystrokesmod.module.setting.impl.BlockListSetting;
@@ -42,6 +43,17 @@ public class ProfileManager implements IMinecraftInstance {
             this.x = x;
             this.y = y;
             this.opened = opened;
+        }
+    }
+
+    private static final class RequestedModuleState {
+        boolean enabled;
+        int keybind;
+        Boolean hidden;
+
+        RequestedModuleState(boolean enabled, int keybind) {
+            this.enabled = enabled;
+            this.keybind = keybind;
         }
     }
 
@@ -118,10 +130,19 @@ public class ProfileManager implements IMinecraftInstance {
         if (module instanceof HUD) {
             moduleInformation.addProperty("posX", HUD.posX);
             moduleInformation.addProperty("posY", HUD.posY);
+            moduleInformation.addProperty("relPosX", HUD.getRelativePosX());
+            moduleInformation.addProperty("relPosY", HUD.getRelativePosY());
         }
         else if (module instanceof TargetHUD) {
             moduleInformation.addProperty("posX", ModuleManager.targetHUD.posX);
             moduleInformation.addProperty("posY", ModuleManager.targetHUD.posY);
+        }
+        else if (module instanceof PotionHUD) {
+            PotionHUD potionHUD = (PotionHUD) module;
+            moduleInformation.addProperty("posX", potionHUD.getPosX());
+            moduleInformation.addProperty("posY", potionHUD.getPosY());
+            moduleInformation.addProperty("relPosX", potionHUD.getRelativePosX());
+            moduleInformation.addProperty("relPosY", potionHUD.getRelativePosY());
         }
         else if (module instanceof Gui) {
             for (CategoryComponent c : ClickGui.categories) {
@@ -182,20 +203,6 @@ public class ProfileManager implements IMinecraftInstance {
                 continue;
             }
             foundProfile = true;
-            if (Raven.scriptManager != null) {
-                for (Module module : Raven.scriptManager.scripts.values()) {
-                    if (module.canBeEnabled()) {
-                        module.disable();
-                        module.setBind(0);
-                    }
-                }
-            }
-            for (Module module : Raven.getModuleManager().getModules()) {
-                if (module.canBeEnabled()) {
-                    module.disable();
-                    module.setBind(0);
-                }
-            }
             try (FileReader fileReader = new FileReader(file)) {
                 JsonParser jsonParser = new JsonParser();
                 JsonObject profileJson = jsonParser.parse(fileReader).getAsJsonObject();
@@ -208,6 +215,9 @@ public class ProfileManager implements IMinecraftInstance {
                     failedMessage("load", profileName);
                     return;
                 }
+                List<Module> loadableModules = getLoadableModules();
+                Map<Module, RequestedModuleState> requestedModuleStates = createDefaultRequestedModuleStates(loadableModules);
+                Map<Module, JsonObject> loadedModuleData = new LinkedHashMap<Module, JsonObject>();
                 boolean loadedRelationshipsState = false;
                 Map<String, SavedCategoryState> savedGuiCategoryState = new HashMap<>();
                 for (JsonElement moduleJson : modules) {
@@ -231,37 +241,73 @@ public class ProfileManager implements IMinecraftInstance {
                         continue;
                     }
 
+                    loadedModuleData.put(module, moduleInformation);
+
                     if (module instanceof Relationships) {
                         loadedRelationshipsState = true;
                     }
 
                     if (module.canBeEnabled()) {
+                        RequestedModuleState requestedState = requestedModuleStates.get(module);
+                        if (requestedState == null) {
+                            requestedState = new RequestedModuleState(false, 0);
+                            requestedModuleStates.put(module, requestedState);
+                        }
                         if (moduleInformation.has("enabled")) {
-                            boolean enabled = moduleInformation.get("enabled").getAsBoolean();
-                            if (enabled) {
-                                module.enable();
-                            } else {
-                                module.disable();
-                            }
+                            requestedState.enabled = moduleInformation.get("enabled").getAsBoolean();
                         }
                         if (moduleInformation.has("hidden")) {
-                            boolean hidden = moduleInformation.get("hidden").getAsBoolean();
-                            module.setHidden(hidden);
+                            requestedState.hidden = moduleInformation.get("hidden").getAsBoolean();
                         }
                         if (moduleInformation.has("keybind")) {
-                            int keybind = moduleInformation.get("keybind").getAsInt();
-                            module.setBind(keybind);
+                            requestedState.keybind = moduleInformation.get("keybind").getAsInt();
                         }
                     }
+                }
+                if (!loadedRelationshipsState && ModuleManager.relationships != null && Raven.playerRelationsManager != null) {
+                    RequestedModuleState relationshipsState = requestedModuleStates.get(ModuleManager.relationships);
+                    if (relationshipsState != null) {
+                        relationshipsState.enabled = Raven.playerRelationsManager.isActive();
+                    }
+                }
+                for (Module module : loadableModules) {
+                    RequestedModuleState requestedState = requestedModuleStates.get(module);
+                    if (requestedState == null) {
+                        continue;
+                    }
+
+                    if (!requestedState.enabled && module.isEnabled()) {
+                        module.disable();
+                    }
+                }
+
+                for (Module module : loadableModules) {
+                    RequestedModuleState requestedState = requestedModuleStates.get(module);
+                    if (requestedState == null) {
+                        continue;
+                    }
+
+                    module.setBind(requestedState.keybind);
+                    if (requestedState.hidden != null) {
+                        module.setHidden(requestedState.hidden);
+                    }
+                }
+
+                for (Map.Entry<Module, JsonObject> entry : loadedModuleData.entrySet()) {
+                    Module module = entry.getKey();
+                    JsonObject moduleInformation = entry.getValue();
 
                     if (module.getName().equals("HUD")) {
-                        if (moduleInformation.has("posX")) {
-                            float hudX = moduleInformation.get("posX").getAsFloat();
-                            HUD.posX = hudX;
+                        if (moduleInformation.has("relPosX") && moduleInformation.has("relPosY")) {
+                            HUD.setRelativePosition(
+                                    moduleInformation.get("relPosX").getAsFloat(),
+                                    moduleInformation.get("relPosY").getAsFloat()
+                            );
                         }
-                        if (moduleInformation.has("posY")) {
-                            float hudY = moduleInformation.get("posY").getAsFloat();
-                            HUD.posY = hudY;
+                        else if (moduleInformation.has("posX") || moduleInformation.has("posY")) {
+                            float hudX = moduleInformation.has("posX") ? moduleInformation.get("posX").getAsFloat() : HUD.posX;
+                            float hudY = moduleInformation.has("posY") ? moduleInformation.get("posY").getAsFloat() : HUD.posY;
+                            HUD.setAbsolutePosition(hudX, hudY);
                         }
                     }
                     else if (module.getName().equals("TargetHUD")) {
@@ -272,6 +318,20 @@ public class ProfileManager implements IMinecraftInstance {
                         if (moduleInformation.has("posY")) {
                             int posY = moduleInformation.get("posY").getAsInt();
                             ModuleManager.targetHUD.posY = posY;
+                        }
+                    }
+                    else if (module.getName().equals("Potion HUD")) {
+                        PotionHUD potionHUD = (PotionHUD) module;
+                        if (moduleInformation.has("relPosX") && moduleInformation.has("relPosY")) {
+                            potionHUD.setRelativePosition(
+                                    moduleInformation.get("relPosX").getAsFloat(),
+                                    moduleInformation.get("relPosY").getAsFloat()
+                            );
+                        }
+                        else if (moduleInformation.has("posX") || moduleInformation.has("posY")) {
+                            float posX = moduleInformation.has("posX") ? moduleInformation.get("posX").getAsFloat() : potionHUD.getPosX();
+                            float posY = moduleInformation.has("posY") ? moduleInformation.get("posY").getAsFloat() : potionHUD.getPosY();
+                            potionHUD.setAbsolutePosition(posX, posY);
                         }
                     }
                     else if (module.getName().equals("Gui")) {
@@ -294,14 +354,18 @@ public class ProfileManager implements IMinecraftInstance {
                         setting.loadProfile(moduleInformation);
                     }
                 }
-                if (!loadedRelationshipsState && ModuleManager.relationships != null && Raven.playerRelationsManager != null) {
-                    if (Raven.playerRelationsManager.isActive()) {
-                        ModuleManager.relationships.enable();
+
+                for (Module module : loadableModules) {
+                    RequestedModuleState requestedState = requestedModuleStates.get(module);
+                    if (requestedState == null) {
+                        continue;
                     }
-                    else {
-                        ModuleManager.relationships.disable();
+
+                    if (requestedState.enabled && !module.isEnabled()) {
+                        module.enable();
                     }
                 }
+
                 Raven.currentProfile = getProfile(profileName);
 
                 boolean loadGuiPositions = Settings.loadGuiPositions.isToggled();
@@ -326,6 +390,24 @@ public class ProfileManager implements IMinecraftInstance {
         if (!foundProfile) {
             failedMessage("load", profileName);
         }
+    }
+
+    private List<Module> getLoadableModules() {
+        List<Module> loadableModules = new ArrayList<Module>(Raven.getModuleManager().getModules());
+        if (Raven.scriptManager != null && Raven.scriptManager.scripts != null) {
+            loadableModules.addAll(Raven.scriptManager.scripts.values());
+        }
+        return loadableModules;
+    }
+
+    private Map<Module, RequestedModuleState> createDefaultRequestedModuleStates(List<Module> modules) {
+        Map<Module, RequestedModuleState> requestedModuleStates = new HashMap<Module, RequestedModuleState>();
+        for (Module module : modules) {
+            if (module.canBeEnabled()) {
+                requestedModuleStates.put(module, new RequestedModuleState(false, 0));
+            }
+        }
+        return requestedModuleStates;
     }
 
     public boolean deleteProfile(String name) {

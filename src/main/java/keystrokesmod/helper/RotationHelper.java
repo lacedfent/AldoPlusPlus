@@ -97,11 +97,15 @@ public class RotationHelper {
      * Same as above with useBackupPoints and range. When useBackupPoints true, uses raycast fallback; range used for raycasts.
      */
     public float[] getRotationsToTarget(Entity target, ClientRotationEvent e, int speed, double horizontalMultipoint, double verticalMultipoint, float randomizationPercent, boolean useBackupPoints, double range) {
+        return getRotationsToTarget(target, e, speed, horizontalMultipoint, verticalMultipoint, randomizationPercent, useBackupPoints, range, false, true);
+    }
+
+    public float[] getRotationsToTarget(Entity target, ClientRotationEvent e, int speed, double horizontalMultipoint, double verticalMultipoint, float randomizationPercent, boolean useBackupPoints, double range, boolean allowThroughBlocks, boolean allowThroughEntities) {
         if (target == null || mc.thePlayer == null) return null;
         float baseYaw = e.yaw != null ? e.yaw : RotationUtils.serverRotations[0];
         float basePitch = e.pitch != null ? e.pitch : RotationUtils.serverRotations[1];
         float[] rot = useBackupPoints
-                ? RotationUtils.getRotationsWithBackup(target, horizontalMultipoint, verticalMultipoint, baseYaw, basePitch, range)
+                ? RotationUtils.getRotationsWithBackup(target, horizontalMultipoint, verticalMultipoint, baseYaw, basePitch, range, allowThroughBlocks, allowThroughEntities)
                 : RotationUtils.getRotations(target, horizontalMultipoint, verticalMultipoint, baseYaw, basePitch);
         if (rot == null) return null;
         return RotationUtils.smoothRotation(baseYaw, basePitch, rot[0], rot[1], speed, randomizationPercent);
@@ -127,11 +131,15 @@ public class RotationHelper {
      * Same as above with useBackupPoints and range. When useBackupPoints true, uses raycast fallback; range used for raycasts.
      */
     public float[] getRotationsToTarget(Entity target, int speed, double horizontalMultipoint, double verticalMultipoint, float randomizationPercent, boolean useBackupPoints, double range) {
+        return getRotationsToTarget(target, speed, horizontalMultipoint, verticalMultipoint, randomizationPercent, useBackupPoints, range, false, true);
+    }
+
+    public float[] getRotationsToTarget(Entity target, int speed, double horizontalMultipoint, double verticalMultipoint, float randomizationPercent, boolean useBackupPoints, double range, boolean allowThroughBlocks, boolean allowThroughEntities) {
         if (target == null || mc.thePlayer == null) return null;
         float baseYaw = mc.thePlayer.rotationYaw;
         float basePitch = mc.thePlayer.rotationPitch;
         float[] rot = useBackupPoints
-                ? RotationUtils.getRotationsWithBackup(target, horizontalMultipoint, verticalMultipoint, baseYaw, basePitch, range)
+                ? RotationUtils.getRotationsWithBackup(target, horizontalMultipoint, verticalMultipoint, baseYaw, basePitch, range, allowThroughBlocks, allowThroughEntities)
                 : RotationUtils.getRotations(target, horizontalMultipoint, verticalMultipoint, baseYaw, basePitch);
         if (rot == null) return null;
         return RotationUtils.smoothRotation(baseYaw, basePitch, rot[0], rot[1], speed, randomizationPercent);

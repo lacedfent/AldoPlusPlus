@@ -3,7 +3,6 @@ package keystrokesmod.script;
 import keystrokesmod.Raven;
 import keystrokesmod.clickgui.components.impl.CategoryComponent;
 import keystrokesmod.module.Module;
-import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.TextSetting;
 import keystrokesmod.utility.NetworkUtils;
 import keystrokesmod.utility.Utils;
@@ -327,7 +326,6 @@ public class ScriptManager {
         final TextSetting[] scriptNameSetting = new TextSetting[1];
         scriptNameSetting[0] = new TextSetting("Script name", script.name, "Type a new script name...", 32, () -> renameScript(script, module, scriptNameSetting[0].getText()));
         module.registerSetting(scriptNameSetting[0]);
-        module.registerSetting(new ButtonSetting("Rename script", () -> renameScript(script, module, scriptNameSetting[0].getText())));
     }
 
     private void renameScript(Script script, Module module, String requestedName) {

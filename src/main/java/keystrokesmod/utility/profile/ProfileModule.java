@@ -19,7 +19,6 @@ public class ProfileModule extends Module {
         this.profile = profile;
         this.displayName = name;
         this.registerSetting(profileNameSetting = new TextSetting("Profile name", name, "Type a new profile name...", 32, this::renameProfile));
-        this.registerSetting(new ButtonSetting("Rename profile", this::renameProfile));
         this.registerSetting(new ButtonSetting("Save profile", () -> {
             Utils.sendMessage("&7Saved profile: &b" + getName());
             Raven.profileManager.saveProfile(this.profile);
