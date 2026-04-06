@@ -209,7 +209,51 @@ public class Displace extends Module {
             releaseBlink();
             releaseBlinkNextGameTick = false;
         }
+    }
 
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public void onPostInput(PostPlayerInputEvent e) {
+        if (!active) {
+            compensateNextTick = false;
+            return;
+        }
+
+        if (compensateNextTick && !displaceThisTick) {
+            compensateNextTick = false;
+            if (displaceLeft) {
+                mc.thePlayer.movementInput.moveStrafe = -1;
+            } else {
+                mc.thePlayer.movementInput.moveStrafe = 1;
+            }
+            return;
+        }
+
+        if (!displaceThisTick || hasKB) return;
+        if (!anyMovementKey()) return;
+
+        mc.thePlayer.movementInput.moveForward = 1;
+        compensateNextTick = true;
+    }
+
+    @SubscribeEvent(priority = EventPriority.HIGH)
+    public void onSendPacket(SendPacketEvent e) {
+        if (!blink.isToggled() || !active || !displaceThisTick || releaseBlinkNextGameTick) {
+            return;
+        }
+        if (!(e.getPacket() instanceof C03PacketPlayer)) {
+            return;
+        }
+        if (outboundBlink != null) {
+            return;
+        }
+
+        outboundBlink = new LagRequest(EnumLagDirection.ONLY_OUTBOUND, new ModuleBackedTimeout(this));
+        Raven.lagHandler.requestLag(outboundBlink);
+        releaseBlinkNextGameTick = true;
+    }
+
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public void onClientRotation(ClientRotationEvent e) {
         if (!Utils.nullCheck()) {
             active = false;
             compensateNextTick = false;
@@ -272,52 +316,8 @@ public class Displace extends Module {
         }
 
         wasDisplacingLastTick = displaceThisTick;
-    }
 
-    @SubscribeEvent(priority = EventPriority.LOWEST)
-    public void onPostInput(PostPlayerInputEvent e) {
-        if (!active) {
-            compensateNextTick = false;
-            return;
-        }
-
-        if (compensateNextTick && !displaceThisTick) {
-            compensateNextTick = false;
-            if (displaceLeft) {
-                mc.thePlayer.movementInput.moveStrafe = -1;
-            } else {
-                mc.thePlayer.movementInput.moveStrafe = 1;
-            }
-            return;
-        }
-
-        if (!displaceThisTick || hasKB) return;
-        if (!anyMovementKey()) return;
-
-        mc.thePlayer.movementInput.moveForward = 1;
-        compensateNextTick = true;
-    }
-
-    @SubscribeEvent(priority = EventPriority.HIGH)
-    public void onSendPacket(SendPacketEvent e) {
-        if (!blink.isToggled() || !active || !displaceThisTick || releaseBlinkNextGameTick) {
-            return;
-        }
-        if (!(e.getPacket() instanceof C03PacketPlayer)) {
-            return;
-        }
-        if (outboundBlink != null) {
-            return;
-        }
-
-        outboundBlink = new LagRequest(EnumLagDirection.ONLY_OUTBOUND, new ModuleBackedTimeout(this));
-        Raven.lagHandler.requestLag(outboundBlink);
-        releaseBlinkNextGameTick = true;
-    }
-
-    @SubscribeEvent(priority = EventPriority.LOWEST)
-    public void onClientRotation(ClientRotationEvent e) {
-        if (!active || !displaceThisTick) return;
+        if (!displaceThisTick) return;
 
         float baseYaw = RotationUtils.serverRotations[0];
         float offset = (float) yawOffset.getInput();

@@ -1,6 +1,7 @@
 package keystrokesmod.module.impl.movement;
 
 import keystrokesmod.event.PreUpdateEvent;
+import keystrokesmod.event.PrePlayerInputEvent;
 import keystrokesmod.event.SendPacketEvent;
 import keystrokesmod.module.Module;
 import keystrokesmod.utility.Utils;
@@ -21,6 +22,12 @@ public class Stasis extends Module {
         mc.thePlayer.motionX = 0.0D;
         mc.thePlayer.motionY = 0.0D;
         mc.thePlayer.motionZ = 0.0D;
+    }
+
+    @SubscribeEvent
+    public void onPrePlayerInput(PrePlayerInputEvent e) {
+        e.setForward(0.0F);
+        e.setStrafe(0.0F);
     }
 
     @SubscribeEvent
