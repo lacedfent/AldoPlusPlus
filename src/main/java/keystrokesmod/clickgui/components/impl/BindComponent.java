@@ -9,20 +9,14 @@ import keystrokesmod.utility.RenderUtils;
 import keystrokesmod.utility.Theme;
 import keystrokesmod.utility.font.RavenFontRenderer;
 import keystrokesmod.utility.profile.ProfileModule;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.util.ResourceLocation;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.opengl.GL11;
 
-import java.awt.*;
-
 public class BindComponent extends Component {
-    private static final ResourceLocation EYE_ICON = new ResourceLocation("keystrokesmod", "textures/gui/eye.png");
-    private static final ResourceLocation EYE_OFF_ICON = new ResourceLocation("keystrokesmod", "textures/gui/eye_off.png");
+    private static final String EYE_ICON_PATH = "/assets/keystrokesmod/textures/gui/eye.png";
+    private static final String EYE_OFF_ICON_PATH = "/assets/keystrokesmod/textures/gui/eye_off.png";
     private static final int EYE_ICON_PADDING = 2;
-    private static ResourceLocation processedEye;
-    private static ResourceLocation processedEyeOff;
 
     public boolean isBinding;
     public ModuleComponent moduleComponent;
@@ -67,7 +61,6 @@ public class BindComponent extends Component {
         GL11.glPopMatrix();
 
         if (keySetting == null && moduleComponent.mod.moduleCategory() != Module.category.profiles) {
-            ensureProcessedTextures();
             int iconSize = getEyeIconSize();
             float iconX = getEyeIconX(iconSize);
             float textHeight = Gui.getClickGuiSettingFontRenderer().getFontHeight() * 0.5f;
@@ -76,31 +69,8 @@ public class BindComponent extends Component {
             int themeColor = !moduleComponent.mod.hidden
                     ? Theme.getGradient(Theme.descriptor[0], Theme.descriptor[1], 0)
                     : Theme.getGradient(Theme.hiddenBind[0], Theme.hiddenBind[1], 0);
-            Color c = new Color(themeColor, true);
-            boolean depthEnabled = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
-            boolean blendEnabled = GL11.glIsEnabled(GL11.GL_BLEND);
-            boolean depthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
-            RenderUtils.prepareGuiTextureRenderState();
-            Minecraft.getMinecraft().getTextureManager().bindTexture(moduleComponent.mod.isHidden() ? processedEyeOff : processedEye);
-            GlStateManager.color(c.getRed() / 255f, c.getGreen() / 255f, c.getBlue() / 255f, c.getAlpha() / 255f);
-
-            GL11.glPushMatrix();
-            GL11.glTranslatef(iconX, iconY, 0);
-            net.minecraft.client.gui.Gui.drawModalRectWithCustomSizedTexture(0, 0, 0, 0, iconSize, iconSize, iconSize, iconSize);
-            GL11.glPopMatrix();
-
-            GlStateManager.color(1f, 1f, 1f, 1f);
-            if (blendEnabled) {
-                GlStateManager.enableBlend();
-            } else {
-                GlStateManager.disableBlend();
-            }
-            if (depthEnabled) {
-                GlStateManager.enableDepth();
-            } else {
-                GlStateManager.disableDepth();
-            }
-            GlStateManager.depthMask(depthMask);
+            String iconPath = moduleComponent.mod.isHidden() ? EYE_OFF_ICON_PATH : EYE_ICON_PATH;
+            RenderUtils.drawIcon(RenderUtils.getIcon(iconPath), iconX, iconY, iconSize, themeColor);
         }
     }
 
@@ -233,10 +203,4 @@ public class BindComponent extends Component {
 
     public void onGuiClosed() { isBinding = false; }
 
-    private static void ensureProcessedTextures() {
-        if (processedEye == null)
-            processedEye = RenderUtils.buildWhiteMaskedTexture("/assets/keystrokesmod/textures/gui/eye.png", "raven_eye_white", EYE_ICON);
-        if (processedEyeOff == null)
-            processedEyeOff = RenderUtils.buildWhiteMaskedTexture("/assets/keystrokesmod/textures/gui/eye_off.png", "raven_eye_off_white", EYE_OFF_ICON);
-    }
 }

@@ -10,6 +10,7 @@ import keystrokesmod.module.ModuleManager;
 import keystrokesmod.module.impl.client.Gui;
 import keystrokesmod.module.impl.client.Relationships;
 import keystrokesmod.module.impl.client.Settings;
+import keystrokesmod.module.impl.player.HideWindow;
 import keystrokesmod.module.impl.render.HUD;
 import keystrokesmod.module.impl.render.PotionHUD;
 import keystrokesmod.module.impl.render.TargetHUD;
@@ -19,6 +20,7 @@ import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.ColorSetting;
 import keystrokesmod.module.setting.impl.KeySetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
+import keystrokesmod.module.setting.impl.StringListSetting;
 import keystrokesmod.module.setting.impl.TextSetting;
 import keystrokesmod.script.Manager;
 import keystrokesmod.utility.IMinecraftInstance;
@@ -144,6 +146,13 @@ public class ProfileManager implements IMinecraftInstance {
             moduleInformation.addProperty("relPosX", potionHUD.getRelativePosX());
             moduleInformation.addProperty("relPosY", potionHUD.getRelativePosY());
         }
+        else if (module instanceof HideWindow) {
+            HideWindow hw = (HideWindow) module;
+            moduleInformation.addProperty("posX", hw.getPosX());
+            moduleInformation.addProperty("posY", hw.getPosY());
+            moduleInformation.addProperty("relPosX", hw.getRelativePosX());
+            moduleInformation.addProperty("relPosY", hw.getRelativePosY());
+        }
         else if (module instanceof Gui) {
             for (CategoryComponent c : ClickGui.categories) {
                 moduleInformation.addProperty(c.category.name(), c.x + "," + c.y + "," + c.opened);
@@ -169,6 +178,9 @@ public class ProfileManager implements IMinecraftInstance {
             }
             else if (setting instanceof BlockListSetting) {
                 moduleInformation.add(setting.getProfileKey(), ((BlockListSetting) setting).toJsonArray());
+            }
+            else if (setting instanceof StringListSetting) {
+                moduleInformation.add(setting.getProfileKey(), ((StringListSetting) setting).toJsonArray());
             }
         }
         return moduleInformation;
@@ -332,6 +344,20 @@ public class ProfileManager implements IMinecraftInstance {
                             float posX = moduleInformation.has("posX") ? moduleInformation.get("posX").getAsFloat() : potionHUD.getPosX();
                             float posY = moduleInformation.has("posY") ? moduleInformation.get("posY").getAsFloat() : potionHUD.getPosY();
                             potionHUD.setAbsolutePosition(posX, posY);
+                        }
+                    }
+                    else if (module.getName().equals("Hide Window")) {
+                        HideWindow hw = (HideWindow) module;
+                        if (moduleInformation.has("relPosX") && moduleInformation.has("relPosY")) {
+                            hw.setRelativePosition(
+                                    moduleInformation.get("relPosX").getAsFloat(),
+                                    moduleInformation.get("relPosY").getAsFloat()
+                            );
+                        }
+                        else if (moduleInformation.has("posX") || moduleInformation.has("posY")) {
+                            float posX = moduleInformation.has("posX") ? moduleInformation.get("posX").getAsFloat() : hw.getPosX();
+                            float posY = moduleInformation.has("posY") ? moduleInformation.get("posY").getAsFloat() : hw.getPosY();
+                            hw.setAbsolutePosition(posX, posY);
                         }
                     }
                     else if (module.getName().equals("Gui")) {

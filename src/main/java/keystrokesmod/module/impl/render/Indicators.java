@@ -9,6 +9,8 @@ import keystrokesmod.module.setting.impl.GroupSetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
 import keystrokesmod.utility.RenderUtils;
 import keystrokesmod.utility.Utils;
+import keystrokesmod.utility.font.FontManager;
+import keystrokesmod.utility.font.RavenFontRenderer;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.entity.Entity;
@@ -37,6 +39,7 @@ public class Indicators extends Module {
 
     private SliderSetting arrow;
     private SliderSetting radius;
+    private SliderSetting font;
     private ButtonSetting itemColors;
     private ButtonSetting renderItem;
     private ButtonSetting renderDistance;
@@ -45,6 +48,7 @@ public class Indicators extends Module {
 
     private static final int APPROACH_INTERVAL_TICKS = 5;
     private static final double MIN_NET_TOWARD_BLOCKS = 1.0;
+    private static final String[] FONT_OPTIONS = FontManager.getHudFontOptions();
     private int tickCounter;
     private final Map<Entity, Vec3> lastPosition = new HashMap<>();
     private final Set<Entity> entitiesToRender = new HashSet<>();
@@ -61,6 +65,7 @@ public class Indicators extends Module {
         this.registerSetting(renderSnowballs = new ButtonSetting(items, "Render snowballs", false));
         this.registerSetting(arrow = new SliderSetting("Arrow", 0, arrowTypes));
         this.registerSetting(radius = new SliderSetting("Circle radius", 50, 30, 200, 5));
+        this.registerSetting(font = new SliderSetting("Font", 0, FONT_OPTIONS));
         this.registerSetting(itemColors = new ButtonSetting("Item colors", true));
         this.registerSetting(renderItem = new ButtonSetting("Render item", true));
         this.registerSetting(renderDistance = new ButtonSetting("Render distance", true));
@@ -271,7 +276,8 @@ public class Indicators extends Module {
             else if (arrowInput == 1) {
                 GlStateManager.rotate(-90.0f, 0.0f, 0.0f, 1.0f);
                 GlStateManager.scale(1.5, 1.5, 1.5);
-                mc.fontRendererObj.drawString(">", -2.0f, -4.0f, color, false);
+                RavenFontRenderer fr = getIndicatorFontRenderer();
+                fr.drawString(">", -2.0f, -4.0f, color, false);
             }
             else if (arrowInput == 2) {
                 RenderUtils.draw2DPolygon(0.0, 0.0, 5.0, 3, Utils.mergeAlpha(color, 255));
@@ -288,7 +294,8 @@ public class Indicators extends Module {
 
             if (renderDistance.isToggled()) {
                 String text = (int) mc.thePlayer.getDistanceToEntity(en) + "m";
-                mc.fontRendererObj.drawString(text, (float) (-mc.fontRendererObj.getStringWidth(text) / 2), -4.0f, -1, true);
+                RavenFontRenderer fr = getIndicatorFontRenderer();
+                fr.drawString(text, (float) (-fr.getStringWidth(text) / 2), -4.0f, -1, true);
             }
 
             GlStateManager.popMatrix();
@@ -335,5 +342,17 @@ public class Indicators extends Module {
 
     private boolean shouldRender(Entity en, ItemStack stack) {
         return true;
+    }
+
+    private String getSelectedFontName() {
+        if (font == null) {
+            return FONT_OPTIONS[0];
+        }
+        int index = (int) Math.max(0, Math.min(font.getOptions().length - 1, font.getInput()));
+        return font.getOptions()[index];
+    }
+
+    private RavenFontRenderer getIndicatorFontRenderer() {
+        return FontManager.getNametagRenderer(getSelectedFontName());
     }
 }

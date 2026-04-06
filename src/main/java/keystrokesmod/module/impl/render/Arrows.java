@@ -8,6 +8,8 @@ import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
 import keystrokesmod.utility.RenderUtils;
 import keystrokesmod.utility.Utils;
+import keystrokesmod.utility.font.FontManager;
+import keystrokesmod.utility.font.RavenFontRenderer;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.entity.player.EntityPlayer;
@@ -20,8 +22,11 @@ import java.awt.*;
 import java.util.ArrayList;
 
 public class Arrows extends Module {
+    private static final String[] FONT_OPTIONS = FontManager.getHudFontOptions();
+
     private SliderSetting arrow;
     private SliderSetting radius;
+    private SliderSetting font;
     private ButtonSetting teamColor;
     private ButtonSetting hideTeammates;
     private ButtonSetting renderFriends;
@@ -40,6 +45,7 @@ public class Arrows extends Module {
         super("Arrows", category.render);
         this.registerSetting(arrow = new SliderSetting("Arrow", 0, arrowTypes));
         this.registerSetting(radius = new SliderSetting("Circle radius", 50, 30, 200, 5));
+        this.registerSetting(font = new SliderSetting("Font", 0, FONT_OPTIONS));
         this.registerSetting(teamColor = new ButtonSetting("Team color", true));
         this.registerSetting(hideTeammates = new ButtonSetting("Hide teammates", true));
         this.registerSetting(renderFriends = new ButtonSetting("Render friends (green)", true));
@@ -194,7 +200,8 @@ public class Arrows extends Module {
             else if (arrowInput == 1) {
                 GlStateManager.rotate(-90.0f, 0.0f, 0.0f, 1.0f);
                 GlStateManager.scale(1.5, 1.5, 1.5);
-                mc.fontRendererObj.drawString(">", -2.0f, -4.0f, color, false);
+                RavenFontRenderer fr = getArrowFontRenderer();
+                fr.drawString(">", -2.0f, -4.0f, color, false);
             }
             else if (arrowInput == 2) {
                 RenderUtils.draw2DPolygon(0.0, 0.0, 5.0, 3, Utils.mergeAlpha(color, 255));
@@ -211,11 +218,24 @@ public class Arrows extends Module {
 
             if (renderDistance.isToggled()) {
                 String text = (int) mc.thePlayer.getDistanceToEntity(en) + "m";
-                mc.fontRendererObj.drawString(text, (float) (-mc.fontRendererObj.getStringWidth(text) / 2), -4.0f, -1, true);
+                RavenFontRenderer fr = getArrowFontRenderer();
+                fr.drawString(text, (float) (-fr.getStringWidth(text) / 2), -4.0f, -1, true);
             }
 
             GlStateManager.popMatrix();
         }
+    }
+
+    private String getSelectedFontName() {
+        if (font == null) {
+            return FONT_OPTIONS[0];
+        }
+        int index = (int) Math.max(0, Math.min(font.getOptions().length - 1, font.getInput()));
+        return font.getOptions()[index];
+    }
+
+    private RavenFontRenderer getArrowFontRenderer() {
+        return FontManager.getNametagRenderer(getSelectedFontName());
     }
 
     private static final class ArrowRenderState {

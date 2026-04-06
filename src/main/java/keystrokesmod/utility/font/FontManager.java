@@ -17,7 +17,8 @@ import java.util.function.Supplier;
 public final class FontManager {
     private static final String MINECRAFT = "Minecraft";
     private static final String RESOURCE_ROOT = "/assets/keystrokesmod/fonts/";
-    private static final int MAX_CACHED_RENDERERS = 64;
+    /** Large enough that HUD font-size drags + clickgui + nametags do not evict active renderers every frame. */
+    private static final int MAX_CACHED_RENDERERS = 512;
     private static final float DEFAULT_HUD_FONT_SIZE = 10.0f;
     private static final float DEFAULT_CLICK_GUI_HEADER_HEIGHT = 9.0f;
     private static final float DEFAULT_CLICK_GUI_SETTING_HEIGHT = 9.0f;
@@ -69,7 +70,7 @@ public final class FontManager {
             return getMinecraftRenderer(safeFontSize);
         }
 
-        String key = family + "#" + safeFontSize + "#" + getUiScale();
+        String key = family + "#" + quantizeForCacheKey(safeFontSize) + "#" + getUiScale();
         return getCachedRenderer(key, new Supplier<RavenFontRenderer>() {
             @Override
             public RavenFontRenderer get() {
@@ -96,7 +97,7 @@ public final class FontManager {
             return getMinecraftRenderer(safeTargetHeight);
         }
 
-        String key = family + "#height#" + safeTargetHeight + "#" + getUiScale();
+        String key = family + "#height#" + quantizeForCacheKey(safeTargetHeight) + "#" + getUiScale();
         return getCachedRenderer(key, new Supplier<RavenFontRenderer>() {
             @Override
             public RavenFontRenderer get() {
@@ -133,7 +134,7 @@ public final class FontManager {
     private static RavenFontRenderer getMinecraftRenderer(float fontSize) {
         float vanillaHeight = Math.max(1.0f, Minecraft.getMinecraft().fontRendererObj.FONT_HEIGHT);
         float scale = Math.max(0.5f, Math.min(2.0f, fontSize / vanillaHeight));
-        String key = MINECRAFT + "#" + scale;
+        String key = MINECRAFT + "#" + quantizeForCacheKey(scale);
         return getCachedRenderer(key, new Supplier<RavenFontRenderer>() {
             @Override
             public RavenFontRenderer get() {
@@ -193,6 +194,11 @@ public final class FontManager {
         catch (Exception ignored) {
             return 1;
         }
+    }
+
+    /** Fewer unique keys when sliders move smoothly; avoids LRU evicting live glyph textures every frame. */
+    private static float quantizeForCacheKey(float value) {
+        return Math.round(value * 100.0f) / 100.0f;
     }
 
     private static byte[] readFontData(String fileName) {

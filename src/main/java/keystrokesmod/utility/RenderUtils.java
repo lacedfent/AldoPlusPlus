@@ -1742,4 +1742,66 @@ public class RenderUtils implements IMinecraftInstance {
             return fallback;
         }
     }
+
+    private static final java.util.Map<String, ResourceLocation> iconCache = new java.util.HashMap<>();
+
+    /**
+     * Returns a cached white-masked icon texture, loading it on first access.
+     * The resource path should start with "/" (e.g. "/assets/keystrokesmod/textures/gui/close.png").
+     */
+    public static ResourceLocation getIcon(String resourcePath) {
+        ResourceLocation cached = iconCache.get(resourcePath);
+        if (cached != null) {
+            return cached;
+        }
+        String registryName = "raven_icon_" + resourcePath.hashCode();
+        ResourceLocation icon = buildWhiteMaskedTexture(resourcePath, registryName, null);
+        if (icon != null) {
+            iconCache.put(resourcePath, icon);
+        }
+        return icon;
+    }
+
+    /**
+     * Draws a tinted icon texture at the given position with full GL state management.
+     * Saves and restores depth/blend state automatically.
+     */
+    public static void drawIcon(ResourceLocation texture, float x, float y, int size, int argbColor) {
+        if (texture == null) {
+            return;
+        }
+        boolean depthEnabled = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
+        boolean blendEnabled = GL11.glIsEnabled(GL11.GL_BLEND);
+        boolean depthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
+
+        prepareGuiTextureRenderState();
+        mc.getTextureManager().bindTexture(texture);
+        float a = ((argbColor >>> 24) & 0xFF) / 255f;
+        float r = ((argbColor >> 16) & 0xFF) / 255f;
+        float g = ((argbColor >> 8) & 0xFF) / 255f;
+        float b = (argbColor & 0xFF) / 255f;
+        GlStateManager.color(r, g, b, a);
+
+        GL11.glPushMatrix();
+        GL11.glTranslatef(x, y, 0f);
+        net.minecraft.client.gui.Gui.drawModalRectWithCustomSizedTexture(0, 0, 0, 0, size, size, size, size);
+        GL11.glPopMatrix();
+
+        restoreGuiRenderState(depthEnabled, blendEnabled, depthMask);
+    }
+
+    public static void restoreGuiRenderState(boolean depthEnabled, boolean blendEnabled, boolean depthMask) {
+        GlStateManager.color(1f, 1f, 1f, 1f);
+        if (blendEnabled) {
+            GlStateManager.enableBlend();
+        } else {
+            GlStateManager.disableBlend();
+        }
+        if (depthEnabled) {
+            GlStateManager.enableDepth();
+        } else {
+            GlStateManager.disableDepth();
+        }
+        GlStateManager.depthMask(depthMask);
+    }
 }

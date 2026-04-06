@@ -6,7 +6,8 @@ import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
 import keystrokesmod.utility.RenderUtils;
 import keystrokesmod.utility.Utils;
-import net.minecraft.client.gui.FontRenderer;
+import keystrokesmod.utility.font.FontManager;
+import keystrokesmod.utility.font.RavenFontRenderer;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.WorldRenderer;
@@ -43,9 +44,11 @@ public class DamageTags extends Module {
     private static final float HIDDEN_TEXT_ALPHA = 32.0F / 255.0F;
     private static final float FADE_START = 0.72F;
     private static final int MIN_FONT_ALPHA = 4;
+    private static final String[] FONT_OPTIONS = FontManager.getHudFontOptions();
 
     private final SliderSetting duration;
     private final SliderSetting scale;
+    private final SliderSetting font;
     private final SliderSetting depthMode;
     private final ButtonSetting textShadow;
     private final ButtonSetting background;
@@ -115,6 +118,7 @@ public class DamageTags extends Module {
         super("Damage Tags", category.render, 0);
         this.registerSetting(duration = new SliderSetting("Duration", " ms", 1200, 0, 2000, 100));
         this.registerSetting(scale = new SliderSetting("Scale", 1.0, 0.5, 3.0, 0.1));
+        this.registerSetting(font = new SliderSetting("Font", 0, FONT_OPTIONS));
         this.registerSetting(depthMode = new SliderSetting("Depth", 0, DEPTH_MODES));
         this.registerSetting(textShadow = new ButtonSetting("Text Shadow", false));
         this.registerSetting(background = new ButtonSetting("Background", true));
@@ -197,7 +201,7 @@ public class DamageTags extends Module {
             return;
         }
 
-        FontRenderer fontRenderer = mc.fontRendererObj;
+        RavenFontRenderer fontRenderer = getDamageTagFontRenderer();
         RenderManager renderManager = mc.getRenderManager();
         if (fontRenderer == null || renderManager == null) {
             return;
@@ -312,7 +316,7 @@ public class DamageTags extends Module {
         long durationMs = Math.max(1L, Math.round(duration.getInput()));
         String text = (delta > 0.0F ? "+" : "-") + fastOneDecimal(Math.abs(delta));
         int color = delta > 0.0F ? 0xFF55FF55 : 0xFFFF5555;
-        FontRenderer fr = mc.fontRendererObj;
+        RavenFontRenderer fr = getDamageTagFontRenderer();
         int halfW = fr != null ? fr.getStringWidth(text) >> 1 : 0;
 
         activeTags.add(new DamageTag(text, color, x, y, z, nowMillis, durationMs, halfW));
@@ -321,7 +325,7 @@ public class DamageTags extends Module {
         }
     }
 
-    private void renderTag(DamageTag tag, long now, RenderManager renderManager, FontRenderer fontRenderer,
+    private void renderTag(DamageTag tag, long now, RenderManager renderManager, RavenFontRenderer fontRenderer,
                            double viewerX, double viewerY, double viewerZ,
                            int depthOrdinal, float scaleMul,
                            boolean bgEnabled, float bgOpacitySlider) {
@@ -374,7 +378,7 @@ public class DamageTags extends Module {
         GlStateManager.popMatrix();
     }
 
-    private void renderVanillaDepthTag(FontRenderer fontRenderer, DamageTag tag, int halfWidth, float alpha,
+    private void renderVanillaDepthTag(RavenFontRenderer fontRenderer, DamageTag tag, int halfWidth, float alpha,
                                        boolean bgEnabled, float bgOpacitySlider) {
         GlStateManager.depthMask(false);
         GlStateManager.disableDepth();
@@ -385,7 +389,7 @@ public class DamageTags extends Module {
         fontRenderer.drawString(tag.text, -halfWidth, 0, applyFontAlpha(tag.color, alpha), textShadow.isToggled());
     }
 
-    private void renderVisibleTag(FontRenderer fontRenderer, DamageTag tag, int halfWidth, float alpha,
+    private void renderVisibleTag(RavenFontRenderer fontRenderer, DamageTag tag, int halfWidth, float alpha,
                                   boolean bgEnabled, float bgOpacitySlider) {
         GlStateManager.depthMask(false);
         GlStateManager.enableDepth();
@@ -393,7 +397,7 @@ public class DamageTags extends Module {
         fontRenderer.drawString(tag.text, -halfWidth, 0, applyFontAlpha(tag.color, alpha), textShadow.isToggled());
     }
 
-    private void renderThroughWallsTag(FontRenderer fontRenderer, DamageTag tag, int halfWidth, float alpha,
+    private void renderThroughWallsTag(RavenFontRenderer fontRenderer, DamageTag tag, int halfWidth, float alpha,
                                        boolean bgEnabled, float bgOpacitySlider) {
         GlStateManager.depthMask(false);
         GlStateManager.disableDepth();
@@ -493,6 +497,18 @@ public class DamageTags extends Module {
             return 1.0F;
         }
         return 1.0F - (float) Math.pow(2.0D, -10.0D * t);
+    }
+
+    private String getSelectedFontName() {
+        if (font == null) {
+            return FONT_OPTIONS[0];
+        }
+        int index = (int) Math.max(0, Math.min(font.getOptions().length - 1, font.getInput()));
+        return font.getOptions()[index];
+    }
+
+    private RavenFontRenderer getDamageTagFontRenderer() {
+        return FontManager.getNametagRenderer(getSelectedFontName());
     }
 
     private void resetState() {

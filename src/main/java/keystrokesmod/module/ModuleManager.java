@@ -87,6 +87,8 @@ public class ModuleManager {
     public static ChatCommands chatCommands;
     public static BlockIn blockIn;
     public static Relationships relationships;
+    public static HideWindow hideWindow;
+    public static Displace displace;
 
     public void register() {
         this.addModule(chatCommands = new ChatCommands());
@@ -104,6 +106,7 @@ public class ModuleManager {
         this.addModule(new Autoblock());
         this.addModule(blockIn = new BlockIn());
         this.addModule(new ClickAssist());
+        this.addModule(displace = new Displace());
         this.addModule(hitSelect = new HitSelect());
         this.addModule(hitBox = new HitBox());
         this.addModule(new JumpReset());
@@ -148,6 +151,7 @@ public class ModuleManager {
         this.addModule(new NullMove());
         this.addModule(new Speed());
         this.addModule(sprint = new Sprint());
+        this.addModule(new Stasis());
         this.addModule(new StopMotion());
         this.addModule(new InstantStop());
         this.addModule(new Teleport());
@@ -174,6 +178,7 @@ public class ModuleManager {
         this.addModule(fastPlace = new FastPlace());
         this.addModule(new FakeLag());
         this.addModule(new Freecam());
+        this.addModule(hideWindow = new HideWindow());
         this.addModule(inventory = new Inventory());
         this.addModule(noFall = new NoFall());
         this.addModule(noRotate = new NoRotate());

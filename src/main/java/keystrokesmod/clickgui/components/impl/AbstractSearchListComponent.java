@@ -15,15 +15,11 @@ import net.minecraft.util.ResourceLocation;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.opengl.GL11;
 
-import java.awt.Color;
 import java.util.List;
 
 public abstract class AbstractSearchListComponent extends AbstractTextInputComponent {
-    private static final ResourceLocation CLOSE_ICON = new ResourceLocation("keystrokesmod", "textures/gui/close.png");
-    private static final ResourceLocation ARROW_ICON = new ResourceLocation("keystrokesmod", "textures/gui/arrow_left.png");
-
-    private static ResourceLocation processedClose;
-    private static ResourceLocation processedArrow;
+    private static final String CLOSE_ICON_PATH = "/assets/keystrokesmod/textures/gui/close.png";
+    private static final String ARROW_ICON_PATH = "/assets/keystrokesmod/textures/gui/arrow_left.png";
 
     protected static final float ANIMATION_DURATION = 250f;
     protected static final int MAX_VISIBLE_RESULTS = 7;
@@ -293,21 +289,11 @@ public abstract class AbstractSearchListComponent extends AbstractTextInputCompo
 
     protected final void renderBackRow(float left, float right, float rowTop, int bgColor, String groupName) {
         RenderUtils.drawRect(left, rowTop, right, rowTop + ROW_HEIGHT - 1f, bgColor);
-        ensureProcessedArrowTexture();
-        if (processedArrow != null) {
+        ResourceLocation arrow = RenderUtils.getIcon(ARROW_ICON_PATH);
+        if (arrow != null) {
             float iconX = left + 2f;
             float iconY = rowTop + (LIST_ROW_VISUAL_HEIGHT - CLOSE_SIZE) / 2f;
-            boolean depthEnabled = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
-            boolean blendEnabled = GL11.glIsEnabled(GL11.GL_BLEND);
-            boolean depthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
-            RenderUtils.prepareGuiTextureRenderState();
-            Minecraft.getMinecraft().getTextureManager().bindTexture(processedArrow);
-            GlStateManager.color(1f, 1f, 1f, 1f);
-            GL11.glPushMatrix();
-            GL11.glTranslatef(iconX, iconY, 0f);
-            net.minecraft.client.gui.Gui.drawModalRectWithCustomSizedTexture(0, 0, 0, 0, CLOSE_SIZE, CLOSE_SIZE, CLOSE_SIZE, CLOSE_SIZE);
-            GL11.glPopMatrix();
-            restoreGuiRenderState(depthEnabled, blendEnabled, depthMask);
+            RenderUtils.drawIcon(arrow, iconX, iconY, CLOSE_SIZE, 0xFFFFFFFF);
         }
         drawListRowText(groupName != null ? groupName : "Back", left + 13f, rowTop, 0xFFCCCCCC);
     }
@@ -326,25 +312,14 @@ public abstract class AbstractSearchListComponent extends AbstractTextInputCompo
     }
 
     protected final void renderCloseIcon(float right, float rowTop) {
-        ensureProcessedCloseTexture();
-        if (processedClose == null) {
+        ResourceLocation close = RenderUtils.getIcon(CLOSE_ICON_PATH);
+        if (close == null) {
             return;
         }
-
-        Color closeColor = new Color(Theme.getGradient(Theme.hiddenBind[0], Theme.hiddenBind[1], 0), true);
         float closeX = right - CLOSE_SIZE - CLOSE_PAD;
         float closeY = rowTop + (LIST_ROW_VISUAL_HEIGHT - CLOSE_SIZE) / 2f;
-        boolean depthEnabled = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
-        boolean blendEnabled = GL11.glIsEnabled(GL11.GL_BLEND);
-        boolean depthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
-        RenderUtils.prepareGuiTextureRenderState();
-        Minecraft.getMinecraft().getTextureManager().bindTexture(processedClose);
-        GlStateManager.color(closeColor.getRed() / 255f, closeColor.getGreen() / 255f, closeColor.getBlue() / 255f, closeColor.getAlpha() / 255f);
-        GL11.glPushMatrix();
-        GL11.glTranslatef(closeX, closeY, 0f);
-        net.minecraft.client.gui.Gui.drawModalRectWithCustomSizedTexture(0, 0, 0, 0, CLOSE_SIZE, CLOSE_SIZE, CLOSE_SIZE, CLOSE_SIZE);
-        GL11.glPopMatrix();
-        restoreGuiRenderState(depthEnabled, blendEnabled, depthMask);
+        int closeColor = Theme.getGradient(Theme.hiddenBind[0], Theme.hiddenBind[1], 0);
+        RenderUtils.drawIcon(close, closeX, closeY, CLOSE_SIZE, closeColor);
     }
 
     protected final boolean isOverClose(float mouseX, float mouseY, float rowTop, float right) {
@@ -469,34 +444,6 @@ public abstract class AbstractSearchListComponent extends AbstractTextInputCompo
         return false;
     }
 
-    private static void restoreGuiRenderState(boolean depthEnabled, boolean blendEnabled, boolean depthMask) {
-        GlStateManager.color(1f, 1f, 1f, 1f);
-        if (blendEnabled) {
-            GlStateManager.enableBlend();
-        }
-        else {
-            GlStateManager.disableBlend();
-        }
-        if (depthEnabled) {
-            GlStateManager.enableDepth();
-        }
-        else {
-            GlStateManager.disableDepth();
-        }
-        GlStateManager.depthMask(depthMask);
-    }
-
-    private static void ensureProcessedCloseTexture() {
-        if (processedClose == null) {
-            processedClose = RenderUtils.buildWhiteMaskedTexture("/assets/keystrokesmod/textures/gui/close.png", "raven_close_white", CLOSE_ICON);
-        }
-    }
-
-    private static void ensureProcessedArrowTexture() {
-        if (processedArrow == null) {
-            processedArrow = RenderUtils.buildWhiteMaskedTexture("/assets/keystrokesmod/textures/gui/arrow_left.png", "raven_arrow_left_white", ARROW_ICON);
-        }
-    }
 
     protected boolean hasAdditionalTextInputFocus() {
         return false;

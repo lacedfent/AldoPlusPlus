@@ -1,16 +1,20 @@
 package keystrokesmod.command;
 
 import keystrokesmod.command.impl.Binds;
+import keystrokesmod.command.impl.Bind;
 import keystrokesmod.command.impl.Cname;
 import keystrokesmod.command.impl.Debug;
 import keystrokesmod.command.impl.Enemy;
 import keystrokesmod.command.impl.Friend;
+import keystrokesmod.command.impl.HideAll;
 import keystrokesmod.command.impl.Name;
 import keystrokesmod.command.impl.Ping;
 import keystrokesmod.command.impl.Prefix;
 import keystrokesmod.command.impl.Profiles;
+import keystrokesmod.command.impl.ShowAll;
 import keystrokesmod.command.impl.Toggle;
 import keystrokesmod.command.impl.Track;
+import keystrokesmod.command.impl.Unbind;
 import keystrokesmod.module.ModuleManager;
 import keystrokesmod.module.impl.client.ChatCommands;
 import keystrokesmod.utility.Utils;
@@ -30,6 +34,8 @@ public class CommandManager {
         register(new Ping());
         register(new Name());
         register(new Toggle());
+        register(new Bind());
+        register(new Unbind());
         register(new Binds());
         register(new Cname());
         register(new Debug());
@@ -38,6 +44,8 @@ public class CommandManager {
         register(new Prefix());
         register(trackCommand = new Track());
         register(new Profiles());
+        register(new ShowAll());
+        register(new HideAll());
     }
 
     public boolean handleChatMessage(String message) {

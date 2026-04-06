@@ -271,6 +271,12 @@ public class CategoryComponent {
                             return;
                         }
                     }
+                    else if (comp instanceof StringListComponent) {
+                        StringListComponent slc = (StringListComponent) comp;
+                        if (slc.capturesCategoryScroll(mouseX, mouseY)) {
+                            return;
+                        }
+                    }
                 }
             }
         }
