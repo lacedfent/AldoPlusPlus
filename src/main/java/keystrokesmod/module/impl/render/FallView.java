@@ -9,6 +9,7 @@ import keystrokesmod.utility.Utils;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.enchantment.EnchantmentHelper;
 import net.minecraft.item.ItemStack;
+import net.minecraft.block.material.Material;
 import net.minecraft.potion.Potion;
 import net.minecraft.potion.PotionEffect;
 import net.minecraft.util.BlockPos;
@@ -132,8 +133,8 @@ public class FallView extends Module {
                 armorHash = armorHash * 31 + (currentArmor.getItem() != null ? currentArmor.getItem().hashCode() : 0);
                 armorHash = armorHash * 31 + currentArmor.getItemDamage();
                 armorHash = armorHash * 31 + EnchantmentHelper.getEnchantmentLevel(
-                    net.minecraft.enchantment.Enchantment.featherFalling.effectId,
-                    currentArmor
+                        net.minecraft.enchantment.Enchantment.featherFalling.effectId,
+                        currentArmor
                 );
             }
         }
@@ -195,8 +196,8 @@ public class FallView extends Module {
 
             double percent = (double) finalDamage / currentHealth;
             String healthStr = finalDamage >= currentHealth
-                ? "\u00a74"
-                : (percent >= 0.7 ? "\u00a7c" : (percent >= 0.5 ? "\u00a76" : (percent >= 0.3 ? "\u00a7e" : "\u00a7a")));
+                    ? "\u00a74"
+                    : (percent >= 0.7 ? "\u00a7c" : (percent >= 0.5 ? "\u00a76" : (percent >= 0.3 ? "\u00a7e" : "\u00a7a")));
             damageText = healthStr + Utils.asWholeNum(hearts);
             if (Settings.showHeartSymbol.isToggled()) {
                 damageText += "\u00a7c\u2764\u00a7r";
@@ -223,19 +224,19 @@ public class FallView extends Module {
         ScaledResolution scaledResolution = new ScaledResolution(mc);
         if (showDamageText && damageText != null) {
             mc.fontRendererObj.drawStringWithShadow(
-                damageText,
-                scaledResolution.getScaledWidth() / 2 - mc.fontRendererObj.getStringWidth(damageText) / 2,
-                scaledResolution.getScaledHeight() / 2 - 15,
-                Color.WHITE.getRGB()
+                    damageText,
+                    scaledResolution.getScaledWidth() / 2 - mc.fontRendererObj.getStringWidth(damageText) / 2,
+                    scaledResolution.getScaledHeight() / 2 - 15,
+                    Color.WHITE.getRGB()
             );
         }
 
         if (showDistanceText && distanceText != null) {
             mc.fontRendererObj.drawStringWithShadow(
-                distanceText,
-                scaledResolution.getScaledWidth() / 2 - mc.fontRendererObj.getStringWidth(distanceText) / 2,
-                scaledResolution.getScaledHeight() / 2 + 6,
-                distanceTextColor
+                    distanceText,
+                    scaledResolution.getScaledWidth() / 2 - mc.fontRendererObj.getStringWidth(distanceText) / 2,
+                    scaledResolution.getScaledHeight() / 2 + 6,
+                    distanceTextColor
             );
         }
     }
@@ -260,6 +261,9 @@ public class FallView extends Module {
         int startY = (int) Math.floor(mc.thePlayer.posY);
         for (int y = startY; y > -1; y--) {
             BlockPos pos = new BlockPos(Math.floor(x), y, Math.floor(z));
+            if (mc.theWorld.getBlockState(pos).getBlock().getMaterial() == Material.water) {
+                return -1;
+            }
             if (!Utils.isPlaceable(pos)) {
                 return y + 1;
             }
@@ -309,9 +313,9 @@ public class FallView extends Module {
             }
             DamageCacheKey that = (DamageCacheKey) o;
             return armorHash == that.armorHash
-                && fallDistanceInt == that.fallDistanceInt
-                && jumpBoostLevel == that.jumpBoostLevel
-                && resistanceLevel == that.resistanceLevel;
+                    && fallDistanceInt == that.fallDistanceInt
+                    && jumpBoostLevel == that.jumpBoostLevel
+                    && resistanceLevel == that.resistanceLevel;
         }
 
         @Override

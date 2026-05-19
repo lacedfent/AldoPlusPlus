@@ -139,8 +139,8 @@ public abstract class MixinEntityPlayerSP extends AbstractClientPlayer {
 
     @Inject(method = "closeScreen", at = @At("HEAD"))
     private void raven$beforeCloseScreen(CallbackInfo callbackInfo) {
-        if (ModuleManager.inventory != null) {
-            ModuleManager.inventory.handlePreInventoryClose("EntityPlayerSP.closeScreen");
+        if (ModuleManager.invManager != null) {
+            ModuleManager.invManager.handlePreInventoryClose("EntityPlayerSP.closeScreen");
         }
     }
 

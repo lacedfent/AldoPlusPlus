@@ -74,6 +74,9 @@ public class BedESP extends Module {
     private static final int DEFENSE_ICON_SIZE = 16;
     private static final int DEFENSE_ICON_SPACING = 18;
     private static final int DEFENSE_PADDING = 3;
+    private static final float DEFENSE_BACKGROUND_RADIUS = 8.0F;
+    private static final int DEFENSE_BACKGROUND_COLOR = 0x73000000;
+    private static final int DEFENSE_BACKGROUND_OUTLINE_COLOR = 0x96000000;
     private static final int DEFENSE_MAX_LAYERS = 5;
     private static final float DEFENSE_AIR_RATIO_THRESHOLD = 0.2F;
     private static final float DEFENSE_BLOCK_RATIO_THRESHOLD = 0.2F;
@@ -581,16 +584,8 @@ public class BedESP extends Module {
     }
 
     private void renderDefenseBackground(int left, int top, int right, int bottom) {
-        GlStateManager.disableTexture2D();
-        Tessellator tessellator = Tessellator.getInstance();
-        WorldRenderer worldRenderer = tessellator.getWorldRenderer();
-        worldRenderer.begin(7, DefaultVertexFormats.POSITION_COLOR);
-        worldRenderer.pos(left, top, 0).color(0.0F, 0.0F, 0.0F, 0.45F).endVertex();
-        worldRenderer.pos(left, bottom, 0).color(0.0F, 0.0F, 0.0F, 0.45F).endVertex();
-        worldRenderer.pos(right, bottom, 0).color(0.0F, 0.0F, 0.0F, 0.45F).endVertex();
-        worldRenderer.pos(right, top, 0).color(0.0F, 0.0F, 0.0F, 0.45F).endVertex();
-        tessellator.draw();
-        GlStateManager.enableTexture2D();
+        RenderUtils.drawRoundedGradientOutlinedRectangle(left, top, right, bottom, DEFENSE_BACKGROUND_RADIUS,
+                DEFENSE_BACKGROUND_COLOR, DEFENSE_BACKGROUND_OUTLINE_COLOR, DEFENSE_BACKGROUND_OUTLINE_COLOR);
     }
 
     private void applyDefenseOverlayTextState() {

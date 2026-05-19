@@ -39,6 +39,6 @@ public class MixinGuiContainer {
     }
 
     private static boolean shouldCancelManualInventoryInput() {
-        return ModuleManager.inventory != null && ModuleManager.inventory.shouldCancelManualInventoryInput();
+        return ModuleManager.invManager != null && ModuleManager.invManager.shouldCancelManualInventoryInput();
     }
 }

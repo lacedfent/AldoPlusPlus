@@ -220,11 +220,19 @@ public class PlayerListComponent extends AbstractTextInputComponent {
             return;
         }
 
-        RenderUtils.prepareGuiTextureRenderState();
-        Minecraft.getMinecraft().getTextureManager().bindTexture(skin);
-        GlStateManager.color(1f, 1f, 1f, 1f);
-        net.minecraft.client.gui.Gui.drawScaledCustomSizeModalRect((int) x, (int) y, 8f, 8f, 8, 8, (int) HEAD_SIZE, (int) HEAD_SIZE, 64f, 64f);
-        net.minecraft.client.gui.Gui.drawScaledCustomSizeModalRect((int) x, (int) y, 40f, 8f, 8, 8, (int) HEAD_SIZE, (int) HEAD_SIZE, 64f, 64f);
+        boolean depthEnabled = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
+        boolean blendEnabled = GL11.glIsEnabled(GL11.GL_BLEND);
+        boolean depthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
+
+        try {
+            RenderUtils.prepareGuiTextureRenderState();
+            Minecraft.getMinecraft().getTextureManager().bindTexture(skin);
+            GlStateManager.color(1f, 1f, 1f, 1f);
+            net.minecraft.client.gui.Gui.drawScaledCustomSizeModalRect((int) x, (int) y, 8f, 8f, 8, 8, (int) HEAD_SIZE, (int) HEAD_SIZE, 64f, 64f);
+            net.minecraft.client.gui.Gui.drawScaledCustomSizeModalRect((int) x, (int) y, 40f, 8f, 8, 8, (int) HEAD_SIZE, (int) HEAD_SIZE, 64f, 64f);
+        } finally {
+            RenderUtils.restoreGuiRenderState(depthEnabled, blendEnabled, depthMask);
+        }
     }
 
     private ResourceLocation getSkin(PlayerRelationsManager.PlayerEntry entry, NetworkPlayerInfo playerInfo) {
