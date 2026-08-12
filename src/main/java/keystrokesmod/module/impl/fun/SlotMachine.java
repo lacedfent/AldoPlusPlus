@@ -335,11 +335,6 @@ public class SlotMachine extends Module {
         drawMachine(now, anySpinning);
         drawReels(now);
 
-        GlStateManager.enableBlend();
-        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-        drawGlass();
-        GlStateManager.disableBlend();
-
         GlStateManager.popMatrix();
 
         if (lighting) GL11.glEnable(GL11.GL_LIGHTING);
@@ -368,7 +363,7 @@ public class SlotMachine extends Module {
         box(0.56, 0.197, -0.318, 0.598, 1.616, 0.318, neon);
 
         box(-0.52, 0.5, 0.33, 0.52, 1.3, 0.37, gold);
-        box(-0.46, 0.56, 0.375, 0.46, 1.24, 0.395, dark);
+        box(-0.46, 0.56, 0.365, 0.46, 1.24, 0.383, dark);
         box(-0.52, 1.245, 0.37, 0.52, 1.3, 0.41, gold);
         box(-0.52, 0.5, 0.37, 0.52, 0.555, 0.41, gold);
 
@@ -420,22 +415,6 @@ public class SlotMachine extends Module {
         }
         GL11.glDisable(GL11.GL_TEXTURE_2D);
         GL11.glDisable(GL11.GL_BLEND);
-    }
-
-    private void drawGlass() {
-        Tessellator ts = Tessellator.getInstance();
-        WorldRenderer w = ts.getWorldRenderer();
-        GL11.glDisable(GL11.GL_TEXTURE_2D);
-        w.begin(7, DefaultVertexFormats.POSITION_COLOR);
-        w.pos(-0.46, 0.56, 0.403).color(255, 255, 255, 26).endVertex();
-        w.pos(-0.10, 0.56, 0.403).color(255, 255, 255, 26).endVertex();
-        w.pos(0.10, 1.24, 0.403).color(255, 255, 255, 26).endVertex();
-        w.pos(-0.26, 1.24, 0.403).color(255, 255, 255, 26).endVertex();
-        w.pos(-0.06, 0.56, 0.403).color(255, 255, 255, 64).endVertex();
-        w.pos(0.14, 0.56, 0.403).color(255, 255, 255, 64).endVertex();
-        w.pos(0.34, 1.24, 0.403).color(255, 255, 255, 64).endVertex();
-        w.pos(0.14, 1.24, 0.403).color(255, 255, 255, 64).endVertex();
-        ts.draw();
     }
 
     private static int symbolTexture(String symbol) {
