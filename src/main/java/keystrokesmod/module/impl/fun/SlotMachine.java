@@ -402,15 +402,15 @@ public class SlotMachine extends Module {
             float frac = r.scroll - base;
             for (int row = -1; row <= 3; row++) {
                 double centerY = winCenter - (row - frac) * cellH;
-                quad(cx - cw / 2, centerY - cellH / 2, cellZ, cx + cw / 2, centerY + cellH / 2, 0x2E2E38);
-                quad(cx - cw / 2 + 0.014, centerY - cellH / 2 + 0.014, cellZ + 0.001, cx + cw / 2 - 0.014, centerY + cellH / 2 - 0.014, 0xFAFAFA);
+                quadClipped(cx - cw / 2, centerY - cellH / 2, cellZ, cx + cw / 2, centerY + cellH / 2, 0x2E2E38, winBottom, winTop);
+                quadClipped(cx - cw / 2 + 0.014, centerY - cellH / 2 + 0.014, cellZ + 0.001, cx + cw / 2 - 0.014, centerY + cellH / 2 - 0.014, 0xFAFAFA, winBottom, winTop);
             }
             GL11.glEnable(GL11.GL_TEXTURE_2D);
             for (int row = -1; row <= 3; row++) {
                 int idx = ((int) base + row) % SYMBOL_COUNT;
                 if (idx < 0) idx += SYMBOL_COUNT;
                 double centerY = winCenter - (row - frac) * cellH;
-                texturedQuad(cx - 0.07, centerY - 0.07, cellZ + 0.002, cx + 0.07, centerY + 0.07, symbolTexture(SYMBOLS[idx]));
+                texturedQuadClipped(cx - 0.07, centerY - 0.07, cellZ + 0.002, cx + 0.07, centerY + 0.07, symbolTexture(SYMBOLS[idx]), winBottom, winTop);
             }
         }
         GL11.glDisable(GL11.GL_TEXTURE_2D);
@@ -531,29 +531,38 @@ public class SlotMachine extends Module {
         ts.draw();
     }
 
-    private void quad(double x0, double y0, double z, double x1, double y1, int color) {
+    private void quadClipped(double x0, double y0, double z, double x1, double y1, int color, double clipY0, double clipY1) {
+        if (y1 <= clipY0 || y0 >= clipY1) return;
+        double lo = Math.max(y0, clipY0);
+        double hi = Math.min(y1, clipY1);
         float r = (color >> 16 & 0xFF) / 255.0f;
         float g = (color >> 8 & 0xFF) / 255.0f;
         float b = (color & 0xFF) / 255.0f;
         Tessellator ts = Tessellator.getInstance();
         WorldRenderer w = ts.getWorldRenderer();
         w.begin(7, DefaultVertexFormats.POSITION_COLOR);
-        w.pos(x0, y0, z).color(r, g, b, 1.0f).endVertex();
-        w.pos(x0, y1, z).color(r, g, b, 1.0f).endVertex();
-        w.pos(x1, y1, z).color(r, g, b, 1.0f).endVertex();
-        w.pos(x1, y0, z).color(r, g, b, 1.0f).endVertex();
+        w.pos(x0, lo, z).color(r, g, b, 1.0f).endVertex();
+        w.pos(x0, hi, z).color(r, g, b, 1.0f).endVertex();
+        w.pos(x1, hi, z).color(r, g, b, 1.0f).endVertex();
+        w.pos(x1, lo, z).color(r, g, b, 1.0f).endVertex();
         ts.draw();
     }
 
-    private void texturedQuad(double x0, double y0, double z, double x1, double y1, int texId) {
+    private void texturedQuadClipped(double x0, double y0, double z, double x1, double y1, int texId, double clipY0, double clipY1) {
+        if (y1 <= clipY0 || y0 >= clipY1) return;
+        double lo = Math.max(y0, clipY0);
+        double hi = Math.min(y1, clipY1);
+        double span = y1 - y0;
+        double vBottom = span <= 0.0 ? 1.0 : 1.0 - (lo - y0) / span;
+        double vTop = span <= 0.0 ? 0.0 : 1.0 - (hi - y0) / span;
         GlStateManager.bindTexture(texId);
         Tessellator ts = Tessellator.getInstance();
         WorldRenderer w = ts.getWorldRenderer();
         w.begin(7, DefaultVertexFormats.POSITION_TEX_COLOR);
-        w.pos(x0, y0, z).tex(0.0, 1.0).color(255, 255, 255, 255).endVertex();
-        w.pos(x0, y1, z).tex(0.0, 0.0).color(255, 255, 255, 255).endVertex();
-        w.pos(x1, y1, z).tex(1.0, 0.0).color(255, 255, 255, 255).endVertex();
-        w.pos(x1, y0, z).tex(1.0, 1.0).color(255, 255, 255, 255).endVertex();
+        w.pos(x0, lo, z).tex(0.0, vBottom).color(255, 255, 255, 255).endVertex();
+        w.pos(x0, hi, z).tex(0.0, vTop).color(255, 255, 255, 255).endVertex();
+        w.pos(x1, hi, z).tex(1.0, vTop).color(255, 255, 255, 255).endVertex();
+        w.pos(x1, lo, z).tex(1.0, vBottom).color(255, 255, 255, 255).endVertex();
         ts.draw();
     }
 
