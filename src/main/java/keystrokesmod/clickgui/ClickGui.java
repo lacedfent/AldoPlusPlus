@@ -146,12 +146,11 @@ public class ClickGui extends GuiScreen {
             int h = this.height / 4;
             int wd = this.width / 2;
             int w_c = 30 - this.logoSmoothWidth.getValueInt(0, 30, 3);
-            this.drawCenteredString(this.fontRendererObj, "r", wd + 1 - w_c, h - 25, Utils.getChroma(2L, 1500L));
-            this.drawCenteredString(this.fontRendererObj, "a", wd - w_c, h - 15, Utils.getChroma(2L, 1200L));
-            this.drawCenteredString(this.fontRendererObj, "v", wd - w_c, h - 5, Utils.getChroma(2L, 900L));
-            this.drawCenteredString(this.fontRendererObj, "e", wd - w_c, h + 5, Utils.getChroma(2L, 600L));
-            this.drawCenteredString(this.fontRendererObj, "n", wd - w_c, h + 15, Utils.getChroma(2L, 300L));
-            this.drawCenteredString(this.fontRendererObj, "bS", wd + 1 + w_c, h + 30, Utils.getChroma(2L, 0L));
+            this.drawCenteredString(this.fontRendererObj, "A", wd + 1 - w_c, h - 25, Utils.getChroma(2L, 1500L));
+            this.drawCenteredString(this.fontRendererObj, "l", wd - w_c, h - 15, Utils.getChroma(2L, 1200L));
+            this.drawCenteredString(this.fontRendererObj, "d", wd - w_c, h - 5, Utils.getChroma(2L, 900L));
+            this.drawCenteredString(this.fontRendererObj, "o", wd - w_c, h + 5, Utils.getChroma(2L, 600L));
+            this.drawCenteredString(this.fontRendererObj, "++", wd + 1 + w_c, h + 30, Utils.getChroma(2L, 0L));
             this.drawVerticalLine(wd - 10 - w_c, h - 30, h + 43, Color.white.getRGB());
             this.drawVerticalLine(wd + 10 + w_c, h - 30, h + 43, Color.white.getRGB());
             if (this.logoSmoothLength != null) {

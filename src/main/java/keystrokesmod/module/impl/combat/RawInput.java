@@ -91,7 +91,7 @@ public class RawInput extends Module {
         volatile List<Mouse> mice = new ArrayList<>();
 
         RawMouseThread() {
-            super("Raven Raw Mouse Input");
+            super("Raw Mouse Input");
             setDaemon(true);
         }
 
