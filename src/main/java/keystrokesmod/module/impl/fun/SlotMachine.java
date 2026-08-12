@@ -4,13 +4,13 @@ import keystrokesmod.module.Module;
 import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
 import keystrokesmod.utility.Utils;
+import net.minecraft.block.Block;
 import net.minecraft.client.renderer.GlStateManager;
-import net.minecraft.client.renderer.RenderGlobal;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.WorldRenderer;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
-import net.minecraft.util.AxisAlignedBB;
+import net.minecraft.util.BlockPos;
 import net.minecraft.util.Vec3;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
@@ -77,8 +77,8 @@ public class SlotMachine extends Module {
         placed = false;
         spinActive = false;
         resultText = "";
+        resultTime = 0;
         lastFrame = 0;
-        knobY = 0;
         for (Reel r : reels) {
             r.spinning = false;
         }
@@ -87,22 +87,52 @@ public class SlotMachine extends Module {
     private void place() {
         if (!Utils.nullCheck()) return;
         machineY = Math.floor(mc.thePlayer.posY);
-        double dx = -Math.sin(Math.toRadians(mc.thePlayer.rotationYaw));
-        double dz = Math.cos(Math.toRadians(mc.thePlayer.rotationYaw));
-        machineX = mc.thePlayer.posX + dx * 3.0;
-        machineZ = mc.thePlayer.posZ + dz * 3.0;
+        double lookX = -Math.sin(Math.toRadians(mc.thePlayer.rotationYaw));
+        double lookZ = Math.cos(Math.toRadians(mc.thePlayer.rotationYaw));
+        double bestX = 0;
+        double bestZ = 0;
+        for (double dist = 2.2; dist <= 5.0; dist += 0.6) {
+            double tx = mc.thePlayer.posX + lookX * dist;
+            double tz = mc.thePlayer.posZ + lookZ * dist;
+            if (spotFree(tx, tz)) {
+                bestX = tx;
+                bestZ = tz;
+                break;
+            }
+        }
+        if (bestX == 0 && bestZ == 0) {
+            bestX = mc.thePlayer.posX + lookX * 3.0;
+            bestZ = mc.thePlayer.posZ + lookZ * 3.0;
+        }
+        machineX = bestX;
+        machineZ = bestZ;
         machineYaw = Math.toDegrees(Math.atan2(mc.thePlayer.posX - machineX, mc.thePlayer.posZ - machineZ));
         placed = true;
-        knobY = 1.7f;
+        knobY = 0.78f;
         lastFrame = 0;
+    }
+
+    private boolean spotFree(double x, double z) {
+        int baseY = (int) Math.floor(mc.thePlayer.posY);
+        double[] xs = new double[]{-0.7, 0.0, 0.7};
+        double[] zs = new double[]{-0.4, 0.0, 0.4};
+        for (int y = 1; y <= 3; y++) {
+            for (double ix : xs) {
+                for (double iz : zs) {
+                    BlockPos pos = new BlockPos(Math.floor(x + ix), baseY + y, Math.floor(z + iz));
+                    Block block = mc.theWorld.getBlockState(pos).getBlock();
+                    if (block.isFullBlock()) {
+                        return false;
+                    }
+                }
+            }
+        }
+        return true;
     }
 
     @Override
     public void onUpdate() {
         if (!placed || !Utils.nullCheck()) {
-            if (!Utils.nullCheck() && placed) {
-                placed = false;
-            }
             return;
         }
         if (spinActive) {
@@ -140,8 +170,8 @@ public class SlotMachine extends Module {
 
     @Override
     public String getInfo() {
-        if (resultText != null && !resultText.isEmpty() && System.currentTimeMillis() - resultTime < 5000) {
-            return resultText;
+        if (wonLast && resultText != null && System.currentTimeMillis() - resultTime < 5000) {
+            return "Jackpot!";
         }
         return "";
     }
@@ -159,7 +189,7 @@ public class SlotMachine extends Module {
             Reel r = reels[i];
             r.target = forceWin ? winSymbol : rand.nextInt(SYMBOL_COUNT);
             r.spinning = true;
-            r.stopAt = now + 1300L + i * 650L;
+            r.stopAt = now + 1200L + i * 600L;
         }
         mc.thePlayer.playSound("random.click", 1.0f, 1.3f);
     }
@@ -168,16 +198,21 @@ public class SlotMachine extends Module {
         int a = reels[0].target;
         int b = reels[1].target;
         int c = reels[2].target;
+        String symA = SYMBOLS[a];
+        String symB = SYMBOLS[b];
+        String symC = SYMBOLS[c];
         if (a == b && b == c) {
             wonLast = true;
-            resultText = "JACKPOT " + SYMBOLS[a] + "!";
+            resultText = "JACKPOT " + symA + "!";
             resultTime = System.currentTimeMillis();
             mc.thePlayer.playSound("random.levelup", 1.0f, 1.0f);
+            Utils.sendMessage("&7[&dSlot&7] &aJACKPOT! &b" + symA.toLowerCase() + " &7x3&a! fortune is yours!");
         } else {
             wonLast = false;
             resultText = "no win";
             resultTime = System.currentTimeMillis();
             mc.thePlayer.playSound("random.click", 1.0f, 0.5f);
+            Utils.sendMessage("&7[&dSlot&7] &8" + symA.toLowerCase() + " | " + symB.toLowerCase() + " | " + symC.toLowerCase() + " &7- no win, try again");
         }
     }
 
@@ -193,7 +228,7 @@ public class SlotMachine extends Module {
         double rz = -ox * s + oz * c;
         double dx = look.xCoord * c + look.zCoord * s;
         double dz = -look.xCoord * s + look.zCoord * c;
-        return slabHit(rx, oy, rz, dx, look.yCoord, dz, -1.35, 1.35, 0.0, 3.1, -0.62, 0.62);
+        return slabHit(rx, oy, rz, dx, look.yCoord, dz, -0.72, 0.72, 0.0, 2.1, -0.42, 0.42);
     }
 
     private boolean slabHit(double ox, double oy, double oz, double dx, double dy, double dz, double minX, double maxX, double minY, double maxY, double minZ, double maxZ) {
@@ -268,16 +303,28 @@ public class SlotMachine extends Module {
                     r.scroll = r.scroll - m + r.target;
                     r.spinning = false;
                 } else {
-                    r.scroll -= Math.min(13.0F * dt, remaining);
+                    r.scroll -= Math.min(12.0F * dt, remaining);
                 }
             } else {
-                r.scroll -= 13.0F * dt;
+                r.scroll -= 12.0F * dt;
             }
             if (r.scroll < -100.0F) r.scroll += 100.0F;
         }
 
-        float targetKnob = anySpinning ? 1.35f : 1.7f;
-        knobY += (targetKnob - knobY) * Math.min(dt * 12.0F, 1.0F);
+        float targetKnob = anySpinning ? 0.55f : 0.78f;
+        knobY += (targetKnob - knobY) * Math.min(dt * 14.0F, 1.0F);
+
+        boolean lighting = GL11.glIsEnabled(GL11.GL_LIGHTING);
+        boolean texture2d = GL11.glIsEnabled(GL11.GL_TEXTURE_2D);
+        boolean blend = GL11.glIsEnabled(GL11.GL_BLEND);
+        boolean depthTest = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
+        boolean cull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
+
+        GL11.glDisable(GL11.GL_LIGHTING);
+        GL11.glDisable(GL11.GL_CULL_FACE);
+        GL11.glDisable(GL11.GL_TEXTURE_2D);
+        GL11.glEnable(GL11.GL_DEPTH_TEST);
+        GL11.glDepthMask(true);
 
         float s = (float) scale.getInput();
         GlStateManager.pushMatrix();
@@ -285,154 +332,190 @@ public class SlotMachine extends Module {
         GlStateManager.rotate((float) machineYaw, 0.0F, 1.0F, 0.0F);
         GlStateManager.scale(s, s, s);
 
-        GL11.glDisable(GL11.GL_LIGHTING);
-        GL11.glDisable(GL11.GL_TEXTURE_2D);
-        GL11.glEnable(GL11.GL_DEPTH_TEST);
-        GL11.glDepthMask(true);
-        GL11.glDisable(GL11.GL_BLEND);
-
         drawMachine(now, anySpinning);
-
-        GL11.glEnable(GL11.GL_BLEND);
-        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
         drawReels(now);
 
-        GL11.glDisable(GL11.GL_BLEND);
-        GL11.glLineWidth(2.0F);
-        drawFloatingText("ALDO SLOT", 3.55, 0xFFD54F);
+        GlStateManager.enableBlend();
+        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        drawGlass();
+        GlStateManager.disableBlend();
+
+        GlStateManager.pushMatrix();
+        GlStateManager.translate(0.0, 2.06, 0.0);
+        GlStateManager.rotate(-mc.getRenderManager().playerViewY, 0.0F, 1.0F, 0.0F);
+        GlStateManager.rotate(mc.getRenderManager().playerViewX, 1.0F, 0.0F, 0.0F);
+        GlStateManager.scale(-0.028F, -0.028F, 0.028F);
+        GL11.glDisable(GL11.GL_DEPTH_TEST);
+        mc.fontRendererObj.drawStringWithShadow("ALDO SLOT", -mc.fontRendererObj.getStringWidth("ALDO SLOT") / 2.0f, 0, 0xFFD54F);
+        GL11.glEnable(GL11.GL_DEPTH_TEST);
+        GlStateManager.popMatrix();
+
         if (resultText != null && !resultText.isEmpty() && now - resultTime < 5000) {
-            drawFloatingText(resultText, 3.9, wonLast ? 0x4CAF50 : 0xE53935);
+            GlStateManager.pushMatrix();
+            GlStateManager.translate(0.0, 2.34, 0.0);
+            GlStateManager.rotate(-mc.getRenderManager().playerViewY, 0.0F, 1.0F, 0.0F);
+            GlStateManager.rotate(mc.getRenderManager().playerViewX, 1.0F, 0.0F, 0.0F);
+            GlStateManager.scale(-0.034F, -0.034F, 0.034F);
+            GL11.glDisable(GL11.GL_DEPTH_TEST);
+            mc.fontRendererObj.drawStringWithShadow(resultText, -mc.fontRendererObj.getStringWidth(resultText) / 2.0f, 0, wonLast ? 0x4CAF50 : 0xE53935);
+            GL11.glEnable(GL11.GL_DEPTH_TEST);
+            GlStateManager.popMatrix();
         }
 
-        GL11.glEnable(GL11.GL_TEXTURE_2D);
         GlStateManager.popMatrix();
+
+        if (lighting) GL11.glEnable(GL11.GL_LIGHTING);
+        if (texture2d) GL11.glEnable(GL11.GL_TEXTURE_2D);
+        if (blend) GL11.glEnable(GL11.GL_BLEND);
+        if (!depthTest) GL11.glDisable(GL11.GL_DEPTH_TEST);
+        if (cull) GL11.glEnable(GL11.GL_CULL_FACE);
     }
 
     private void drawMachine(long now, boolean spinning) {
-        int base = 0x37474F;
-        int baseTrim = 0xFFC107;
-        int cabinet = 0x8E2430;
-        int cabinetDark = 0x5D161E;
-        int head = 0x1A1A2E;
-        int dark = 0x111111;
+        int plinth = 0x37474F;
         int gold = 0xFFC107;
-        int lampColor = (now / 250L) % 2L == 0L ? 0xFFEB3B : 0x8E2430;
+        int cabinet = 0x16161F;
+        int frontPanel = 0x1E1E2E;
+        int head = 0x0F1026;
+        int dark = 0x0A0A12;
+        int neon = (now / 500L) % 2L == 0L ? 0x00E5FF : 0x007C8C;
         int crownColor = (now / 300L) % 2L == 0L ? (wonLast ? 0x4CAF50 : 0xE53935) : 0x111111;
 
-        box(-1.3, 0.0, -0.6, 1.3, 0.45, 0.6, base);
-        box(-1.35, 0.45, -0.62, 1.35, 0.52, 0.62, baseTrim);
-        box(-1.2, 0.52, -0.5, 1.2, 2.55, 0.5, cabinet);
-        box(-1.24, 0.52, -0.5, -1.18, 2.55, 0.5, cabinetDark);
-        box(1.18, 0.52, -0.5, 1.24, 2.55, 0.5, cabinetDark);
-        box(-1.35, 2.55, -0.62, 1.35, 3.1, 0.62, head);
-        box(-0.3, 3.1, -0.3, 0.3, 3.32, 0.3, crownColor);
+        box(-0.7, 0.0, -0.38, 0.7, 0.14, 0.38, plinth);
+        box(-0.72, 0.14, -0.4, 0.72, 0.18, 0.4, gold);
 
-        box(-0.95, 0.85, 0.5, 0.95, 2.05, 0.56, gold);
-        box(-0.85, 0.9, 0.56, 0.85, 2.0, 0.58, dark);
-        box(-0.95, 2.0, 0.56, 0.95, 2.05, 0.59, gold);
-        box(-0.95, 0.85, 0.56, 0.95, 0.9, 0.59, gold);
+        box(-0.6, 0.18, -0.32, 0.6, 1.62, 0.32, cabinet);
+        box(-0.6, 0.18, 0.28, 0.6, 1.62, 0.32, frontPanel);
+        box(-0.6, 0.18, -0.32, -0.56, 1.62, 0.32, neon);
+        box(0.56, 0.18, -0.32, 0.6, 1.62, 0.32, neon);
 
-        box(-0.2, 0.56, 0.5, 0.2, 0.72, 0.6, gold);
-        box(-0.1, 0.6, 0.6, 0.1, 0.68, 0.62, dark);
-        box(-0.9, 0.45, 0.48, 0.9, 0.56, 0.52, 0x263238);
+        box(-0.52, 0.5, 0.32, 0.52, 1.3, 0.36, gold);
+        box(-0.46, 0.56, 0.36, 0.46, 1.24, 0.38, dark);
+        box(-0.52, 1.24, 0.36, 0.52, 1.3, 0.4, gold);
+        box(-0.52, 0.5, 0.36, 0.52, 0.56, 0.4, gold);
+        box(-0.46, 0.865, 0.38, 0.46, 0.935, 0.4, gold);
 
-        box(1.2, 0.9, -0.08, 1.28, 1.8, 0.08, 0x9E9E9E);
-        box(1.17, knobY - 0.07, -0.15, 1.31, knobY + 0.07, 0.15, 0xE53935);
+        box(-0.14, 0.2, 0.3, 0.14, 0.3, 0.36, gold);
+        box(-0.06, 0.22, 0.36, 0.06, 0.26, 0.38, dark);
+        box(-0.2, 0.36, 0.3, -0.06, 0.46, 0.356, 0xE53935);
+        box(0.06, 0.36, 0.3, 0.2, 0.46, 0.356, 0x4FC3F7);
+        box(-0.42, 0.18, 0.3, 0.42, 0.24, 0.34, 0x263238);
 
-        double[] lampX = new double[]{-0.9, -0.3, 0.3, 0.9};
-        for (int i = 0; i < 4; i++) {
-            boolean on = ((now + i * 120L) / 250L) % 2L == 0L;
-            box(lampX[i] - 0.07, 2.82, 0.62, lampX[i] + 0.07, 2.96, 0.68, on ? lampColor : 0x101018);
+        box(0.6, 0.4, -0.06, 0.66, 0.85, 0.06, 0x9E9E9E);
+        box(0.58, knobY - 0.06, -0.12, 0.68, knobY + 0.06, 0.12, 0xE53935);
+        box(0.59, 0.34, -0.02, 0.61, 0.4, 0.02, 0x616161);
+
+        box(-0.66, 1.62, -0.38, 0.66, 1.9, 0.38, head);
+        double[] lampX = new double[]{-0.52, -0.26, 0.0, 0.26, 0.52};
+        for (int i = 0; i < 5; i++) {
+            boolean on = ((now + i * 130L) / 240L) % 2L == 0L;
+            box(lampX[i] - 0.06, 1.84, 0.38, lampX[i] + 0.06, 1.9, 0.42, on ? 0xFFEB3B : 0x101018);
         }
-
-        GL11.glColor4f(1.0f, 0.76f, 0.0f, 0.45f);
-        RenderGlobal.drawSelectionBoundingBox(new AxisAlignedBB(-1.2, 0.52, -0.5, 1.2, 2.55, 0.5));
-        GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+        box(-0.18, 1.9, -0.18, 0.18, 2.0, 0.18, crownColor);
     }
 
     private void drawReels(long now) {
-        GL11.glEnable(GL11.GL_TEXTURE_2D);
         GL11.glEnable(GL11.GL_BLEND);
         GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-        double winTop = 2.0;
-        double winBottom = 0.9;
+        double winTop = 1.24;
+        double winBottom = 0.56;
         double cellH = (winTop - winBottom) / 3.0;
-        double cellZ = 0.585;
+        double cellZ = 0.385;
         for (int i = 0; i < 3; i++) {
-            double cx = -0.55 + i * 0.55;
-            double cw = 0.46;
+            double cx = -0.29 + i * 0.29;
+            double cw = 0.2;
             Reel r = reels[i];
             float base = (float) Math.floor(r.scroll);
             float frac = r.scroll - base;
             for (int row = -1; row <= 3; row++) {
                 double centerY = winTop - (row - frac) * cellH;
-                quad(cx - cw / 2, centerY - cellH / 2, cellZ, cx + cw / 2, centerY + cellH / 2, 0xFAFAFA, true);
+                quad(cx - cw / 2, centerY - cellH / 2, cellZ, cx + cw / 2, centerY + cellH / 2, 0x2E2E38);
+                quad(cx - cw / 2 + 0.014, centerY - cellH / 2 + 0.014, cellZ, cx + cw / 2 - 0.014, centerY + cellH / 2 - 0.014, 0xFAFAFA);
             }
+            GL11.glEnable(GL11.GL_TEXTURE_2D);
             for (int row = -1; row <= 3; row++) {
                 int idx = ((int) base + row) % SYMBOL_COUNT;
                 if (idx < 0) idx += SYMBOL_COUNT;
                 double centerY = winTop - (row - frac) * cellH;
-                texturedQuad(cx - cw / 2 + 0.05, centerY - cellH / 2 + 0.05, cellZ + 0.002, cx + cw / 2 - 0.05, centerY + cellH / 2 - 0.05, symbolTexture(SYMBOLS[idx]));
+                texturedQuad(cx - 0.07, centerY - 0.07, cellZ + 0.002, cx + 0.07, centerY + 0.07, symbolTexture(SYMBOLS[idx]));
             }
         }
-        GL11.glDisable(GL11.GL_BLEND);
         GL11.glDisable(GL11.GL_TEXTURE_2D);
+        GL11.glDisable(GL11.GL_BLEND);
+    }
+
+    private void drawGlass() {
+        Tessellator ts = Tessellator.getInstance();
+        WorldRenderer w = ts.getWorldRenderer();
+        GL11.glDisable(GL11.GL_TEXTURE_2D);
+        w.begin(7, DefaultVertexFormats.POSITION_COLOR);
+        w.pos(-0.46, 0.56, 0.39).color(255, 255, 255, 26).endVertex();
+        w.pos(-0.10, 0.56, 0.39).color(255, 255, 255, 26).endVertex();
+        w.pos(0.10, 1.24, 0.39).color(255, 255, 255, 26).endVertex();
+        w.pos(-0.26, 1.24, 0.39).color(255, 255, 255, 26).endVertex();
+        w.pos(-0.06, 0.56, 0.39).color(255, 255, 255, 64).endVertex();
+        w.pos(0.14, 0.56, 0.39).color(255, 255, 255, 64).endVertex();
+        w.pos(0.34, 1.24, 0.39).color(255, 255, 255, 64).endVertex();
+        w.pos(0.14, 1.24, 0.39).color(255, 255, 255, 64).endVertex();
+        ts.draw();
     }
 
     private static int symbolTexture(String symbol) {
         Integer cached = TEXTURES.get(symbol);
         if (cached != null) return cached;
-        BufferedImage img = new BufferedImage(64, 64, BufferedImage.TYPE_INT_ARGB);
+        BufferedImage img = new BufferedImage(128, 128, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = img.createGraphics();
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
         g.setColor(Color.WHITE);
-        g.fillOval(4, 4, 56, 56);
-        Font font = new Font("Arial", Font.BOLD, 42);
-        g.setFont(font);
+        g.fillOval(8, 8, 112, 112);
+        g.setColor(new Color(0xECEFF1));
+        g.setStroke(new BasicStroke(6.0f));
+        g.drawOval(8, 8, 112, 112);
+        g.setFont(new Font("Arial", Font.BOLD, 80));
         if (symbol.equals("7")) {
             g.setColor(new Color(0xE53935));
             FontMetrics fm = g.getFontMetrics();
-            g.drawString("7", (64 - fm.stringWidth("7")) / 2, 46);
+            g.drawString("7", (128 - fm.stringWidth("7")) / 2, 90);
         } else if (symbol.equals("BAR")) {
             g.setColor(new Color(0x111111));
-            g.fillRoundRect(10, 18, 44, 28, 14, 14);
+            g.fillRoundRect(20, 34, 88, 60, 20, 20);
             g.setColor(Color.WHITE);
-            Font barFont = new Font("Arial", Font.BOLD, 18);
+            Font barFont = new Font("Arial", Font.BOLD, 36);
             g.setFont(barFont);
             FontMetrics fm = g.getFontMetrics();
-            g.drawString("BAR", (64 - fm.stringWidth("BAR")) / 2, 38);
+            g.drawString("BAR", (128 - fm.stringWidth("BAR")) / 2, 76);
         } else if (symbol.equals("CHERRY")) {
             g.setColor(new Color(0x2E7D32));
-            g.setStroke(new BasicStroke(3.0f));
-            g.draw(new Line2D.Double(20, 30, 18, 12));
-            g.draw(new Line2D.Double(44, 30, 46, 12));
+            g.setStroke(new BasicStroke(6.0f));
+            g.draw(new Line2D.Double(40, 60, 36, 24));
+            g.draw(new Line2D.Double(88, 60, 92, 24));
             g.setColor(new Color(0xE53935));
-            g.fillOval(12, 24, 18, 18);
-            g.fillOval(34, 24, 18, 18);
+            g.fillOval(24, 48, 38, 38);
+            g.fillOval(68, 48, 38, 38);
             g.setColor(new Color(0x2E7D32));
-            g.fillOval(8, 8, 12, 7);
-            g.fillOval(42, 8, 12, 7);
+            g.fillOval(16, 8, 26, 16);
+            g.fillOval(86, 8, 26, 16);
         } else if (symbol.equals("LEMON")) {
             g.setColor(new Color(0xFDD835));
-            g.fill(new Ellipse2D.Double(10, 12, 44, 40));
+            g.fill(new Ellipse2D.Double(20, 24, 88, 80));
             g.setColor(new Color(0xF9A825));
-            g.setStroke(new BasicStroke(3.0f));
-            g.draw(new Ellipse2D.Double(10, 12, 44, 40));
+            g.setStroke(new BasicStroke(7.0f));
+            g.draw(new Ellipse2D.Double(20, 24, 88, 80));
         } else if (symbol.equals("BELL")) {
             g.setColor(new Color(0xFFB300));
-            g.fillOval(8, 8, 48, 40);
+            g.fillOval(16, 12, 96, 80);
             g.setColor(new Color(0xE65100));
-            g.fillRect(28, 44, 8, 8);
+            g.fillRect(56, 88, 16, 16);
             g.setColor(new Color(0xFFE082));
-            g.fillOval(16, 14, 10, 10);
+            g.fillOval(32, 24, 26, 24);
         } else {
-            int[] xs = new int[]{32, 58, 32, 6};
-            int[] ys = new int[]{6, 32, 58, 32};
+            int[] xs = new int[]{64, 116, 64, 12};
+            int[] ys = new int[]{12, 64, 116, 64};
             g.setColor(new Color(0x8E24AA));
             g.fillPolygon(xs, ys, 4);
             g.setColor(new Color(0xE1BEE7));
-            g.fillPolygon(new int[]{32, 44, 32, 20}, new int[]{10, 30, 44, 30}, 4);
+            g.fillPolygon(new int[]{64, 90, 64, 38}, new int[]{22, 62, 96, 62}, 4);
         }
         g.dispose();
         DynamicTexture dt = new DynamicTexture(img);
@@ -460,9 +543,9 @@ public class SlotMachine extends Module {
         w.pos(x1, y0, z0).color(rb, gb, bb, 1.0f).endVertex();
         w.pos(x1, y0, z1).color(rb, gb, bb, 1.0f).endVertex();
         w.pos(x0, y0, z1).color(rb, gb, bb, 1.0f).endVertex();
-        float rf = r * 0.9f;
-        float gf = g * 0.9f;
-        float bf = b * 0.9f;
+        float rf = r * 0.95f;
+        float gf = g * 0.95f;
+        float bf = b * 0.95f;
         w.pos(x0, y0, z1).color(rf, gf, bf, 1.0f).endVertex();
         w.pos(x0, y1, z1).color(rf, gf, bf, 1.0f).endVertex();
         w.pos(x1, y1, z1).color(rf, gf, bf, 1.0f).endVertex();
@@ -491,7 +574,7 @@ public class SlotMachine extends Module {
         ts.draw();
     }
 
-    private void quad(double x0, double y0, double z, double x1, double y1, int color, boolean solid) {
+    private void quad(double x0, double y0, double z, double x1, double y1, int color) {
         float r = (color >> 16 & 0xFF) / 255.0f;
         float g = (color >> 8 & 0xFF) / 255.0f;
         float b = (color & 0xFF) / 255.0f;
@@ -515,18 +598,6 @@ public class SlotMachine extends Module {
         w.pos(x1, y1, z).tex(1.0, 1.0).color(255, 255, 255, 255).endVertex();
         w.pos(x1, y0, z).tex(1.0, 0.0).color(255, 255, 255, 255).endVertex();
         ts.draw();
-    }
-
-    private void drawFloatingText(String text, double y, int color) {
-        GlStateManager.pushMatrix();
-        GlStateManager.translate(0.0, y, 0.0);
-        GlStateManager.rotate(-mc.getRenderManager().playerViewY, 0.0F, 1.0F, 0.0F);
-        GlStateManager.rotate(mc.getRenderManager().playerViewX, 1.0F, 0.0F, 0.0F);
-        GlStateManager.scale(-0.025F, -0.025F, 0.025F);
-        GL11.glDisable(GL11.GL_DEPTH_TEST);
-        mc.fontRendererObj.drawStringWithShadow(text, -mc.fontRendererObj.getStringWidth(text) / 2.0f, 0, color);
-        GL11.glEnable(GL11.GL_DEPTH_TEST);
-        GlStateManager.popMatrix();
     }
 
     private static class Reel {
