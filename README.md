@@ -22,7 +22,6 @@ Aldo++ is built on a strong foundation of user privacy and the commitment to pro
 
 - **Zero analytical data collected** - No launch times, no gameplay time, no user IGNs, and no personal information is ever tracked or transmitted.
 - **Ingame Scripting API** - A feature-rich ingame Java scripting api.
-- **Slot Machine** - A fully client-side 3D slot machine fun module with animated reels and jackpots.
 
 ## Building
 
