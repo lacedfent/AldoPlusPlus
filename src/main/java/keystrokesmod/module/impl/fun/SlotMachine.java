@@ -398,6 +398,7 @@ public class SlotMachine extends Module {
         double winTop = 1.24;
         double winBottom = 0.56;
         double cellH = (winTop - winBottom) / 3.0;
+        double winCenter = (winTop + winBottom) / 2.0;
         double cellZ = 0.385;
         for (int i = 0; i < 3; i++) {
             double cx = -0.29 + i * 0.29;
@@ -406,7 +407,7 @@ public class SlotMachine extends Module {
             float base = (float) Math.floor(r.scroll);
             float frac = r.scroll - base;
             for (int row = -1; row <= 3; row++) {
-                double centerY = winTop - (row - frac) * cellH;
+                double centerY = winCenter - (row - frac) * cellH;
                 quad(cx - cw / 2, centerY - cellH / 2, cellZ, cx + cw / 2, centerY + cellH / 2, 0x2E2E38);
                 quad(cx - cw / 2 + 0.014, centerY - cellH / 2 + 0.014, cellZ + 0.001, cx + cw / 2 - 0.014, centerY + cellH / 2 - 0.014, 0xFAFAFA);
             }
@@ -414,7 +415,7 @@ public class SlotMachine extends Module {
             for (int row = -1; row <= 3; row++) {
                 int idx = ((int) base + row) % SYMBOL_COUNT;
                 if (idx < 0) idx += SYMBOL_COUNT;
-                double centerY = winTop - (row - frac) * cellH;
+                double centerY = winCenter - (row - frac) * cellH;
                 texturedQuad(cx - 0.07, centerY - 0.07, cellZ + 0.002, cx + 0.07, centerY + 0.07, symbolTexture(SYMBOLS[idx]));
             }
         }
