@@ -340,28 +340,6 @@ public class SlotMachine extends Module {
         drawGlass();
         GlStateManager.disableBlend();
 
-        GlStateManager.pushMatrix();
-        GlStateManager.translate(0.0, 2.06, 0.0);
-        GlStateManager.rotate(-mc.getRenderManager().playerViewY, 0.0F, 1.0F, 0.0F);
-        GlStateManager.rotate(mc.getRenderManager().playerViewX, 1.0F, 0.0F, 0.0F);
-        GlStateManager.scale(-0.028F, -0.028F, 0.028F);
-        GL11.glDisable(GL11.GL_DEPTH_TEST);
-        mc.fontRendererObj.drawStringWithShadow("ALDO SLOT", -mc.fontRendererObj.getStringWidth("ALDO SLOT") / 2.0f, 0, 0xFFD54F);
-        GL11.glEnable(GL11.GL_DEPTH_TEST);
-        GlStateManager.popMatrix();
-
-        if (resultText != null && !resultText.isEmpty() && now - resultTime < 5000) {
-            GlStateManager.pushMatrix();
-            GlStateManager.translate(0.0, 2.34, 0.0);
-            GlStateManager.rotate(-mc.getRenderManager().playerViewY, 0.0F, 1.0F, 0.0F);
-            GlStateManager.rotate(mc.getRenderManager().playerViewX, 1.0F, 0.0F, 0.0F);
-            GlStateManager.scale(-0.034F, -0.034F, 0.034F);
-            GL11.glDisable(GL11.GL_DEPTH_TEST);
-            mc.fontRendererObj.drawStringWithShadow(resultText, -mc.fontRendererObj.getStringWidth(resultText) / 2.0f, 0, wonLast ? 0x4CAF50 : 0xE53935);
-            GL11.glEnable(GL11.GL_DEPTH_TEST);
-            GlStateManager.popMatrix();
-        }
-
         GlStateManager.popMatrix();
 
         if (lighting) GL11.glEnable(GL11.GL_LIGHTING);
@@ -381,37 +359,37 @@ public class SlotMachine extends Module {
         int neon = (now / 500L) % 2L == 0L ? 0x00E5FF : 0x007C8C;
         int crownColor = (now / 300L) % 2L == 0L ? (wonLast ? 0x4CAF50 : 0xE53935) : 0x111111;
 
-        box(-0.7, 0.0, -0.38, 0.7, 0.14, 0.38, plinth);
-        box(-0.72, 0.14, -0.4, 0.72, 0.18, 0.4, gold);
+        box(-0.7, 0.002, -0.38, 0.7, 0.14, 0.38, plinth);
+        box(-0.72, 0.145, -0.4, 0.72, 0.185, 0.4, gold);
 
-        box(-0.6, 0.18, -0.32, 0.6, 1.62, 0.32, cabinet);
-        box(-0.6, 0.18, 0.28, 0.6, 1.62, 0.32, frontPanel);
-        box(-0.6, 0.18, -0.32, -0.56, 1.62, 0.32, neon);
-        box(0.56, 0.18, -0.32, 0.6, 1.62, 0.32, neon);
+        box(-0.6, 0.19, -0.32, 0.6, 1.62, 0.32, cabinet);
+        box(-0.597, 0.195, 0.28, 0.597, 1.618, 0.325, frontPanel);
+        box(-0.598, 0.197, -0.318, -0.56, 1.616, 0.318, neon);
+        box(0.56, 0.197, -0.318, 0.598, 1.616, 0.318, neon);
 
-        box(-0.52, 0.5, 0.32, 0.52, 1.3, 0.36, gold);
-        box(-0.46, 0.56, 0.36, 0.46, 1.24, 0.38, dark);
-        box(-0.52, 1.24, 0.36, 0.52, 1.3, 0.4, gold);
-        box(-0.52, 0.5, 0.36, 0.52, 0.56, 0.4, gold);
-        box(-0.46, 0.865, 0.38, 0.46, 0.935, 0.4, gold);
+        box(-0.52, 0.5, 0.33, 0.52, 1.3, 0.37, gold);
+        box(-0.46, 0.56, 0.375, 0.46, 1.24, 0.395, dark);
+        box(-0.52, 1.245, 0.37, 0.52, 1.3, 0.41, gold);
+        box(-0.52, 0.5, 0.37, 0.52, 0.555, 0.41, gold);
+        box(-0.458, 0.865, 0.38, 0.458, 0.935, 0.4, gold);
 
         box(-0.14, 0.2, 0.3, 0.14, 0.3, 0.36, gold);
-        box(-0.06, 0.22, 0.36, 0.06, 0.26, 0.38, dark);
+        box(-0.06, 0.22, 0.363, 0.06, 0.26, 0.383, dark);
         box(-0.2, 0.36, 0.3, -0.06, 0.46, 0.356, 0xE53935);
         box(0.06, 0.36, 0.3, 0.2, 0.46, 0.356, 0x4FC3F7);
-        box(-0.42, 0.18, 0.3, 0.42, 0.24, 0.34, 0x263238);
+        box(-0.42, 0.195, 0.3, 0.42, 0.24, 0.34, 0x263238);
 
-        box(0.6, 0.4, -0.06, 0.66, 0.85, 0.06, 0x9E9E9E);
+        box(0.602, 0.4, -0.06, 0.66, 0.85, 0.06, 0x9E9E9E);
         box(0.58, knobY - 0.06, -0.12, 0.68, knobY + 0.06, 0.12, 0xE53935);
-        box(0.59, 0.34, -0.02, 0.61, 0.4, 0.02, 0x616161);
+        box(0.59, 0.34, -0.02, 0.61, 0.398, 0.02, 0x616161);
 
-        box(-0.66, 1.62, -0.38, 0.66, 1.9, 0.38, head);
+        box(-0.66, 1.625, -0.38, 0.66, 1.9, 0.38, head);
         double[] lampX = new double[]{-0.52, -0.26, 0.0, 0.26, 0.52};
         for (int i = 0; i < 5; i++) {
             boolean on = ((now + i * 130L) / 240L) % 2L == 0L;
-            box(lampX[i] - 0.06, 1.84, 0.38, lampX[i] + 0.06, 1.9, 0.42, on ? 0xFFEB3B : 0x101018);
+            box(lampX[i] - 0.06, 1.84, 0.385, lampX[i] + 0.06, 1.9, 0.425, on ? 0xFFEB3B : 0x101018);
         }
-        box(-0.18, 1.9, -0.18, 0.18, 2.0, 0.18, crownColor);
+        box(-0.18, 1.905, -0.18, 0.18, 2.0, 0.18, crownColor);
     }
 
     private void drawReels(long now) {
@@ -430,7 +408,7 @@ public class SlotMachine extends Module {
             for (int row = -1; row <= 3; row++) {
                 double centerY = winTop - (row - frac) * cellH;
                 quad(cx - cw / 2, centerY - cellH / 2, cellZ, cx + cw / 2, centerY + cellH / 2, 0x2E2E38);
-                quad(cx - cw / 2 + 0.014, centerY - cellH / 2 + 0.014, cellZ, cx + cw / 2 - 0.014, centerY + cellH / 2 - 0.014, 0xFAFAFA);
+                quad(cx - cw / 2 + 0.014, centerY - cellH / 2 + 0.014, cellZ + 0.001, cx + cw / 2 - 0.014, centerY + cellH / 2 - 0.014, 0xFAFAFA);
             }
             GL11.glEnable(GL11.GL_TEXTURE_2D);
             for (int row = -1; row <= 3; row++) {
@@ -449,14 +427,14 @@ public class SlotMachine extends Module {
         WorldRenderer w = ts.getWorldRenderer();
         GL11.glDisable(GL11.GL_TEXTURE_2D);
         w.begin(7, DefaultVertexFormats.POSITION_COLOR);
-        w.pos(-0.46, 0.56, 0.39).color(255, 255, 255, 26).endVertex();
-        w.pos(-0.10, 0.56, 0.39).color(255, 255, 255, 26).endVertex();
-        w.pos(0.10, 1.24, 0.39).color(255, 255, 255, 26).endVertex();
-        w.pos(-0.26, 1.24, 0.39).color(255, 255, 255, 26).endVertex();
-        w.pos(-0.06, 0.56, 0.39).color(255, 255, 255, 64).endVertex();
-        w.pos(0.14, 0.56, 0.39).color(255, 255, 255, 64).endVertex();
-        w.pos(0.34, 1.24, 0.39).color(255, 255, 255, 64).endVertex();
-        w.pos(0.14, 1.24, 0.39).color(255, 255, 255, 64).endVertex();
+        w.pos(-0.46, 0.56, 0.403).color(255, 255, 255, 26).endVertex();
+        w.pos(-0.10, 0.56, 0.403).color(255, 255, 255, 26).endVertex();
+        w.pos(0.10, 1.24, 0.403).color(255, 255, 255, 26).endVertex();
+        w.pos(-0.26, 1.24, 0.403).color(255, 255, 255, 26).endVertex();
+        w.pos(-0.06, 0.56, 0.403).color(255, 255, 255, 64).endVertex();
+        w.pos(0.14, 0.56, 0.403).color(255, 255, 255, 64).endVertex();
+        w.pos(0.34, 1.24, 0.403).color(255, 255, 255, 64).endVertex();
+        w.pos(0.14, 1.24, 0.403).color(255, 255, 255, 64).endVertex();
         ts.draw();
     }
 
@@ -593,10 +571,10 @@ public class SlotMachine extends Module {
         Tessellator ts = Tessellator.getInstance();
         WorldRenderer w = ts.getWorldRenderer();
         w.begin(7, DefaultVertexFormats.POSITION_TEX_COLOR);
-        w.pos(x0, y0, z).tex(0.0, 0.0).color(255, 255, 255, 255).endVertex();
-        w.pos(x0, y1, z).tex(0.0, 1.0).color(255, 255, 255, 255).endVertex();
-        w.pos(x1, y1, z).tex(1.0, 1.0).color(255, 255, 255, 255).endVertex();
-        w.pos(x1, y0, z).tex(1.0, 0.0).color(255, 255, 255, 255).endVertex();
+        w.pos(x0, y0, z).tex(0.0, 1.0).color(255, 255, 255, 255).endVertex();
+        w.pos(x0, y1, z).tex(0.0, 0.0).color(255, 255, 255, 255).endVertex();
+        w.pos(x1, y1, z).tex(1.0, 0.0).color(255, 255, 255, 255).endVertex();
+        w.pos(x1, y0, z).tex(1.0, 1.0).color(255, 255, 255, 255).endVertex();
         ts.draw();
     }
 
