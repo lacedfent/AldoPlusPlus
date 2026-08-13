@@ -3,6 +3,7 @@ package keystrokesmod.module.impl.fun;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.impl.world.AntiBot;
 import keystrokesmod.module.setting.impl.ButtonSetting;
+import keystrokesmod.module.setting.impl.KeySetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
 import keystrokesmod.utility.Utils;
 import net.minecraft.client.gui.Gui;
@@ -14,6 +15,7 @@ import net.minecraft.entity.projectile.EntityArrow;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
+import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.GL11;
 
@@ -102,6 +104,7 @@ public class CardCollector extends Module {
     private final ButtonSetting showHud;
     private final SliderSetting hudX;
     private final SliderSetting hudY;
+    private final KeySetting packKey;
 
     private int points;
     private final Map<String, Integer> owned = new HashMap<>();
@@ -109,11 +112,13 @@ public class CardCollector extends Module {
     private long revealStart;
     private boolean overlayOpen;
     private boolean prevMouseDown;
+    private boolean prevPackKeyDown;
 
     public CardCollector() {
         super("Card Collector", category.fun);
         this.registerSetting(pointsPerKill = new SliderSetting("Points per kill", 10, 1, 50, 1));
         this.registerSetting(packCost = new SliderSetting("Pack cost", 25, 5, 200, 5));
+        this.registerSetting(packKey = new KeySetting("Open pack key", Keyboard.KEY_P));
         this.registerSetting(showHud = new ButtonSetting("Show HUD", true));
         this.registerSetting(hudX = new SliderSetting("HUD X", 10, 0, 1000, 5));
         this.registerSetting(hudY = new SliderSetting("HUD Y", 260, 0, 600, 5));
@@ -152,15 +157,23 @@ public class CardCollector extends Module {
     @Override
     public void onUpdate() {
         if (!Utils.nullCheck()) return;
-        if (mc.currentScreen != null || !showHud.isToggled()) return;
-        boolean down = Mouse.isButtonDown(0);
-        if (down && !prevMouseDown) {
-            ScaledResolution sr = new ScaledResolution(mc);
-            int mx = Mouse.getX() * sr.getScaledWidth() / mc.displayWidth;
-            int my = sr.getScaledHeight() - Mouse.getY() * sr.getScaledHeight() / mc.displayHeight - 1;
-            handleClick(mx, my, sr);
+        if (mc.currentScreen == null) {
+            boolean packKeyDown = packKey.isPressed();
+            if (packKeyDown && !prevPackKeyDown) {
+                openPack();
+            }
+            prevPackKeyDown = packKeyDown;
+            if (showHud.isToggled()) {
+                boolean down = Mouse.isButtonDown(0);
+                if (down && !prevMouseDown) {
+                    ScaledResolution sr = new ScaledResolution(mc);
+                    int mx = Mouse.getX() * sr.getScaledWidth() / mc.displayWidth;
+                    int my = sr.getScaledHeight() - Mouse.getY() * sr.getScaledHeight() / mc.displayHeight - 1;
+                    handleClick(mx, my, sr);
+                }
+                prevMouseDown = down;
+            }
         }
-        prevMouseDown = down;
     }
 
     private void handleClick(int mx, int my, ScaledResolution sr) {
@@ -272,7 +285,11 @@ public class CardCollector extends Module {
         int by = hy + 36;
         Gui.drawRect(hx + 4, by, hx + pw - 4, by + 17, afford ? 0xFF2E7D32 : 0xFF4E342E);
         Gui.drawRect(hx + 4, by, hx + pw - 4, by + 1, 0xFF388E3C);
-        String btn = "Open Pack (" + cost + " pts)";
+        String keyName = packKey.getKey() == 0 ? "" : " [" + Keyboard.getKeyName(packKey.getKey()) + "]";
+        String btn = "Open Pack (" + cost + " pts)" + keyName;
+        while (mc.fontRendererObj.getStringWidth(btn) > pw - 10) {
+            btn = btn.substring(0, btn.length() - 1);
+        }
         mc.fontRendererObj.drawStringWithShadow(btn, hx + (pw - mc.fontRendererObj.getStringWidth(btn)) / 2, by + 5, afford ? 0xFFFFFF : 0x9E9E9E);
     }
 
