@@ -89,6 +89,7 @@ public class ModuleManager {
     public static Relationships relationships;
     public static HideWindow hideWindow;
     public static Displace displace;
+    public static DiscordRPC discordRpc;
 
     public void register() {
         this.addModule(chatCommands = new ChatCommands());
@@ -129,6 +130,8 @@ public class ModuleManager {
         this.addModule(new CardCollector());
         this.addModule(new SlyPort());
         this.addModule(new Spin());
+        this.addModule(discordRpc = new DiscordRPC());
+        discordRpc.enable();
 
         this.addModule(new AutoRequeue());
         this.addModule(new AutoWho());

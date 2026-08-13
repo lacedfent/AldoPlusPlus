@@ -74,6 +74,9 @@ dependencies {
     }
     annotationProcessor("org.spongepowered:mixin:0.8.5-SNAPSHOT")
     shadowImpl("org.java-websocket:Java-WebSocket:1.6.0")
+    shadowImpl("io.github.CDAGaming:DiscordIPC:0.10.2") {
+        isTransitive = false
+    }
 }
 
 tasks.withType(JavaCompile::class) {
