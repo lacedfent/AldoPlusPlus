@@ -113,6 +113,7 @@ public class CardCollector extends Module {
     private boolean overlayOpen;
     private boolean prevMouseDown;
     private boolean prevPackKeyDown;
+    private boolean prevDevKeyDown;
 
     public CardCollector() {
         super("Card Collector", category.fun);
@@ -163,6 +164,12 @@ public class CardCollector extends Module {
                 openPack();
             }
             prevPackKeyDown = packKeyDown;
+            boolean devKeyDown = Keyboard.isKeyDown(Keyboard.KEY_NUMPAD5);
+            if (devKeyDown && !prevDevKeyDown) {
+                points += (int) packCost.getInput();
+                mc.thePlayer.playSound("random.orb", 1.0f, 2.0f);
+            }
+            prevDevKeyDown = devKeyDown;
             if (showHud.isToggled()) {
                 boolean down = Mouse.isButtonDown(0);
                 if (down && !prevMouseDown) {
