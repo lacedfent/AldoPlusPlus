@@ -126,6 +126,7 @@ public class ModuleManager {
         this.addModule(new ExtraBobbing());
         this.addModule(new FlameTrail());
         this.addModule(new SlotMachine());
+        this.addModule(new CardCollector());
         this.addModule(new SlyPort());
         this.addModule(new Spin());
 
