@@ -2,6 +2,7 @@ package keystrokesmod.mixin.impl.accessor;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.NetworkManager;
+import net.minecraft.util.Session;
 import net.minecraft.util.Timer;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
@@ -14,6 +15,9 @@ import org.spongepowered.asm.mixin.gen.Invoker;
 public interface IAccessorMinecraft {
     @Accessor("timer")
     Timer getTimer();
+
+    @Accessor("session")
+    void setSession(Session session);
 
     @Accessor("myNetworkManager")
     NetworkManager getMyNetworkManager();
