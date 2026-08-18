@@ -18,7 +18,6 @@ public class GuiAccountManager extends GuiScreen {
     public GuiScreen parentScreen;
 
     private GuiTextField offlineName;
-    private GuiTextField tokenName;
     private GuiTextField tokenField;
 
     private volatile String status = "";
@@ -35,14 +34,11 @@ public class GuiAccountManager extends GuiScreen {
         this.offlineName = new GuiTextField(11, this.fontRendererObj, fieldX, 60, fieldWidth, 20);
         this.offlineName.setMaxStringLength(16);
 
-        this.tokenName = new GuiTextField(12, this.fontRendererObj, fieldX, 110, fieldWidth, 20);
-        this.tokenName.setMaxStringLength(16);
-
-        this.tokenField = new GuiTextField(13, this.fontRendererObj, fieldX, 140, fieldWidth, 20);
-        this.tokenField.setMaxStringLength(512);
+        this.tokenField = new GuiTextField(12, this.fontRendererObj, fieldX, 110, fieldWidth, 20);
+        this.tokenField.setMaxStringLength(4096);
 
         this.buttonList.add(new GuiButton(BUTTON_LOGIN_OFFLINE, this.width / 2 + 145, 60, 100, 20, "Login Offline"));
-        this.buttonList.add(new GuiButton(BUTTON_LOGIN_TOKEN, this.width / 2 + 145, 140, 100, 20, "Login with Token"));
+        this.buttonList.add(new GuiButton(BUTTON_LOGIN_TOKEN, this.width / 2 + 145, 110, 100, 20, "Login with Token"));
         this.buttonList.add(new GuiButton(BUTTON_DONE, this.width / 2 + 4 + 76, this.height - 28, 75, 20, "Done"));
 
         this.offlineName.setFocused(true);
@@ -63,11 +59,9 @@ public class GuiAccountManager extends GuiScreen {
         this.drawString(this.fontRendererObj, "Username:", labelX, 65, 0xAAAAAA);
 
         this.drawString(this.fontRendererObj, "Session Token", labelX, 96, 0x55FFFF);
-        this.drawString(this.fontRendererObj, "Username:", labelX, 115, 0xAAAAAA);
-        this.drawString(this.fontRendererObj, "Token:", labelX, 145, 0xAAAAAA);
+        this.drawString(this.fontRendererObj, "Token:", labelX, 115, 0xAAAAAA);
 
         this.offlineName.drawTextBox();
-        this.tokenName.drawTextBox();
         this.tokenField.drawTextBox();
 
         int statusColor = this.statusSuccess ? 0x55FF55 : 0xFF5555;
@@ -81,35 +75,28 @@ public class GuiAccountManager extends GuiScreen {
         }
         switch (button.id) {
             case BUTTON_LOGIN_OFFLINE:
-                this.busy = true;
-                this.setBusyState();
                 String name = this.offlineName.getText();
                 if (name.isEmpty()) {
                     this.status = "Enter a username";
                     this.statusSuccess = false;
-                    this.busy = false;
-                    this.setBusyState();
                     return;
                 }
                 AccountManager.loginCracked(name);
                 this.status = "Logged in as " + name;
                 this.statusSuccess = true;
-                this.busy = false;
-                this.setBusyState();
                 break;
             case BUTTON_LOGIN_TOKEN:
-                String tokenUsername = this.tokenName.getText();
                 String token = this.tokenField.getText();
-                if (tokenUsername.isEmpty() || token.isEmpty()) {
-                    this.status = "Enter a username and token";
+                if (token.isEmpty()) {
+                    this.status = "Enter a token";
                     this.statusSuccess = false;
                     return;
                 }
                 this.busy = true;
                 this.setBusyState();
-                this.status = "Validating token...";
+                this.status = "Logging in...";
                 this.statusSuccess = true;
-                AccountManager.loginToken(tokenUsername, token, result -> {
+                AccountManager.loginToken(token, result -> {
                     this.status = result;
                     this.statusSuccess = result.startsWith("Logged in");
                     this.busy = false;
@@ -135,7 +122,6 @@ public class GuiAccountManager extends GuiScreen {
             return;
         }
         if (this.offlineName.textboxKeyTyped(typedChar, keyCode)
-                || this.tokenName.textboxKeyTyped(typedChar, keyCode)
                 || this.tokenField.textboxKeyTyped(typedChar, keyCode)) {
             return;
         }
@@ -146,14 +132,12 @@ public class GuiAccountManager extends GuiScreen {
     protected void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException {
         super.mouseClicked(mouseX, mouseY, mouseButton);
         this.offlineName.mouseClicked(mouseX, mouseY, mouseButton);
-        this.tokenName.mouseClicked(mouseX, mouseY, mouseButton);
         this.tokenField.mouseClicked(mouseX, mouseY, mouseButton);
     }
 
     @Override
     public void updateScreen() {
         this.offlineName.updateCursorCounter();
-        this.tokenName.updateCursorCounter();
         this.tokenField.updateCursorCounter();
     }
 }
