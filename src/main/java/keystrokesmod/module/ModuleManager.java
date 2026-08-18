@@ -202,6 +202,7 @@ public class ModuleManager {
         this.addModule(new BreakProgress());
         this.addModule(chams = new Chams());
         this.addModule(new DamageTint());
+        this.addModule(new RainbowGlint());
         this.addModule(new DamageTags());
         this.addModule(new HitParticles());
         this.addModule(new ChestESP());

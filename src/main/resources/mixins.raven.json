@@ -19,6 +19,7 @@
     "client.MixinMinecraft",
     "render.MixinItemRenderer",
     "render.MixinRenderGlobal",
+    "render.MixinRenderItem",
     "world.MixinWorldInfo",
     "world.MixinWorld",
     "render.MixinGuiChat",
