@@ -34,8 +34,12 @@ public class MixinLayerCape {
 
     @Redirect(method = "doRenderLayer", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/entity/AbstractClientPlayer;getLocationCape()Lnet/minecraft/util/ResourceLocation;"))
     private ResourceLocation modifyGetLocationCape(AbstractClientPlayer player) {
-        if (player.equals(Minecraft.getMinecraft().thePlayer) && Settings.customCapes.getInput() > 0) {
-            return Settings.loadedCapes.get((int) (Settings.customCapes.getInput() - 1));
+        int capeIndex = (int) (Settings.customCapes.getInput() - 1);
+        if (player.equals(Minecraft.getMinecraft().thePlayer) && capeIndex >= 0 && capeIndex < Settings.loadedCapes.size()) {
+            if (capeIndex + 1 == Settings.animatedCapeIndex && Settings.animatedCape != null) {
+                Settings.animatedCape.update();
+            }
+            return Settings.loadedCapes.get(capeIndex);
         }
         return player.getLocationCape();
     }
