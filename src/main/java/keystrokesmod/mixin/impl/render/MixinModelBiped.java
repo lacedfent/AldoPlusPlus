@@ -22,17 +22,30 @@ public class MixinModelBiped {
     }
 
     @Redirect(method = "render", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/model/ModelRenderer;render(F)V", ordinal = 0))
-    private void modifyHeadRender(ModelRenderer head, float scale) {
+    private void modifyHeadRenderChild(ModelRenderer head, float scale) {
+        this.modifyPartRender(head, scale);
+    }
+
+    @Redirect(method = "render", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/model/ModelRenderer;render(F)V", ordinal = 1))
+    private void modifyHeadRenderAdult(ModelRenderer head, float scale) {
+        this.modifyPartRender(head, scale);
+    }
+
+    @Redirect(method = "render", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/model/ModelRenderer;render(F)V", ordinal = 7))
+    private void modifyHeadwearRender(ModelRenderer headwear, float scale) {
+        this.modifyPartRender(headwear, scale);
+    }
+
+    private void modifyPartRender(ModelRenderer part, float scale) {
         if (BigHead.instance != null && this.renderEntity == Minecraft.getMinecraft().thePlayer) {
             float s = (float) BigHead.instance.size.getInput();
             GlStateManager.pushMatrix();
             GlStateManager.scale(s, s, s);
-            GlStateManager.translate(0.0F, 0.02F, 0.0F);
-            head.render(scale);
+            part.render(scale);
             GlStateManager.popMatrix();
         }
         else {
-            head.render(scale);
+            part.render(scale);
         }
     }
 }
