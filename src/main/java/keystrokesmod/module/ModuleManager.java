@@ -130,6 +130,7 @@ public class ModuleManager {
         this.addModule(new CardCollector());
         this.addModule(new SlyPort());
         this.addModule(new Spin());
+        this.addModule(new BigHead());
         this.addModule(discordRpc = new DiscordRPC());
         discordRpc.enable();
 
