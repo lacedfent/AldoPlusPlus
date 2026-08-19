@@ -140,6 +140,7 @@ public class ModuleManager {
         this.addModule(bedwars = new BedWars());
         this.addModule(new BridgeInfo());
         this.addModule(new DuelsStats());
+        this.addModule(new ItemAlerts());
         this.addModule(murderMystery = new MurderMystery());
         this.addModule(skyWars = new SkyWars());
         this.addModule(new SpeedBuilders());
