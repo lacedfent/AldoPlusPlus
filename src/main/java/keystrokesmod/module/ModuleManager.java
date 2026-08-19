@@ -185,6 +185,7 @@ public class ModuleManager {
         this.addModule(fastPlace = new FastPlace());
         this.addModule(new FakeLag());
         this.addModule(new Freecam());
+        this.addModule(new Fullbright());
         this.addModule(hideWindow = new HideWindow());
         this.addModule(invManager = new InvManager());
         this.addModule(noFall = new NoFall());
