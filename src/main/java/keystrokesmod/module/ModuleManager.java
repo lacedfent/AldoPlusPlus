@@ -129,6 +129,7 @@ public class ModuleManager {
         this.addModule(new SlotMachine());
         this.addModule(new CardCollector());
         this.addModule(new SlyPort());
+        this.addModule(new Snake());
         this.addModule(new Spin());
         this.addModule(new BigHead());
         this.addModule(discordRpc = new DiscordRPC());
