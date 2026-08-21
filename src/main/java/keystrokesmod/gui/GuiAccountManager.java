@@ -58,8 +58,9 @@ public class GuiAccountManager extends GuiScreen {
         this.drawString(this.fontRendererObj, "Cracked / Offline", labelX, 46, 0x55FFFF);
         this.drawString(this.fontRendererObj, "Username:", labelX, 65, 0xAAAAAA);
 
-        this.drawString(this.fontRendererObj, "Session Token", labelX, 96, 0x55FFFF);
+        this.drawString(this.fontRendererObj, "Token Login", labelX, 96, 0x55FFFF);
         this.drawString(this.fontRendererObj, "Token:", labelX, 115, 0xAAAAAA);
+        this.drawString(this.fontRendererObj, "Supports session / cookie / refresh tokens", labelX, 133, 0x666666);
 
         this.offlineName.drawTextBox();
         this.tokenField.drawTextBox();
