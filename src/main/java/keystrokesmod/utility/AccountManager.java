@@ -22,8 +22,10 @@ import java.net.Proxy;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -105,21 +107,43 @@ public class AccountManager {
     }
 
     private static void loginRefreshToken(String refreshToken, Consumer<String> statusCallback) throws Exception {
-        JsonObject msa = postForm("https://login.live.com/oauth20_token.srf",
-                "client_id=" + MSA_CLIENT_ID
-                        + "&grant_type=refresh_token&refresh_token=" + urlEncode(refreshToken)
-                        + "&scope=" + urlEncode("service::user.auth.xboxlive.com::MBI_SSL"));
-        String msaAccessToken = requireField(msa, "access_token");
+        JsonObject xbl = null;
+        List<String> failures = new ArrayList<>();
+        for (String mode : new String[]{"v2", "legacy", "legacy-auth", "legacy-noscope"}) {
+            JsonObject msa;
+            try {
+                msa = requestMsaToken(refreshToken, mode);
+            } catch (HttpException e) {
+                System.err.println("[AccountManager] " + mode + " token refresh failed: " + e.getMessage());
+                failures.add(mode + ": HTTP " + e.statusCode + " " + summarizeMicrosoftError(e.responseBody));
+                continue;
+            }
+            String msaAccessToken = requireField(msa, "access_token");
 
-        JsonObject xblRequest = new JsonObject();
-        JsonObject xblProperties = new JsonObject();
-        xblProperties.addProperty("AuthMethod", "RPS");
-        xblProperties.addProperty("SiteName", "user.auth.xboxlive.com");
-        xblProperties.addProperty("RpsTicket", "d=" + msaAccessToken);
-        xblRequest.add("Properties", xblProperties);
-        xblRequest.addProperty("RelyingParty", "http://auth.xboxlive.com");
-        xblRequest.addProperty("TokenType", "JWT");
-        JsonObject xbl = postJson("https://user.auth.xboxlive.com/user/authenticate", xblRequest.toString());
+            JsonObject xblRequest = new JsonObject();
+            JsonObject xblProperties = new JsonObject();
+            xblProperties.addProperty("AuthMethod", "RPS");
+            xblProperties.addProperty("SiteName", "user.auth.xboxlive.com");
+            xblRequest.add("Properties", xblProperties);
+            xblRequest.addProperty("RelyingParty", "http://auth.xboxlive.com");
+            xblRequest.addProperty("TokenType", "JWT");
+            for (String prefix : new String[]{"d=", "t="}) {
+                xblProperties.addProperty("RpsTicket", prefix + msaAccessToken);
+                try {
+                    xbl = postJson("https://user.auth.xboxlive.com/user/authenticate", xblRequest.toString());
+                    break;
+                } catch (HttpException e) {
+                    System.err.println("[AccountManager] xbox (" + mode + ", " + prefix.trim() + ") failed: " + e.getMessage());
+                    failures.add("xbox(" + mode + "," + prefix.trim() + "): HTTP " + e.statusCode + describeXblError(e.responseBody));
+                }
+            }
+            if (xbl != null) {
+                break;
+            }
+        }
+        if (xbl == null) {
+            throw new IOException(String.join(", ", failures));
+        }
         String xblToken = requireField(xbl, "Token");
         String uhs = extractUhs(xbl);
 
@@ -132,21 +156,80 @@ public class AccountManager {
         xstsRequest.add("Properties", xstsProperties);
         xstsRequest.addProperty("RelyingParty", "rp://api.minecraftservices.com/");
         xstsRequest.addProperty("TokenType", "JWT");
-        JsonObject xsts = postJson("https://xsts.auth.xboxlive.com/xsts/authorize", xstsRequest.toString());
+        JsonObject xsts;
+        try {
+            xsts = postJson("https://xsts.auth.xboxlive.com/xsts/authorize", xstsRequest.toString());
+        } catch (Exception e) {
+            throw new IOException("Xbox (XSTS): " + e.getMessage());
+        }
         String xstsToken = requireField(xsts, "Token");
         uhs = extractUhs(xsts);
 
         JsonObject mcRequest = new JsonObject();
         mcRequest.addProperty("identityToken", "XBL3.0 x=" + uhs + ";" + xstsToken);
-        JsonObject mcLogin = postJson("https://api.minecraftservices.com/authentication/login_with_xbox",
-                mcRequest.toString());
+        JsonObject mcLogin;
+        try {
+            mcLogin = postJson("https://api.minecraftservices.com/authentication/login_with_xbox",
+                    mcRequest.toString());
+        } catch (Exception e) {
+            throw new IOException("Minecraft: " + e.getMessage());
+        }
         String mcAccessToken = requireField(mcLogin, "access_token");
 
-        JsonObject profile = getJson("https://api.minecraftservices.com/minecraft/profile", mcAccessToken);
+        JsonObject profile;
+        try {
+            profile = getJson("https://api.minecraftservices.com/minecraft/profile", mcAccessToken);
+        } catch (Exception e) {
+            throw new IOException("Profile: " + e.getMessage());
+        }
         String profileName = requireField(profile, "name");
         String profileId = requireField(profile, "id").replace("-", "");
         setSession(new Session(profileName, profileId, mcAccessToken, TYPE_MOJANG));
         statusCallback.accept("Logged in as " + profileName);
+    }
+
+    private static JsonObject requestMsaToken(String refreshToken, String mode) throws Exception {
+        if (mode.equals("v2")) {
+            return postForm("https://login.microsoftonline.com/consumers/oauth2/v2.0/token",
+                    "client_id=" + MSA_CLIENT_ID
+                            + "&grant_type=refresh_token&refresh_token=" + urlEncode(refreshToken)
+                            + "&scope=" + urlEncode("XboxLive.signin offline_access"));
+        }
+        if (mode.equals("legacy")) {
+            return postForm("https://login.live.com/oauth20_token.srf",
+                    "client_id=" + MSA_CLIENT_ID
+                            + "&grant_type=refresh_token&refresh_token=" + urlEncode(refreshToken)
+                            + "&scope=" + urlEncode("service::user.auth.xboxlive.com::MBI_SSL"));
+        }
+        if (mode.equals("legacy-auth")) {
+            return postForm("https://login.live.com/oauth20_token.srf",
+                    "client_id=" + MSA_CLIENT_ID
+                            + "&grant_type=refresh_token&refresh_token=" + urlEncode(refreshToken)
+                            + "&scope=" + urlEncode("service::auth.xboxlive.com::MBI_SSL"));
+        }
+        return postForm("https://login.live.com/oauth20_token.srf",
+                "client_id=" + MSA_CLIENT_ID
+                        + "&grant_type=refresh_token&refresh_token=" + urlEncode(refreshToken));
+    }
+
+    private static String summarizeMicrosoftError(String body) {
+        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("AADSTS\\d+").matcher(body);
+        return matcher.find() ? matcher.group() : "";
+    }
+
+    private static String describeXblError(String body) {
+        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("\"XErr\"\\s*:\\s*(\\d+)").matcher(body);
+        if (!matcher.find()) {
+            return "";
+        }
+        switch (matcher.group(1)) {
+            case "2148916233": return " (no Xbox profile on this Microsoft account)";
+            case "2148916235": return " (Xbox unavailable in this region)";
+            case "2148916236":
+            case "2148916237": return " (account needs age verification)";
+            case "2148916238": return " (child account restrictions)";
+            default: return " (XErr " + matcher.group(1) + ")";
+        }
     }
 
     private static String extractUhs(JsonObject response) throws IOException {
@@ -215,9 +298,21 @@ public class AccountManager {
         }
         String body = builder.toString();
         if (code >= 400) {
-            throw new IOException("HTTP " + code + (body.isEmpty() ? "" : ": " + body.substring(0, Math.min(body.length(), 120))));
+            throw new HttpException(code, body);
         }
         return new JsonParser().parse(body).getAsJsonObject();
+    }
+
+    private static class HttpException extends IOException {
+        final int statusCode;
+        final String responseBody;
+
+        HttpException(int statusCode, String responseBody) {
+            super("HTTP " + statusCode + (responseBody.isEmpty() ? ""
+                    : ": " + responseBody.substring(0, Math.min(responseBody.length(), 200))));
+            this.statusCode = statusCode;
+            this.responseBody = responseBody;
+        }
     }
 
     private static String urlEncode(String value) throws IOException {
