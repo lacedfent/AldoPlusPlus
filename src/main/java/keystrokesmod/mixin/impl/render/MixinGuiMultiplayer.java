@@ -21,13 +21,16 @@ public abstract class MixinGuiMultiplayer {
 
     @Inject(method = "initGui", at = @At("TAIL"))
     private void addAccountsButton(CallbackInfo callbackInfo) {
+        if (keystrokesmod.Raven.unloaded) {
+            return;
+        }
         ((IAccessorGuiScreen) this).getButtonList().add(
                 new GuiButton(BUTTON_ACCOUNTS, ((GuiScreen) (Object) this).width / 2 + 80, 8, 72, 20, "Accounts"));
     }
 
     @Inject(method = "actionPerformed", at = @At("HEAD"), cancellable = true)
     private void handleAccountsButton(GuiButton button, CallbackInfo callbackInfo) {
-        if (button.id == BUTTON_ACCOUNTS) {
+        if (button.id == BUTTON_ACCOUNTS && !keystrokesmod.Raven.unloaded) {
             GuiAccountManager gui = new GuiAccountManager();
             gui.parentScreen = this.parentScreen;
             ((GuiScreen) (Object) this).mc.displayGuiScreen(gui);

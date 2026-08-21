@@ -45,6 +45,7 @@ import java.util.concurrent.ScheduledExecutorService;
 @Mod(modid = "keystrokes", name = "KeystrokesMod", version = "KMV5", acceptedMinecraftVersions = "[1.8.9]")
 public class Raven {
     public static boolean DEBUG = false;
+    public static boolean unloaded = false;
 
     public static Minecraft mc = Minecraft.getMinecraft();
 
@@ -65,9 +66,19 @@ public class Raven {
     public static PacketsHandler packetsHandler;
     public static UnifiedLagHandler lagHandler;
 
+    public static Raven instance;
+    public static DebugHelper debugHelper;
+    public static MouseHelper mouseHelper;
+    public static RotationHelper rotationHelper;
+    public static KeyStrokeRenderer eventKeyStrokeRenderer;
+    public static PingHelper pingHelper;
+    public static ModuleUtils moduleUtils;
+    public static BlockHighlightSharedHandler blockHighlightSharedHandler;
+
     private static boolean firstLoad;
 
     public Raven() {
+        instance = this;
         moduleManager = new ModuleManager();
     }
 
@@ -79,20 +90,20 @@ public class Raven {
         ClientCommandHandler.instance.registerCommand(new KeyStrokeCommand());
 
         MinecraftForge.EVENT_BUS.register(this);
-        MinecraftForge.EVENT_BUS.register(new DebugHelper());
-        MinecraftForge.EVENT_BUS.register(new MouseHelper());
-        MinecraftForge.EVENT_BUS.register(RotationHelper.get());
-        MinecraftForge.EVENT_BUS.register(new KeyStrokeRenderer());
-        MinecraftForge.EVENT_BUS.register(new PingHelper());
+        MinecraftForge.EVENT_BUS.register(debugHelper = new DebugHelper());
+        MinecraftForge.EVENT_BUS.register(mouseHelper = new MouseHelper());
+        MinecraftForge.EVENT_BUS.register(rotationHelper = RotationHelper.get());
+        MinecraftForge.EVENT_BUS.register(eventKeyStrokeRenderer = new KeyStrokeRenderer());
+        MinecraftForge.EVENT_BUS.register(pingHelper = new PingHelper());
         MinecraftForge.EVENT_BUS.register(packetsHandler = new PacketsHandler());
-        MinecraftForge.EVENT_BUS.register(new ModuleUtils());
+        MinecraftForge.EVENT_BUS.register(moduleUtils = new ModuleUtils());
         MinecraftForge.EVENT_BUS.register(lagHandler = new UnifiedLagHandler());
 
         ReflectionUtils.setupFields();
         playerRelationsManager = new PlayerRelationsManager();
         playerRelationsManager.load();
         moduleManager.register();
-        MinecraftForge.EVENT_BUS.register(new BlockHighlightSharedHandler());
+        MinecraftForge.EVENT_BUS.register(blockHighlightSharedHandler = new BlockHighlightSharedHandler());
         scriptManager = new ScriptManager();
         keyStrokeRenderer = new KeyStrokeRenderer();
         clickGui = new ClickGui();

@@ -3,6 +3,7 @@ package keystrokesmod.module;
 import keystrokesmod.module.impl.client.ChatCommands;
 import keystrokesmod.module.impl.client.CommandLine;
 import keystrokesmod.module.impl.client.Gui;
+import keystrokesmod.module.impl.client.Panic;
 import keystrokesmod.module.impl.client.Relationships;
 import keystrokesmod.module.impl.client.Settings;
 import keystrokesmod.module.impl.combat.*;
@@ -196,6 +197,7 @@ public class ModuleManager {
         this.addModule(new WaterBucket());
 
         this.addModule(new Manager());
+        this.addModule(new Panic());
 
         this.addModule(antiDebuff = new AntiDebuff());
         this.addModule(antiShuffle = new AntiShuffle());
